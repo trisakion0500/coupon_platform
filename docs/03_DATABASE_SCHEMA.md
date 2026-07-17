@@ -92,7 +92,7 @@ Coupon Platform 데이터베이스 스키마 정의 문서
 | 30  | MANAGER     |
 | 40  | OPERATOR    |
 
-권한은 상위(숫자가 작을수록 고권한)가 하위 권한을 모두 포함하는 누적 구조다: `SUPER_ADMIN ⊇ DEVELOPER ⊇ MANAGER ⊇ OPERATOR`. 역할별 상세 권한은 [07_COMPANY_API.md](./07_COMPANY_API.md) 1.2 참고.
+권한은 상위(숫자가 작을수록 고권한)가 하위 권한을 모두 포함하는 누적 구조다: `SUPER_ADMIN ⊇ DEVELOPER ⊇ MANAGER ⊇ OPERATOR`. 역할별 상세 권한은 [09_COMPANY_API.md](./09_COMPANY_API.md) 1.2 참고.
 
 ### 특수 규칙
 
@@ -193,7 +193,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 - **동시성**: 사용자당 한도 체크는 단순 `COUNT` 후 `INSERT`로는 동시 요청 시 한도를 넘길 수 있어, `SELECT COUNT(*) ... WHERE coupon_campaign_id=? AND game_user_id=? FOR UPDATE`로 조회해 `ix_campaign_user` 인덱스 구간에 갭락을 걸어 동시 INSERT를 직렬화한 뒤 판단해야 함
 - 상태 컬럼 없음 — 모든 행이 이미 소모 확정 상태이므로 별도 상태값 불필요(`confirmed_at` nullable 하나로 미컨슘 여부 표현)
 
-상세 흐름/동시성 처리/미컨슘 조회 API는 [14_COUPON_USAGE_SCENARIO.md](./14_COUPON_USAGE_SCENARIO.md) 참고.
+상세 흐름/동시성 처리/미컨슘 조회 API는 [05_COUPON_USAGE_SCENARIO.md](./05_COUPON_USAGE_SCENARIO.md) 참고.
 
 ---
 

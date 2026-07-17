@@ -1,4 +1,4 @@
-# 13_LAYOUT.md
+# 15_LAYOUT.md
 
 # 공통 레이아웃 구조
 
@@ -34,7 +34,7 @@ MainLayout, AdminLayout에서 동일하게 사용한다.
 | [관리] 버튼       | SUPER_ADMIN, DEVELOPER만 노출. 클릭 시 `/admin` 이동                  |
 | 사용자명 드롭다운 | 내 계정(`/my-account`) / 로그아웃                                     |
 
-회사/프로젝트 목록은 [07_COMPANY_API.md](./07_COMPANY_API.md) 3장 `GET /companies/active-header-data`로 로그인 시 1회 로드한다.
+회사/프로젝트 목록은 [09_COMPANY_API.md](./09_COMPANY_API.md) 3장 `GET /companies/active-header-data`로 로그인 시 1회 로드한다.
 
 > **관리 화면 잠금**: `/admin/companies`, `/admin/projects`, `/admin/users`, `/admin/audit-logs`(목록 화면)를 제외한 나머지 관리 화면(등록/상세·수정)에서는 회사·프로젝트 선택 모두 비활성화된다 — 작업 도중 헤더 선택이 바뀌면 상세 내용과 어긋나 보여 혼란을 주기 때문. 관리 메뉴가 아닌 화면(쿠폰 컨트롤 등)은 대상 아님.
 
@@ -75,7 +75,7 @@ MainLayout, AdminLayout에서 동일하게 사용한다.
 | ----------- | --------- | :---------: | :-------: | :-----: | :------: |
 | 쿠폰 컨트롤 | 미정      | O           | O         | O       | O        |
 
-> OPERATOR가 등록하는 항목은 승인요청 상태로 전환되고, SUPER_ADMIN/DEVELOPER/MANAGER가 승인 처리한다([11_MENU_PERMISSION.md](./11_MENU_PERMISSION.md) 3.1 참고). 세부 화면 구성은 [12_SCREEN_LIST.md](./12_SCREEN_LIST.md) SCR-100 참고.
+> OPERATOR가 등록하는 항목은 승인요청 상태로 전환되고, SUPER_ADMIN/DEVELOPER/MANAGER가 승인 처리한다([13_MENU_PERMISSION.md](./13_MENU_PERMISSION.md) 3.1 참고). 세부 화면 구성은 [14_SCREEN_LIST.md](./14_SCREEN_LIST.md) SCR-100 참고.
 
 > 내 계정(`/my-account`)은 사이드바가 아니라 헤더 우측 아바타 드롭다운에서 접근한다(§2.1) — 같은 화면으로 가는 진입점을 사이드바에 중복 등록하지 않기 위함.
 
@@ -204,9 +204,9 @@ MainLayout, AdminLayout 하단 공통.
 | ------------------- | ------------------ | ----------------------------------------------------------------------|
 | selectedCompanyId   | number \| null    | 헤더에서 선택된 회사(null=SUPER_ADMIN의 "전체 회사")                 |
 | selectedProjectId   | number \| null    | 헤더에서 선택된 프로젝트(null=SUPER_ADMIN의 "전체 프로젝트")         |
-| companyList         | ActiveCompany[]   | 회사 목록 캐시(`{company_id, company_name}`, 로그인 시 1회 로드 — [07_COMPANY_API.md](./07_COMPANY_API.md) 3장) |
-| projectList         | ActiveProject[]   | 프로젝트 목록 캐시(`{project_id, project_name, company_id}`, 로그인 시 1회 로드 — [07_COMPANY_API.md](./07_COMPANY_API.md) 3장) |
-| projectRoleCode     | RoleCode \| null  | 선택된 프로젝트에서 호출자의 실제 role_code([08_PROJECT_API.md](./08_PROJECT_API.md) 3.1 `GET /user-roles/me`) |
+| companyList         | ActiveCompany[]   | 회사 목록 캐시(`{company_id, company_name}`, 로그인 시 1회 로드 — [09_COMPANY_API.md](./09_COMPANY_API.md) 3장) |
+| projectList         | ActiveProject[]   | 프로젝트 목록 캐시(`{project_id, project_name, company_id}`, 로그인 시 1회 로드 — [09_COMPANY_API.md](./09_COMPANY_API.md) 3장) |
+| projectRoleCode     | RoleCode \| null  | 선택된 프로젝트에서 호출자의 실제 role_code([10_PROJECT_API.md](./10_PROJECT_API.md) 3.1 `GET /user-roles/me`) |
 
 ---
 

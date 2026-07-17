@@ -187,6 +187,22 @@ SET FOREIGN_KEY_CHECKS = 1;
 --    reserve 시점의 조건부 UPDATE(위 동시성 절)는 status=2만 체크하면 되고 approval_status를
 --    매번 다시 검사할 필요는 없다 — 애초에 미승인 캠페인은 status=2에 도달할 수 없기 때문.
 --  변경 이력(누가 언제 승인/반려했는지)은 log_coupon_campaign에 append-only로 별도 기록한다.
+-- 코드 생성 진행상태 (generation_status, status/approval_status와 별개 축)
+--  캠페인 생성(POST /campaigns)과 코드 발급(POST /campaigns/{id}/codes)은 별도 API로 분리되어 있다.
+--  - RANDOM: 대량생성이라 비동기로 처리 — 1:대기(코드 발급 요청 전) → 2:진행중 → 3:완료 또는 4:실패
+--            캠페인당 코드 생성 요청은 1회만 허용(추가 발급/top-up 불가) — job과 campaign이 항상 1:1이라
+--            별도 job 테이블 없이 이 컬럼만으로 진행상태를 표현 가능하다.
+--  - FIXED: 관리자가 코드 목록을 직접 입력/업로드하는 동기 처리라 진행상태 개념이 없다 —
+--           등록 요청 즉시 결과가 나오므로 성공 시 바로 3(완료)으로 기록한다.
+--  4(실패)는 "재시도로도 복구 안 된 최종 실패"만 의미한다. 코드값 충돌(nanoid 우연 중복)은 즉시
+--  재생성으로 처리하고, DB 커넥션 끊김 등 일시적 오류는 exponential backoff+jitter 재시도 래퍼로
+--  흡수한다 — 그 재시도를 다 소진했을 때만 4로 전이하고 generation_error에 사유를 남긴다(개별
+--  재시도 시도 자체는 이 컬럼에 남기지 않음, 애플리케이션 로그로 충분).
+--  재시도 API(POST /campaigns/{id}/codes/retry)는 4(실패) 상태에서만 허용하며, 이미 생성된
+--  generated_qty만큼의 코드는 그대로 두고 남은 수량(requested_qty - generated_qty)만 이어서 생성한다
+--  (이미 생성된 코드는 UNIQUE 제약으로 보호되는 정상 데이터라 버릴 이유가 없음).
+--  전이는 조건부 UPDATE로 원자성을 보장한다: 예) 재시도 트리거 시
+--  "UPDATE coupon_campaign SET generation_status=2 WHERE coupon_campaign_id=? AND generation_status=4"
 -- ------------------------------------------------------------------------------------------------------------ --
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `coupon_campaign`;
@@ -200,6 +216,8 @@ CREATE TABLE `coupon_campaign` (
   `use_hyphen`				TINYINT		UNSIGNED	NOT NULL	DEFAULT 1												COMMENT '쿠폰 코드 하이픈 포함 여부 (1:포함, 0:미포함). RANDOM에만 적용, FIXED는 사용자입력값 그대로 사용',
   `requested_qty`			INT			UNSIGNED	NOT NULL	DEFAULT 1												COMMENT '목표 발급 수량',
   `generated_qty`			INT			UNSIGNED	NOT NULL	DEFAULT 0												COMMENT '실제 발급 수량',
+  `generation_status`		TINYINT		UNSIGNED	NOT NULL	DEFAULT 1												COMMENT '코드 생성 진행상태 (1:대기, 2:진행중, 3:완료, 4:실패) — status/approval_status와 별개 축, FIXED는 동기 처리라 등록 즉시 3으로 확정',
+  `generation_error`		VARCHAR(500)						DEFAULT NULL											COMMENT '코드 생성 최종 실패 사유 (재시도 소진 시에만 기록)',
   `usable_qty`				INT			UNSIGNED	NOT NULL	DEFAULT 0												COMMENT '실제 사용 가능 수량(선착순 오픈 등으로 generated_qty보다 적을 수 있음)',
   `used_qty`				INT			UNSIGNED	NOT NULL	DEFAULT 0												COMMENT '실제 사용(소모) 수량(reserve 성공 시점 즉시 확정 기준, confirm 여부와 무관)',
   `use_limit_per_user`		INT			UNSIGNED	NOT NULL	DEFAULT 1												COMMENT '동일 유저 재사용 허용 횟수',
@@ -216,6 +234,7 @@ CREATE TABLE `coupon_campaign` (
   PRIMARY KEY (`coupon_campaign_id`),
   KEY `ix_project_status` (`project_id`,`status`),
   KEY `ix_project_approval_status` (`project_id`,`approval_status`),
+  KEY `ix_project_generation_status` (`project_id`,`generation_status`),
   KEY `ix_code_type` (`code_type`),
   CONSTRAINT `fk_coupon_campaign_project` FOREIGN KEY (`project_id`) REFERENCES `project` (`project_id`),
   CONSTRAINT `fk_coupon_campaign_created_by` FOREIGN KEY (`created_by`) REFERENCES `user` (`user_id`),

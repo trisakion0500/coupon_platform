@@ -1,4 +1,4 @@
-# 07_COMPANY_API.md
+# 09_COMPANY_API.md
 
 # Coupon Platform REST API Specification — Company
 
@@ -8,7 +8,7 @@
 
 ## 1.1 Response Format
 
-공통 응답 포맷/에러코드는 [05_API_COMMON.md](./05_API_COMMON.md)를 따른다.
+공통 응답 포맷/에러코드는 [07_API_COMMON.md](./07_API_COMMON.md)를 따른다.
 
 ## 1.2 Role Definition
 
@@ -23,22 +23,22 @@
 
 ### SUPER_ADMIN
 
-- 회사 관리메뉴(본 문서 2장) + 프로젝트 관리메뉴([08_PROJECT_API.md](./08_PROJECT_API.md) 2장) 전체 접근(생성/수정/Secret 발급 포함)
+- 회사 관리메뉴(본 문서 2장) + 프로젝트 관리메뉴([10_PROJECT_API.md](./10_PROJECT_API.md) 2장) 전체 접근(생성/수정/Secret 발급 포함)
 - 쿠폰 도메인 컨트롤 전체 가능(세부는 쿠폰 도메인 설계 시점에 정의)
 
 ### DEVELOPER
 
-- 회사 관리메뉴(본 문서 2장) 접근 불가 — 프로젝트 관리메뉴 중 **프로젝트 리스트/상세 조회, API Secret 재발급**만 가능([08_PROJECT_API.md](./08_PROJECT_API.md) 2장 참고, 프로젝트 생성/정체성 필드 수정 권한은 없음)
+- 회사 관리메뉴(본 문서 2장) 접근 불가 — 프로젝트 관리메뉴 중 **프로젝트 리스트/상세 조회, API Secret 재발급**만 가능([10_PROJECT_API.md](./10_PROJECT_API.md) 2장 참고, 프로젝트 생성/정체성 필드 수정 권한은 없음)
 - 하위 권한(MANAGER/OPERATOR)의 쿠폰 도메인 컨트롤도 모두 가능(세부는 쿠폰 도메인 설계 시점에 정의)
 
 ### MANAGER
 
-- 회사/프로젝트 관리메뉴(본 문서 2장, [08_PROJECT_API.md](./08_PROJECT_API.md) 2장) 접근 불가(20001) — 단, 헤더 선택용 API(본 문서 3장, [08_PROJECT_API.md](./08_PROJECT_API.md) 3장)는 예외적으로 접근 가능
+- 회사/프로젝트 관리메뉴(본 문서 2장, [10_PROJECT_API.md](./10_PROJECT_API.md) 2장) 접근 불가(20001) — 단, 헤더 선택용 API(본 문서 3장, [10_PROJECT_API.md](./10_PROJECT_API.md) 3장)는 예외적으로 접근 가능
 - 쿠폰 도메인 컨트롤 즉시 가능(승인 불요, 세부는 쿠폰 도메인 설계 시점에 정의)
 
 ### OPERATOR
 
-- 회사/프로젝트 관리메뉴(본 문서 2장, [08_PROJECT_API.md](./08_PROJECT_API.md) 2장) 접근 불가(20001) — 단, 헤더 선택용 API(본 문서 3장, [08_PROJECT_API.md](./08_PROJECT_API.md) 3장)는 예외적으로 접근 가능
+- 회사/프로젝트 관리메뉴(본 문서 2장, [10_PROJECT_API.md](./10_PROJECT_API.md) 2장) 접근 불가(20001) — 단, 헤더 선택용 API(본 문서 3장, [10_PROJECT_API.md](./10_PROJECT_API.md) 3장)는 예외적으로 접근 가능
 - 쿠폰 도메인 컨트롤 등록 시 승인요청 상태로 전환 — SUPER_ADMIN/DEVELOPER/MANAGER가 승인 가능(세부는 쿠폰 도메인 설계 시점에 정의)
 
 ---
@@ -112,7 +112,7 @@ ORDER BY status DESC,
 
 ### Response
 
-페이지네이션 응답 형식([05_API_COMMON.md](./05_API_COMMON.md) 2장 참고)
+페이지네이션 응답 형식([07_API_COMMON.md](./07_API_COMMON.md) 2장 참고)
 
 ---
 
@@ -188,7 +188,7 @@ GET /companies/lookup?company_code={code}
 
 ### Description
 
-회원가입 화면 전용. 로그인 전이라 `GET /companies`를 호출할 수 없어 신설된 공개 엔드포인트([06_AUTH_API.md](./06_AUTH_API.md) 4장 회원가입에서 참조). 활성(status=1) 회사만 조회하며, `/companies/{company_id}`보다 먼저 등록해야 하는 정적 경로다.
+회원가입 화면 전용. 로그인 전이라 `GET /companies`를 호출할 수 없어 신설된 공개 엔드포인트([08_AUTH_API.md](./08_AUTH_API.md) 4장 회원가입에서 참조). 활성(status=1) 회사만 조회하며, `/companies/{company_id}`보다 먼저 등록해야 하는 정적 경로다.
 
 ### Response
 
@@ -208,7 +208,7 @@ GET /companies/lookup?company_code={code}
 
 # 3. 헤더 선택용 API
 
-관리 콘솔 헤더의 회사/프로젝트 선택 콤보박스 전용 API. 2장의 관리메뉴 API와 달리 **모든 역할이 접근 가능**하다 — 회사/프로젝트 관리 권한이 없어도(MANAGER/OPERATOR), 현재 어느 회사·프로젝트 컨텍스트에서 작업 중인지는 알아야 쿠폰 도메인 화면이 동작하기 때문이다. 로그인 시 1회 로드하고, 이후 등록/수정 시점에 프런트엔드에서 직접 동기화한다. 프로젝트 단위 헤더 API(선택된 프로젝트의 실제 role_code 조회)는 [08_PROJECT_API.md](./08_PROJECT_API.md) 3장 참고.
+관리 콘솔 헤더의 회사/프로젝트 선택 콤보박스 전용 API. 2장의 관리메뉴 API와 달리 **모든 역할이 접근 가능**하다 — 회사/프로젝트 관리 권한이 없어도(MANAGER/OPERATOR), 현재 어느 회사·프로젝트 컨텍스트에서 작업 중인지는 알아야 쿠폰 도메인 화면이 동작하기 때문이다. 로그인 시 1회 로드하고, 이후 등록/수정 시점에 프런트엔드에서 직접 동기화한다. 프로젝트 단위 헤더 API(선택된 프로젝트의 실제 role_code 조회)는 [10_PROJECT_API.md](./10_PROJECT_API.md) 3장 참고.
 
 ## 3.1 Get Active Header Data
 
@@ -224,7 +224,7 @@ GET /companies/active-header-data
 
 ### Description
 
-로그인 직후 헤더 콤보박스가 1회 로드하는 활성 회사·프로젝트 목록을 한 호출로 반환한다. `2.2 Get Company List`(본 문서)/`2.2 Get Project List`([08_PROJECT_API.md](./08_PROJECT_API.md))는 관리메뉴용 페이지네이션 응답이라, 이를 `page_size` 상한(100)으로 재사용하는 방식은 활성 회사/프로젝트가 100건을 넘으면 조용히 누락되는 문제가 있어 채택하지 않는다 — 페이지네이션 없는 전용 엔드포인트로 별도 제공한다. `/companies/{company_id}`보다 먼저 등록해야 하는 정적 경로다.
+로그인 직후 헤더 콤보박스가 1회 로드하는 활성 회사·프로젝트 목록을 한 호출로 반환한다. `2.2 Get Company List`(본 문서)/`2.2 Get Project List`([10_PROJECT_API.md](./10_PROJECT_API.md))는 관리메뉴용 페이지네이션 응답이라, 이를 `page_size` 상한(100)으로 재사용하는 방식은 활성 회사/프로젝트가 100건을 넘으면 조용히 누락되는 문제가 있어 채택하지 않는다 — 페이지네이션 없는 전용 엔드포인트로 별도 제공한다. `/companies/{company_id}`보다 먼저 등록해야 하는 정적 경로다.
 
 ### Business Rules
 

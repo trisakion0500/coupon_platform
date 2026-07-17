@@ -35,7 +35,8 @@ docs/               ERD, 스키마, API 명세, 화면/레이아웃 설계 문�
 
 - ERD: [`docs/02_ERD.md`](docs/02_ERD.md)
 - 테이블별 상세 설계: [`docs/03_DATABASE_SCHEMA.md`](docs/03_DATABASE_SCHEMA.md)
-- 쿠폰 사용(reserve/confirm) 시나리오: [`docs/14_COUPON_USAGE_SCENARIO.md`](docs/14_COUPON_USAGE_SCENARIO.md)
+- 캠페인/코드 발급 시나리오: [`docs/04_COUPON_ISSUANCE_SCENARIO.md`](docs/04_COUPON_ISSUANCE_SCENARIO.md)
+- 쿠폰 사용(reserve/confirm) 시나리오: [`docs/05_COUPON_USAGE_SCENARIO.md`](docs/05_COUPON_USAGE_SCENARIO.md)
 
 ## 문서 목록
 
@@ -44,17 +45,18 @@ docs/               ERD, 스키마, API 명세, 화면/레이아웃 설계 문�
 | 01 | [TECH_STACK](docs/01_TECH_STACK.md) | 기술 스택, 환경변수 |
 | 02 | [ERD](docs/02_ERD.md) | 전체 테이블 ERD, 비정규화 FK, 상태코드 요약 |
 | 03 | [DATABASE_SCHEMA](docs/03_DATABASE_SCHEMA.md) | 테이블별 특징/상태/특수규칙 |
-| 04 | [AUTH_SECURITY](docs/04_AUTH_SECURITY.md) | 사용자 인증, S2S 인증 정책 |
-| 05 | [API_COMMON](docs/05_API_COMMON.md) | 응답포맷/에러코드/페이지네이션 |
-| 06 | [AUTH_API](docs/06_AUTH_API.md) | 회원가입/로그인/로그아웃 등 |
-| 07 | [COMPANY_API](docs/07_COMPANY_API.md) | 회사 CRUD |
-| 08 | [PROJECT_API](docs/08_PROJECT_API.md) | 프로젝트 CRUD, Secret 발급/재발급 |
-| 09 | [USER_API](docs/09_USER_API.md) | 사용자 승인/반려/권한 배정 |
-| 10 | [LOG_AUDIT_API](docs/10_LOG_AUDIT_API.md) | 감사로그 조회 |
-| 11 | [MENU_PERMISSION](docs/11_MENU_PERMISSION.md) | 역할별 메뉴 접근 권한 |
-| 12 | [SCREEN_LIST](docs/12_SCREEN_LIST.md) | 화면 목록 및 연관 API |
-| 13 | [LAYOUT](docs/13_LAYOUT.md) | 레이아웃, 라우트, 공통 컴포넌트 |
-| 14 | [COUPON_USAGE_SCENARIO](docs/14_COUPON_USAGE_SCENARIO.md) | 쿠폰 사용 흐름, 동시성 처리 |
+| 04 | [COUPON_ISSUANCE_SCENARIO](docs/04_COUPON_ISSUANCE_SCENARIO.md) | 캠페인/코드 발급 흐름, 비동기 생성, 재시도 처리 |
+| 05 | [COUPON_USAGE_SCENARIO](docs/05_COUPON_USAGE_SCENARIO.md) | 쿠폰 사용 흐름, 동시성 처리 |
+| 06 | [AUTH_SECURITY](docs/06_AUTH_SECURITY.md) | 사용자 인증, S2S 인증 정책 |
+| 07 | [API_COMMON](docs/07_API_COMMON.md) | 응답포맷/에러코드/페이지네이션 |
+| 08 | [AUTH_API](docs/08_AUTH_API.md) | 회원가입/로그인/로그아웃 등 |
+| 09 | [COMPANY_API](docs/09_COMPANY_API.md) | 회사 CRUD |
+| 10 | [PROJECT_API](docs/10_PROJECT_API.md) | 프로젝트 CRUD, Secret 발급/재발급 |
+| 11 | [USER_API](docs/11_USER_API.md) | 사용자 승인/반려/권한 배정 |
+| 12 | [LOG_AUDIT_API](docs/12_LOG_AUDIT_API.md) | 감사로그 조회 |
+| 13 | [MENU_PERMISSION](docs/13_MENU_PERMISSION.md) | 역할별 메뉴 접근 권한 |
+| 14 | [SCREEN_LIST](docs/14_SCREEN_LIST.md) | 화면 목록 및 연관 API |
+| 15 | [LAYOUT](docs/15_LAYOUT.md) | 레이아웃, 라우트, 공통 컴포넌트 |
 
 ## 현재 진행 상황
 

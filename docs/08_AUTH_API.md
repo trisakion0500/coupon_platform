@@ -1,4 +1,4 @@
-# 06_AUTH_API.md
+# 08_AUTH_API.md
 
 ## 1. 개요
 
@@ -6,7 +6,7 @@
 
 인증은 Login ID / Password 기반으로 수행한다. 인증 성공 시 Access Token을 발급한다. 가입 사용자는 승인 이후에만 로그인할 수 있다.
 
-토큰 방식/만료 정책/세션 관리/Rate Limit/JWT Payload/role_code 계산 규칙 등 정책 상세는 [04_AUTH_SECURITY.md](./04_AUTH_SECURITY.md) 1장을 따른다. 공통 응답 포맷/에러코드 전체 목록은 [05_API_COMMON.md](./05_API_COMMON.md)를 따른다.
+토큰 방식/만료 정책/세션 관리/Rate Limit/JWT Payload/role_code 계산 규칙 등 정책 상세는 [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 1장을 따른다. 공통 응답 포맷/에러코드 전체 목록은 [07_API_COMMON.md](./07_API_COMMON.md)를 따른다.
 
 ---
 
@@ -63,7 +63,7 @@
 }
 ```
 
-`company_id`/`requested_project_id`는 회사/프로젝트 코드(`company_code`/`project_code`)를 미리 조회해 얻은 ID를 사용한다. 코드→ID 변환은 [07_COMPANY_API.md](./07_COMPANY_API.md) 2.5 `GET /companies/lookup`, [08_PROJECT_API.md](./08_PROJECT_API.md) 2.6 `GET /projects/lookup`을 따른다.
+`company_id`/`requested_project_id`는 회사/프로젝트 코드(`company_code`/`project_code`)를 미리 조회해 얻은 ID를 사용한다. 코드→ID 변환은 [09_COMPANY_API.md](./09_COMPANY_API.md) 2.5 `GET /companies/lookup`, [10_PROJECT_API.md](./10_PROJECT_API.md) 2.6 `GET /projects/lookup`을 따른다.
 
 #### 처리 정책
 
@@ -74,7 +74,7 @@ user.status = 0 (가입승인대기)
 `login_id`는 영문(a-z, A-Z), 숫자(0-9), `_`, `.`, `-`만 허용한다. 그 외 문자 포함 시 30002(입력값 형식 오류).
 `phone_number`는 필수이며 서버에서 AES-256-CBC로 암호화되어 저장된다(평문 최대 20자). `department`/`position`은 선택 입력.
 
-IP당 요청 제한이 적용된다([04_AUTH_SECURITY.md](./04_AUTH_SECURITY.md) 1.4 참고).
+IP당 요청 제한이 적용된다([06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 1.4 참고).
 
 #### Response
 
@@ -109,9 +109,9 @@ IP당 요청 제한이 적용된다([04_AUTH_SECURITY.md](./04_AUTH_SECURITY.md)
 }
 ```
 
-`role_code`는 사용자가 활성 상태(`user_role.status=1`)로 배정된 모든 프로젝트 중 최고 권한(`MIN(role_code)`, 미배정 시 40)이다. JWT 페이로드에도 동일 값이 포함되며 세션 내내 고정된다([04_AUTH_SECURITY.md](./04_AUTH_SECURITY.md) 1.6 참고).
+`role_code`는 사용자가 활성 상태(`user_role.status=1`)로 배정된 모든 프로젝트 중 최고 권한(`MIN(role_code)`, 미배정 시 40)이다. JWT 페이로드에도 동일 값이 포함되며 세션 내내 고정된다([06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 1.6 참고).
 
-IP당 요청 제한이 적용된다([04_AUTH_SECURITY.md](./04_AUTH_SECURITY.md) 1.4 참고).
+IP당 요청 제한이 적용된다([06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 1.4 참고).
 
 #### 처리 정책
 
@@ -205,7 +205,7 @@ User 상태 검증
 }
 ```
 
-`user` 테이블 원본 컬럼만 반환하며 `role_code`는 포함하지 않는다. `role_code`는 프로젝트마다 다를 수 있어 user 엔티티의 고정 속성이 아니기 때문이다([04_AUTH_SECURITY.md](./04_AUTH_SECURITY.md) 1.6 참고). 필요하면 로그인/재발급 응답의 `role_code`(세션 고정값)를 사용한다.
+`user` 테이블 원본 컬럼만 반환하며 `role_code`는 포함하지 않는다. `role_code`는 프로젝트마다 다를 수 있어 user 엔티티의 고정 속성이 아니기 때문이다([06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 1.6 참고). 필요하면 로그인/재발급 응답의 `role_code`(세션 고정값)를 사용한다.
 
 ---
 
@@ -236,7 +236,7 @@ user_session.status = 0 WHERE user_id = ? AND status = 1
 
 ## 10. 오류 코드
 
-본 API에서 사용하는 오류 코드는 [05_API_COMMON.md](./05_API_COMMON.md) 8장 전체 오류 코드 목록 중 아래 범위를 사용한다.
+본 API에서 사용하는 오류 코드는 [07_API_COMMON.md](./07_API_COMMON.md) 8장 전체 오류 코드 목록 중 아래 범위를 사용한다.
 
 ```text
 10001~10009 : Authentication (로그인 실패, 가입승인대기/반려, 사용중지 등)

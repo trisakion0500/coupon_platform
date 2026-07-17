@@ -1,10 +1,10 @@
-# 12_SCREEN_LIST.md
+# 14_SCREEN_LIST.md
 
 # 화면 목록 (Screen List)
 
 Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근 권한 정의.
 
-역할 정의 및 메뉴별 접근 권한 상세는 [11_MENU_PERMISSION.md](./11_MENU_PERMISSION.md) 참고.
+역할 정의 및 메뉴별 접근 권한 상세는 [13_MENU_PERMISSION.md](./13_MENU_PERMISSION.md) 참고.
 
 ---
 
@@ -215,7 +215,7 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
 
 - **Route:** 미정
 - **접근:** SUPER_ADMIN, DEVELOPER, MANAGER(즉시 반영), OPERATOR(등록 시 승인요청 상태로 전환)
-- **주요 기능:** 쿠폰 도메인(캠페인/코드/사용이력) 설계 완료 후 정의. 현재는 [11_MENU_PERMISSION.md](./11_MENU_PERMISSION.md) 3.1의 원칙만 확정된 상태.
+- **주요 기능:** 쿠폰 도메인(캠페인/코드/사용이력) 설계 완료 후 정의. 현재는 [13_MENU_PERMISSION.md](./13_MENU_PERMISSION.md) 3.1의 원칙만 확정된 상태.
 
 ---
 

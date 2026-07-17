@@ -1,4 +1,4 @@
-# 04_AUTH_SECURITY.md
+# 06_AUTH_SECURITY.md
 
 ## 개요
 
