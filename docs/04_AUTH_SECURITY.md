@@ -165,6 +165,17 @@ WHERE user_id = ?
 - 유예기간 배치 실행 주기
 - Secret 발급/재발급 API 자체의 인증 주체(관리 콘솔 사용자 권한 범위)
 
+## 2.4 API 버전 관리
+
+S2S API(게임서버가 호출하는 쿠폰 발급/사용 관련 엔드포인트)는 버전 관리 대상이다. 게임서버(테넌트)마다 연동 시점이 달라, 쿠폰 서버의 배포 주기가 특정 게임서버의 대응 여부에 묶이면 안 되기 때문이다.
+
+```text
+대상    : S2S API만 해당 (관리 콘솔 API는 버전 없음 — 프론트/백을 같은 팀이 동시 배포하므로 불필요)
+방식    : NestJS 내장 URI Versioning (app.enableVersioning({ type: VersioningType.URI }))
+URL 패턴 : /v1/coupons/reserve, /v1/coupons/confirm 등
+운영 규칙 : v1으로 시작, breaking change 발생 시 v2 컨트롤러를 추가하고 기존 v1 라우트는 유지
+```
+
 ---
 
 # 3. 비밀번호 정책
