@@ -440,10 +440,11 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- coupon_campaign_id (NULL 허용, FK 없음)
 --  코드 자체가 존재하지 않는 시도는 캠페인을 특정할 수 없어 NULL. log_audit과 동일하게
 --  로그 테이블은 스코핑용 컬럼에 FK 를 걸지 않는다.
--- result_type (잠정, TODO #2 API 상세 스펙 확정 시 재검토)
---  reserve/confirm API 의 실제 result 코드 체계가 아직 확정 전이라 우선 대표 사유만 정의한다.
---  0:성공, 10:코드없음(RESERVE), 20:이미소모/중지(RESERVE), 30:캠페인 사용불가(RESERVE),
---  40:사용자한도초과(RESERVE), 50:소모기록없음(CONFIRM 전용, reserve 안 된 코드에 confirm)
+-- result_type (대표 사유만 정의한 축약 코드, API result 코드와는 별개 체계)
+--  0:성공, 10:코드없음(RESERVE/CONFIRM 공통, API 31005), 20:이미소모/중지(RESERVE, API 33001),
+--  30:캠페인 사용불가(RESERVE, API 33002), 40:사용자한도초과(RESERVE, API 33003),
+--  50:소모기록없음(CONFIRM 전용, reserve 안 된 코드에 confirm, API 31006)
+--  API 상세 스펙 및 매핑표: docs/17_COUPON_USAGE_API.md 4장
 -- ------------------------------------------------------------------------------------------------------------ --
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `log_coupon_use`;
@@ -454,7 +455,7 @@ CREATE TABLE `log_coupon_use` (
   `coupon_campaign_id`		BIGINT		UNSIGNED				DEFAULT NULL											COMMENT '캠페인 ID (코드 자체가 없는 시도는 특정 불가하여 NULL 허용, FK 없음)',
   `code_value`				VARCHAR(50)				NOT NULL															COMMENT '시도한 쿠폰 코드 문자열 원문 (존재하지 않는 코드도 그대로 기록, FK 아님)',
   `game_user_id`			VARCHAR(100)			NOT NULL															COMMENT '게임서버 유저 식별자 (원문 문자열, FK 없음)',
-  `result_type`				TINYINT		UNSIGNED	NOT NULL															COMMENT '처리 결과 (0:성공, 10:코드없음, 20:이미소모/중지, 30:캠페인 사용불가, 40:사용자한도초과, 50:소모기록없음(CONFIRM 전용)) — 잠정, API 스펙 확정 시 재검토',
+  `result_type`				TINYINT		UNSIGNED	NOT NULL															COMMENT '처리 결과 (0:성공, 10:코드없음, 20:이미소모/중지, 30:캠페인 사용불가, 40:사용자한도초과, 50:소모기록없음(CONFIRM 전용)) — API result 코드 매핑은 docs/17_COUPON_USAGE_API.md 4장 참고',
   `created_at`				DATETIME				NOT NULL	DEFAULT CURRENT_TIMESTAMP								COMMENT '시도 일시',
   PRIMARY KEY (`idx`),
   KEY `ix_project_created` (`project_id`,`created_at`),

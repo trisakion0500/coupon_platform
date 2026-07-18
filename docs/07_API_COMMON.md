@@ -36,6 +36,7 @@ Coupon Platform API는 HTTP Status Code와 Result Code를 함께 사용한다. �
 | 30000~30999 | 입력값 오류                |
 | 31000~31999 | 조회 대상 없음 (Not Found) |
 | 32000~32999 | 중복 데이터                |
+| 33000~33999 | 쿠폰 사용 제약 (코드 상태/캠페인 사용가능여부/사용자 한도 등 reserve/confirm 전용) |
 
 ## 1.3 HTTP Status Code 매핑
 
@@ -138,12 +139,14 @@ Coupon Platform API는 HTTP Status Code와 Result Code를 함께 사용한다. �
 | GET /log-audits   | 감사 로그 목록 |
 | GET /campaigns    | 캠페인 목록 |
 | GET /campaigns/{id}/codes | 쿠폰 코드 목록 |
+| GET /coupons/unconfirmed (`game_user_id` 미지정, 전체유저 조회) | 미컨슘 쿠폰 사용 기록 목록 |
 
 ## 2.2 미적용 대상 (전체 로드)
 
 | API             | 표현 방식                  |
 | --------------- | --------------------------- |
 | GET /user-roles | 유저 상세 하위 데이터그리드 |
+| GET /coupons/unconfirmed (`game_user_id` 지정, 특정유저 조회) | 한 유저의 미컨슘 건은 소수라 페이지네이션 없이 전체 반환 |
 
 ## 2.3 요청 파라미터
 
@@ -282,6 +285,7 @@ Anonymous (인증 불필요)
 | `name`(campaign)| 제한 없음                           | 최대 100자                    |
 | `code_value`(FIXED) | 제한 없음(관리자 입력값 그대로 사용) | 1 ~ 50자                  |
 | `reject_reason` | 제한 없음                           | 최대 500자                    |
+| `game_user_id`  | 제한 없음(게임서버 원문 문자열 그대로 저장) | 최대 100자                |
 
 ---
 
@@ -324,12 +328,22 @@ Anonymous (인증 불필요)
 | 31002 | 프로젝트 없음 |
 | 31003 | 사용자 없음   |
 | 31004 | 캠페인 없음   |
+| 31005 | 쿠폰 코드 없음 |
+| 31006 | 소모 기록 없음(reserve 안 된 코드에 confirm 시도) |
 
 ## 32000 — Validation (중복)
 
 | 코드  | 설명        |
 | ----- | ----------- |
 | 32001 | 중복 데이터 |
+
+## 33000 — Validation (쿠폰 사용 제약)
+
+| 코드  | 설명                          |
+| ----- | ----------------------------- |
+| 33001 | 쿠폰 코드 이미 소모됨/중지됨 (RANDOM: 이미 사용완료, FIXED: 관리자가 중지) |
+| 33002 | 캠페인 사용 불가 (상태 비활성/기간 외/usable_qty 소진) |
+| 33003 | 사용자 사용 한도 초과 (`use_limit_per_user`) |
 
 ## 40000 — Rate Limit
 
@@ -344,4 +358,4 @@ Anonymous (인증 불필요)
 | 50000 | 시스템 오류(서버 내부 오류) |
 | 50001 | 데이터베이스 오류(SP 내부 오류) |
 
-캠페인/코드 발급 관련 오류 코드는 위 표에 반영 완료([16_CAMPAIGN_API.md](./16_CAMPAIGN_API.md) 참고). 쿠폰 사용(reserve/confirm) 관련 오류 코드는 해당 API 상세 스펙 확정 후 이 표에 추가한다.
+캠페인/코드 발급 관련 오류 코드는 위 표에 반영 완료([16_CAMPAIGN_API.md](./16_CAMPAIGN_API.md) 참고). 쿠폰 사용(reserve/confirm) 관련 오류 코드도 위 표에 반영 완료([17_COUPON_USAGE_API.md](./17_COUPON_USAGE_API.md) 참고).
