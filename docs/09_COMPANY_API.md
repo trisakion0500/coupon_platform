@@ -24,22 +24,22 @@
 ### SUPER_ADMIN
 
 - 회사 관리메뉴(본 문서 2장) + 프로젝트 관리메뉴([10_PROJECT_API.md](./10_PROJECT_API.md) 2장) 전체 접근(생성/수정/Secret 발급 포함)
-- 쿠폰 도메인 컨트롤 전체 가능(세부는 쿠폰 도메인 설계 시점에 정의)
+- 쿠폰 도메인 컨트롤 전체 가능([16_CAMPAIGN_API.md](./16_CAMPAIGN_API.md) 1.2 참고)
 
 ### DEVELOPER
 
 - 회사 관리메뉴(본 문서 2장) 접근 불가 — 프로젝트 관리메뉴 중 **프로젝트 리스트/상세 조회, API Secret 재발급**만 가능([10_PROJECT_API.md](./10_PROJECT_API.md) 2장 참고, 프로젝트 생성/정체성 필드 수정 권한은 없음)
-- 하위 권한(MANAGER/OPERATOR)의 쿠폰 도메인 컨트롤도 모두 가능(세부는 쿠폰 도메인 설계 시점에 정의)
+- 하위 권한(MANAGER/OPERATOR)의 쿠폰 도메인 컨트롤도 모두 가능, `user_role` 배정 프로젝트 단위 스코핑([16_CAMPAIGN_API.md](./16_CAMPAIGN_API.md) 1.2 참고 — 프로젝트 관리메뉴 조회와 달리 쿠폰 도메인은 회사 전체가 아니라 실제 배정된 프로젝트로 한정)
 
 ### MANAGER
 
 - 회사/프로젝트 관리메뉴(본 문서 2장, [10_PROJECT_API.md](./10_PROJECT_API.md) 2장) 접근 불가(20001) — 단, 헤더 선택용 API(본 문서 3장, [10_PROJECT_API.md](./10_PROJECT_API.md) 3장)는 예외적으로 접근 가능
-- 쿠폰 도메인 컨트롤 즉시 가능(승인 불요, 세부는 쿠폰 도메인 설계 시점에 정의)
+- 쿠폰 도메인 컨트롤 즉시 가능(승인 불요), `user_role` 배정 프로젝트 단위 스코핑([16_CAMPAIGN_API.md](./16_CAMPAIGN_API.md) 1.2 참고)
 
 ### OPERATOR
 
 - 회사/프로젝트 관리메뉴(본 문서 2장, [10_PROJECT_API.md](./10_PROJECT_API.md) 2장) 접근 불가(20001) — 단, 헤더 선택용 API(본 문서 3장, [10_PROJECT_API.md](./10_PROJECT_API.md) 3장)는 예외적으로 접근 가능
-- 쿠폰 도메인 컨트롤 등록 시 승인요청 상태로 전환 — SUPER_ADMIN/DEVELOPER/MANAGER가 승인 가능(세부는 쿠폰 도메인 설계 시점에 정의)
+- 쿠폰 도메인 컨트롤 등록 시 승인요청 상태로 전환 — SUPER_ADMIN/DEVELOPER/MANAGER가 승인 가능, `user_role` 배정 프로젝트 단위 스코핑([16_CAMPAIGN_API.md](./16_CAMPAIGN_API.md) 1.2 참고)
 
 ---
 

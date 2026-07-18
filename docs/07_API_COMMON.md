@@ -42,6 +42,7 @@ Coupon Platform API는 HTTP Status Code와 Result Code를 함께 사용한다. �
 | HTTP Status               | Result Range | Description             |
 | -------------------------- | ------------ | ------------------------ |
 | 200 OK                    | 0            | 정상 처리                |
+| 202 Accepted               | 0            | 비동기 처리 접수(즉시 완료되지 않음, 예: 쿠폰 코드 대량생성) |
 | 400 Bad Request            | 30000~39999  | Validation               |
 | 401 Unauthorized           | 10000~19999  | Authentication            |
 | 403 Forbidden              | 20000~29999  | Authorization             |
@@ -135,6 +136,8 @@ Coupon Platform API는 HTTP Status Code와 Result Code를 함께 사용한다. �
 | GET /projects     | 프로젝트 목록 |
 | GET /users        | 사용자 목록 |
 | GET /log-audits   | 감사 로그 목록 |
+| GET /campaigns    | 캠페인 목록 |
+| GET /campaigns/{id}/codes | 쿠폰 코드 목록 |
 
 ## 2.2 미적용 대상 (전체 로드)
 
@@ -276,6 +279,9 @@ Anonymous (인증 불필요)
 | `project_code`  | 영문 대소문자, 숫자, `_`, `.`, `-`  | 1 ~ 20자                      |
 | `project_name`  | 제한 없음                           | 최대 100자                    |
 | `description`(company/project 공통) | 제한 없음     | 최대 1000자                   |
+| `name`(campaign)| 제한 없음                           | 최대 100자                    |
+| `code_value`(FIXED) | 제한 없음(관리자 입력값 그대로 사용) | 1 ~ 50자                  |
+| `reject_reason` | 제한 없음                           | 최대 500자                    |
 
 ---
 
@@ -308,6 +314,7 @@ Anonymous (인증 불필요)
 | 30001 | 필수 입력값 누락 |
 | 30002 | 입력값 형식 오류 |
 | 30003 | 허용되지 않은 값 |
+| 30004 | 상태 전이 불가(현재 상태에서 허용되지 않는 처리 요청) |
 
 ## 31000 — Validation (Not Found)
 
@@ -316,6 +323,7 @@ Anonymous (인증 불필요)
 | 31001 | 회사 없음     |
 | 31002 | 프로젝트 없음 |
 | 31003 | 사용자 없음   |
+| 31004 | 캠페인 없음   |
 
 ## 32000 — Validation (중복)
 
@@ -336,4 +344,4 @@ Anonymous (인증 불필요)
 | 50000 | 시스템 오류(서버 내부 오류) |
 | 50001 | 데이터베이스 오류(SP 내부 오류) |
 
-쿠폰 도메인(캠페인/코드/사용이력) 관련 오류 코드는 해당 도메인 설계 완료 후 이 표에 추가한다.
+캠페인/코드 발급 관련 오류 코드는 위 표에 반영 완료([16_CAMPAIGN_API.md](./16_CAMPAIGN_API.md) 참고). 쿠폰 사용(reserve/confirm) 관련 오류 코드는 해당 API 상세 스펙 확정 후 이 표에 추가한다.
