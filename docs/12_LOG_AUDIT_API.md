@@ -18,7 +18,7 @@
 
 ## 2.1 감사 대상 테이블
 
-감사 로그 생성 대상([03_DATABASE_SCHEMA.md](./03_DATABASE_SCHEMA.md) 6장 참고)
+감사 로그 생성 대상([03_DATABASE_SCHEMA.md](./03_DATABASE_SCHEMA.md) 9장 참고)
 
 ```text
 company
@@ -34,7 +34,7 @@ user_session (세션 이력 테이블이므로 제외)
 log_audit (자기 자신, Append-Only 원칙)
 ```
 
-쿠폰 도메인(캠페인/코드 등) 테이블은 설계 완료 후 자체 이벤트 로그로 별도 관리하며, 본 감사 로그 대상에는 포함하지 않는다([03_DATABASE_SCHEMA.md](./03_DATABASE_SCHEMA.md) 6장 참고).
+쿠폰 도메인(캠페인/코드 등) 테이블은 설계 완료 후 자체 이벤트 로그로 별도 관리하며, 본 감사 로그 대상에는 포함하지 않는다([03_DATABASE_SCHEMA.md](./03_DATABASE_SCHEMA.md) 9장 참고).
 
 ## 2.2 작업 유형(Action Type)
 

@@ -7,7 +7,7 @@
 ## 주요 특징
 
 - **멀티테넌시**: 회사(company) → 프로젝트(project) 단위로 데이터가 격리되며, 코드값 유니크 범위도 프로젝트 단위로 스코핑됩니다.
-- **이중 인증 체계**: 관리 콘솔 사용자는 JWT(HS256) + 세션, 게임서버는 API Key + Secret(SHA-256 해시, 유예기간 로테이션) 기반 서버간(S2S) 인증을 사용합니다.
+- **이중 인증 체계**: 관리 콘솔 사용자는 JWT(HS256) + 세션, 게임서버는 API Key + HMAC-SHA256 요청 서명(Secret은 AES-256-CBC 가역 암호화 저장, Timestamp+Nonce로 재전송 방지, 유예기간 로테이션) 기반 서버간(S2S) 인증을 사용합니다.
 - **4단계 역할 체계**: SUPER_ADMIN / DEVELOPER / MANAGER / OPERATOR — 쿠폰 도메인 작업은 역할에 따라 즉시 반영되거나 승인 워크플로우를 거칩니다.
 - **즉시 확정형 쿠폰 사용 흐름**: 인앱결제 consume/acknowledge 패턴을 참고해 reserve 시점에 즉시 소모를 확정하고, confirm은 결과 통보로만 동작하도록 설계해 분산 트랜잭션 이슈를 회피합니다.
 - **동시성 안전성**: 코드 중복 소모, 캠페인 오버셀, 사용자별 한도 초과 등을 조건부 UPDATE와 갭락으로 방지합니다.
@@ -18,7 +18,7 @@
 - **Backend**: Node.js 22 LTS + NestJS + TypeScript
 - **DB**: MySQL 8.4 + mysql2 (Stored Procedure/Function 전용)
 - **Frontend**: React 18 + TypeScript + Vite + Ant Design + Zustand + Axios
-- **인증**: JWT(HS256) / API Key+Secret(S2S)
+- **인증**: JWT(HS256) / API Key + HMAC-SHA256 요청 서명(S2S)
 
 세부 환경변수 및 버전은 [`docs/01_TECH_STACK.md`](docs/01_TECH_STACK.md) 참고.
 
@@ -31,7 +31,7 @@ docs/               ERD, 스키마, API 명세, 화면/레이아웃 설계 문�
 
 ## 데이터베이스
 
-기본 도메인(company/project/user/user_role/user_session), 쿠폰 도메인(coupon_campaign/coupon_code/coupon_code_usage), 로그(log_audit/log_coupon_campaign/log_coupon_use) 총 11개 테이블로 구성되어 있습니다.
+기본 도메인(company/project/user/user_role/user_session), 쿠폰 도메인(coupon_campaign/coupon_code/coupon_code_usage), 로그(log_audit/log_coupon_campaign/log_coupon_use), 인증 인프라(project_api_nonce) 총 12개 테이블로 구성되어 있습니다.
 
 - ERD: [`docs/02_ERD.md`](docs/02_ERD.md)
 - 테이블별 상세 설계: [`docs/03_DATABASE_SCHEMA.md`](docs/03_DATABASE_SCHEMA.md)
@@ -57,14 +57,18 @@ docs/               ERD, 스키마, API 명세, 화면/레이아웃 설계 문�
 | 13 | [MENU_PERMISSION](docs/13_MENU_PERMISSION.md) | 역할별 메뉴 접근 권한 |
 | 14 | [SCREEN_LIST](docs/14_SCREEN_LIST.md) | 화면 목록 및 연관 API |
 | 15 | [LAYOUT](docs/15_LAYOUT.md) | 레이아웃, 라우트, 공통 컴포넌트 |
+| 16 | [CAMPAIGN_API](docs/16_CAMPAIGN_API.md) | 캠페인 CRUD, 상태변경, 승인/반려, 코드 발급(RANDOM 비동기/FIXED 동기) |
+| 17 | [COUPON_USAGE_API](docs/17_COUPON_USAGE_API.md) | 쿠폰 사용 reserve/confirm, 미컨슘 조회 |
 
 ## 현재 진행 상황
 
-DB 설계(테이블 11개) 및 관련 문서가 완료된 상태이며, 다음 작업이 남아 있습니다.
+DB 설계(테이블 12개) 및 관련 문서가 완료된 상태이며, 다음 작업이 남아 있습니다.
 
-- 쿠폰 도메인 상세 API 스펙 (reserve/confirm/미컨슘 조회)
-- 캠페인/코드 발급(관리자) API 설계
-- S2S 인증 세부 스펙
 - 쿠폰 컨트롤 화면 및 관련 메뉴/레이아웃 세부
 
 백엔드/프론트엔드 구현은 아직 시작 전입니다.
+
+### 향후 개선사항 (우선순위 낮음, 별도 검토 필요)
+
+- 쿠폰 사용(reserve/confirm) API 레이트리미터 — 프로젝트 단위(인프라 보호) + 프로젝트·유저 단위(오남용 방지) 이중 적용 검토. 카운터 저장소를 어디에 둘지(Redis 도입 여부 vs MySQL 카운터의 핫패스 쓰기 비용)가 선행 결정 필요해 별도 논의로 분리
+- **Redis 도입 시 함께 이관할 대상**: 위 레이트리미터 카운터 + `project_api_nonce`(S2S nonce, TTL 자연만료로 정리 배치 자체가 불필요해짐) + `user_session`(TTL 자연만료로 `SESSION_CLEANUP_CRON` 불필요해짐 — `user_session.user_id`에 FK를 안 건 것도 애초에 이 전환을 대비한 설계, `03_DATABASE_SCHEMA.md` 참고). 셋 다 "짧은 TTL + 잦은 쓰기"라는 동일한 패턴이라 Redis 도입은 한 번에 세 가지를 같이 검토하는 게 맞음
