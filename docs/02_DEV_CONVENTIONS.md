@@ -60,6 +60,52 @@ FN_CHECK_ROLE_LEVEL(user_id, min_role_code) RETURNS BOOLEAN
 
 SP/Function 본문에는 **무엇을 하는지(what)뿐 아니라 왜 이렇게 처리하는지(why)**를 반드시 남긴다 — 특히 동시성 처리(조건부 UPDATE/갭락), 검증 순서, 부수효과가 있는 분기는 이유를 적어두지 않으면 나중에 왜 이렇게 짰는지 아무도 모른다. `database/tables/*.sql`의 테이블 DDL들이 이미 이 스타일(헤더 주석에 설계 이유 기록)로 작성돼 있으니, SP/Function 본문에도 동일한 수준으로 적용한다.
 
+## 3.4 SP 결과 반환 규약 — OUT 파라미터 대신 RESULT SELECT
+
+SP는 **OUT 파라미터를 쓰지 않는다** — mysql2는 `CALL sp(?, ?)`의 placeholder로 OUT 파라미터를 바인딩할 수 없어(MySQL 프로토콜 제약) 세션 변수(`SET @out; CALL ...; SELECT @out;`) 우회가 필요하고, 코드가 지저분해진다. 대신 아래 규약을 따른다.
+
+- **첫 SELECT는 항상 `RESULT` 컬럼 하나만 있는 단일 행**이다(`08_API_COMMON.md`의 result 코드를 그대로 사용, 성공은 `0`)
+- **성공(`RESULT=0`)일 때만 이어서 두 번째 SELECT로 실제 데이터**를 반환한다. 실패 시엔 두 번째 SELECT를 아예 실행하지 않는다 — NestJS 쪽은 항상 첫 result set의 `RESULT`부터 확인하고, `0`일 때만 두 번째 result set을 읽는다는 계약을 지킨다
+- **예측 가능한 비즈니스 실패**(코드 없음, 한도 초과 등)는 예외(`SIGNAL`)로 던지지 않고, 검증 실패 시점에 바로 `SELECT <해당 result 코드> AS RESULT`를 실행한 뒤 라벨 블록(`label: BEGIN ... LEAVE label; END;`)으로 빠져나간다 — 이건 정상적인 제어 흐름이지 예외 상황이 아니다
+- **예측 못한 시스템 오류**(제약 위반, 데드락 등 SQL 자체의 예외)는 `DECLARE EXIT HANDLER FOR SQLEXCEPTION`으로 잡는다. 핸들러는 `ROLLBACK` 후 `GET DIAGNOSTICS`로 얻은 `SQLSTATE`/`MYSQL_ERRNO`/`MESSAGE_TEXT`를 `SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE`로 반환한다(`50001` = `08_API_COMMON.md`의 "데이터베이스 오류(SP 내부 오류)"). 이 진단 컬럼들은 API 응답에 그대로 노출하지 않고 서버 로그용으로만 사용한다
+- **`SIGNAL SQLSTATE`도 별도 경로가 아니다** — SP/Function 내부 어딘가에서 `SIGNAL`로 명시적으로 예외를 던지더라도, 이는 `SQLEXCEPTION` 조건이라 위와 동일한 `EXIT HANDLER`에 그대로 잡혀 `RESULT`로 변환된다. 즉 예외가 엔진이 직접 낸 것이든(제약 위반 등) 코드 중간에 `SIGNAL`로 던진 것이든 최종적으로는 하나의 핸들러를 거쳐 동일한 형태로 응답된다 — SIGNAL 전용 처리 로직을 별도로 둘 필요가 없다
+- 조건 검증 실패 시 얼리 리턴처럼 빠져나가기 위해 `label: BEGIN ... END;` 블록 + `LEAVE label` 패턴을 쓴다(중첩 IF/ELSE 대신)
+
+```sql
+CREATE PROCEDURE USP_COUPON_RESERVE(
+    IN i_code_value    VARCHAR(50),
+    IN i_project_id    BIGINT,
+    IN i_game_user_id  VARCHAR(100)
+)
+BEGIN
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        ROLLBACK;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        -- ... 코드 존재 확인, 멱등 체크, 조건부 UPDATE 등 (06_COUPON_USAGE_SCENARIO.md 2장 참고)
+
+        IF /* 코드 없음 */ THEN
+            SELECT 31005 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        -- ... 성공 처리(COMMIT) ...
+
+        SELECT 0 AS RESULT;
+        SELECT coupon_code_usage_id, code_value, game_user_id, reward_data, created_at
+        FROM coupon_code_usage WHERE ...;
+    END proc_block;
+END
+```
+
 ---
 
 # 4. 동시성 처리 원칙
