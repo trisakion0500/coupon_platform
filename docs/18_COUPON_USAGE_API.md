@@ -67,17 +67,19 @@ S2S (1.2 참고)
 ### Processing (요약 — 상세 흐름/동시성 근거는 [06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md) 2장 참고)
 
 1. `coupon_code` 조회 (`project_id`+`code_value`) — 없으면 31005
-2. `code_type`별 코드 잠금/검증
+2. **멱등 체크**(`use_limit_per_user=1`일 때만): `(coupon_code_id, game_user_id)` 매칭 기존 `coupon_code_usage` 행이 있으면 새로 만들지 않고 그 행 그대로 200 OK 반환(재시도 응답 재현, [06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md) 1.2 참고)
+3. `code_type`별 코드 잠금/검증
    - RANDOM: `UPDATE coupon_code SET status=2 WHERE coupon_code_id=? AND status=1` 조건부 갱신 0건 → 33001
    - FIXED: `status=1`(사용중) 아니면 → 33001
-3. `UPDATE coupon_campaign SET used_qty=used_qty+1 WHERE used_qty<usable_qty AND status=2 AND NOW() BETWEEN campaign_start AND campaign_end` 조건부 갱신 0건 → 33002 (트랜잭션 롤백으로 2번의 코드 잠금도 함께 해제)
-4. `SELECT COUNT(*) FROM coupon_code_usage WHERE coupon_campaign_id=? AND game_user_id=? FOR UPDATE` 확인 후 `use_limit_per_user` 초과 → 33003 (트랜잭션 롤백)
-5. `coupon_code_usage` 행 생성(소모 확정) → 200 OK
+4. `UPDATE coupon_campaign SET used_qty=used_qty+1 WHERE used_qty<usable_qty AND status=2 AND NOW() BETWEEN campaign_start AND campaign_end` 조건부 갱신 0건 → 33002 (트랜잭션 롤백으로 3번의 코드 잠금도 함께 해제)
+5. `SELECT COUNT(*) FROM coupon_code_usage WHERE coupon_campaign_id=? AND game_user_id=? FOR UPDATE` 확인 후 `use_limit_per_user` 초과 → 33003 (트랜잭션 롤백)
+6. `coupon_code_usage` 행 생성(소모 확정) → 200 OK
 
 ### Business Rules
 
 - reserve 성공 = 즉시 최종 소모 확정(예약 중간 상태 없음). 이후 confirm은 상태를 바꾸지 않고 지급 결과만 기록한다
-- 하나의 `game_user_id`가 같은 코드에 중복 reserve를 시도해도 별도 예외 처리를 두지 않는다 — RANDOM은 이미 소모완료라 33001로, FIXED는 사용자당 한도(`use_limit_per_user`)로 자연히 걸러진다
+- **reserve는 `use_limit_per_user=1`일 때 멱등이다** — 같은 코드+같은 `game_user_id`로 재시도하면 새 소모를 만들지 않고 최초 성공 응답(`reward_data` 포함)을 그대로 재반환한다. `use_limit_per_user>1`인 FIXED 코드는 정당한 반복 사용과 재시도를 구분할 방법이 없어 이 멱등 처리를 적용하지 않는다(알려진 한계, [06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md) 1.2 참고)
+- 하나의 `game_user_id`가 같은 코드에 중복 reserve를 시도해도(멱등 체크 대상이 아닌 경우) 별도 예외 처리를 두지 않는다 — RANDOM은 이미 소모완료라 33001로, FIXED는 사용자당 한도(`use_limit_per_user`)로 자연히 걸러진다
 
 ### Response
 

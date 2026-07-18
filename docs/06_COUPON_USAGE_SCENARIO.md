@@ -34,7 +34,13 @@ confirm이 끝내 오지 않아도 쿠폰서버는 **아무것도 자동으로 �
 
 이 모델을 택한 이유: 대안(예약중 상태 + 만료 배치로 자동 되돌림)은 이중지급 가능 race window와 배치 인프라가 필요했던 반면, 즉시 확정 모델은 이중지급 가능성 자체가 없다(코드가 한 번 소모되면 재예약 여지가 없으므로). 대신 게임서버 지급이 영영 실패하면 그 쿠폰은 소모된 채로 남고 자동 복구가 없다는 트레이드오프가 있다 — 이건 3장의 미컨슘 조회 API로 게임서버가 직접 감지·처리하게 한다.
 
-## 1.2 코드 식별 범위 — 프로젝트 단위 스코핑
+## 1.2 reserve 멱등성 — 재시도 안전성
+
+confirm은 처음부터 멱등(재호출해도 무해)하게 설계했지만, reserve는 그렇지 않았다 — 게임서버가 reserve를 호출했는데 응답이 네트워크 타임아웃 등으로 유실돼 재시도하면, RANDOM 코드는 이미 `status=사용완료`라 조건부 UPDATE가 0건이 되어 원래는 정상 성공이었던 호출이 "이미 소모됨" 에러로 보이는 문제가 있었다. 게임서버 입장에서는 자신의 재시도인지 다른 유저가 먼저 소모한 것인지 구분이 안 되고, 응답에 있어야 할 `reward_data`도 못 받으므로 지급 여부를 오판할 위험이 있다.
+
+그래서 코드 잠금을 시도하기 전에 **`(coupon_code_id, game_user_id)` 매칭 기존 `coupon_code_usage` 행이 있는지 먼저 확인**해 있으면 그 행 그대로 동일한 성공 응답(`reward_data` 포함)을 재반환한다(2.1 흐름도 참고). 단, 이 멱등 체크는 **`use_limit_per_user=1`일 때만** 적용한다 — `use_limit_per_user>1`인 FIXED 코드는 같은 유저가 정당하게 여러 번 reserve를 호출하는 것과, 실패했던 호출의 재시도를 서버가 구분할 방법이 없기 때문이다(클라이언트가 매 사용 시도마다 별도 식별자를 보내야 구분 가능한데, 현재 스펙엔 그런 식별자가 없다). 이 경우는 알려진 한계로 남겨둔다 — 애초에 "픽스 코드 하나를 한 사람이 여러 번 쓰게 허용"하는 사용 사례 자체가 드물 것으로 보고 우선순위를 낮췄다.
+
+## 1.3 코드 식별 범위 — 프로젝트 단위 스코핑
 
 `{code}` 경로 파라미터(`code_value`)의 유효 범위는 전체 플랫폼이 아니라 **프로젝트 단위**다. `coupon_code`는 `project_id`를 비정규화해서 갖고(`coupon_campaign`을 통해서도 알 수 있지만, 유니크 제약과 조회 스코핑을 위해 직접 보유), `UNIQUE KEY(project_id, code_value)`로 프로젝트 범위 안에서만 유일하면 되도록 한다.
 
@@ -83,7 +89,13 @@ flowchart TD
     (API Key로 스코핑된 project_id로 조회 —
     다른 프로젝트 소속 코드는 이 시점에 이미 걸러짐)"}
     B -- N --> B1["404 코드 없음"]
-    B -- Y --> T{code_type?}
+    B -- Y --> I{"use_limit_per_user=1
+    AND (coupon_code_id, game_user_id)
+    매칭 기존 coupon_code_usage 존재?
+    (멱등 체크, 1.2 참고)"}
+    I -- Y --> I1["200 OK
+    (기존 행 그대로 재반환, reward_data 포함)"]
+    I -- N --> T{code_type?}
 
     T -- RANDOM --> R1{"UPDATE coupon_code
     SET status=사용완료
@@ -130,6 +142,7 @@ flowchart TD
 | 캠페인 사용 가능 여부(`usable_qty`/`status`/기간) | 서로 다른 코드로 동시 reserve 시 `used_qty`가 `usable_qty`를 초과(오버셀)하거나, 관리자가 캠페인을 일시중지/종료시키는 순간과 겹쳐 그 이후에도 reserve가 통과할 수 있음 | `UPDATE coupon_campaign SET used_qty=used_qty+1 WHERE used_qty<usable_qty AND status=2 AND NOW() BETWEEN campaign_start AND campaign_end` 조건부 갱신 하나로 세 조건을 전부 원자적으로 체크 — 캠페인 상태/기간 조건도 같은 UPDATE의 WHERE에 포함시키는 것만으로 추가 비용 없이 관리자의 일시중지/종료 레이스까지 같이 막힘(FIXED 코드 중지처럼 별도 락 비용이 드는 게 아니라 공짜로 닫히는 케이스). (`-1` 대입으로 UNSIGNED 오류를 유도하는 방식은 `sql_mode`가 non-strict로 바뀌면 에러 없이 0으로 조용히 clamp되는 위험이 있어 채택하지 않음) |
 | 사용자당 한도(`use_limit_per_user`) | 같은 유저가 서로 다른 코드로 동시 reserve 시 `COUNT(*)` 체크를 둘 다 통과해 한도 초과 가능 | `SELECT COUNT(*) FROM coupon_code_usage WHERE coupon_campaign_id=? AND game_user_id=? FOR UPDATE`로 잠금 읽기 — `ix_campaign_user` 인덱스 덕분에 InnoDB가 해당 구간에 갭락을 걸어 동시 INSERT를 직렬화함(단순 INSERT 후 재검증 방식은 서로의 미커밋 행을 못 보므로 막아지지 않아 기각) |
 | confirm 중복 호출 | 게임서버가 confirm을 재시도로 두 번 보낼 수 있음 | 별도 락 불필요 — `confirmed_at`을 두 번 써도 같은 결과(멱등)라 무해함 |
+| reserve 재시도(멱등 체크, 1.2 참고) | 완전히 같은 요청(같은 코드+같은 유저)이 동시에 두 번 도착하면 둘 다 "기존 행 없음"을 보고 통과할 수 있음 | 별도 락을 추가하지 않는다 — RANDOM은 뒤이은 코드 조건부 UPDATE가, FIXED(`use_limit_per_user=1`)는 뒤이은 한도 갭락이 결국 하나만 통과시켜 데이터는 항상 안전하다. 다만 이 좁은 race에서 진 쪽은 멱등 200 대신 33001/33003 에러를 받을 수 있다 — 진짜 동시 재시도는 극히 드물고 데이터 정합성엔 영향이 없어 감수함(FIXED 코드 관리자 중지 race와 같은 성격의 트레이드오프) |
 
 위 표에서 다루지 않은 것: **FIXED 코드의 관리자 중지와 reserve 사이의 레이스**(관리자가 코드를 중지시키는 순간과 진행 중이던 reserve의 체크~확정 사이 수 ms 틈에 요청이 끼어드는 경우)는 검토했으나 범위 밖으로 판단해 대응하지 않는다 — 관리자 중지 자체가 빈번한 작업이 아니고 겹치는 시간창도 극히 좁아, 이걸 막으려고 FIXED 코드에 락을 거는 비용(정상 상황의 다중 동시 사용 성능 저하)이 더 크다. 캠페인 일시중지/종료와 달리 이건 별도 조건을 끼워 넣을 기존 UPDATE 문 자체가 없어(FIXED는 애초에 락 없는 단순 SELECT 체크) 공짜로 닫을 방법이 없다.
 
