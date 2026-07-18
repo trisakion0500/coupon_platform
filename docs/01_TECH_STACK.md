@@ -10,7 +10,7 @@
 | Database        | MySQL 8.4                                                   |
 | Data Access     | mysql2 — Stored Procedure / Function 전용 (Native SQL 직접 작성 금지) |
 | Authentication  | JWT (HS256) + user_session (사용자 인증)                    |
-| S2S Authentication | API Key + Secret(SHA-256 해시) — 게임서버 → 쿠폰서버, grace period 방식 재발급 |
+| S2S Authentication | API Key + HMAC-SHA256 요청 서명 — 게임서버 → 쿠폰서버, Secret은 AES-256-CBC 가역 암호화 저장(단방향 해시 아님), Timestamp+Nonce로 재전송 방지, grace period 방식 재발급 |
 | Password Hash   | bcrypt (rounds=12)                                          |
 | API Style       | REST + JSON                                                 |
 | Logging         | log_audit (감사 로그) + application log (log4js)            |
@@ -45,6 +45,9 @@ JWT_ACCESS_EXPIRES_IN
 JWT_REFRESH_EXPIRES_IN
 ENCRYPTION_KEY
 API_SECRET_GRACE_PERIOD_DAYS
+API_SECRET_CLEANUP_CRON
+S2S_TIMESTAMP_TOLERANCE_SEC
+S2S_NONCE_CLEANUP_CRON
 CORS_ALLOWED_ORIGINS
 PORT
 LOG_DEBUG_ERRORS

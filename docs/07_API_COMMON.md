@@ -304,6 +304,12 @@ Anonymous (인증 불필요)
 | 10007 | 사용중지 계정         |
 | 10008 | Refresh Token 만료    |
 | 10009 | 유효하지 않은 Session |
+| 10010 | S2S 인증 실패 — API Key 없음/유효하지 않음 |
+| 10011 | S2S 인증 실패 — 서명(Signature) 불일치 |
+| 10012 | S2S 인증 실패 — 필수 인증 헤더 누락/형식 오류 |
+| 10013 | S2S 인증 실패 — Timestamp 허용범위 초과 |
+| 10014 | S2S 인증 실패 — 프로젝트 사용중지 |
+| 10015 | S2S 인증 실패 — Nonce 재사용 감지(재전송 의심) |
 
 ## 20000 — Authorization
 
@@ -358,4 +364,4 @@ Anonymous (인증 불필요)
 | 50000 | 시스템 오류(서버 내부 오류) |
 | 50001 | 데이터베이스 오류(SP 내부 오류) |
 
-캠페인/코드 발급 관련 오류 코드는 위 표에 반영 완료([16_CAMPAIGN_API.md](./16_CAMPAIGN_API.md) 참고). 쿠폰 사용(reserve/confirm) 관련 오류 코드도 위 표에 반영 완료([17_COUPON_USAGE_API.md](./17_COUPON_USAGE_API.md) 참고).
+캠페인/코드 발급 관련 오류 코드는 위 표에 반영 완료([16_CAMPAIGN_API.md](./16_CAMPAIGN_API.md) 참고). 쿠폰 사용(reserve/confirm) 관련 오류 코드도 위 표에 반영 완료([17_COUPON_USAGE_API.md](./17_COUPON_USAGE_API.md) 참고). S2S 인증(HMAC 서명 검증) 실패 코드(`10010`~`10015`)도 위 표에 반영 완료([06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2장 참고).

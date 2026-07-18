@@ -12,13 +12,20 @@
 
 ## 1.2 Permission
 
-본 장의 API는 관리 콘솔 사용자가 아니라 **게임서버가 S2S로 호출**한다. `user_role`(SUPER_ADMIN/DEVELOPER/MANAGER/OPERATOR) 체계와 무관하며, 인증 주체는 `project.api_key`/`api_secret_hash`뿐이다([06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2장). `project_id`는 이 인증으로 자동 스코핑되므로 이후 각 API의 요청/쿼리에 `project_id`를 별도로 받지 않는다.
+본 장의 API는 관리 콘솔 사용자가 아니라 **게임서버가 S2S로 호출**한다. `user_role`(SUPER_ADMIN/DEVELOPER/MANAGER/OPERATOR) 체계와 무관하며, 인증은 `project.api_key` + HMAC-SHA256 요청 서명으로 이루어진다([06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2장). `project_id`는 이 인증으로 자동 스코핑되므로 이후 각 API의 요청/쿼리에 `project_id`를 별도로 받지 않는다.
 
-요청 서명 방식(단순 헤더 대조 vs HMAC)·헤더명 등 인증 헤더 자체의 세부 스펙은 [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2.3에 미확정(TODO)으로 남아있다 — 본 문서는 "인증에 성공하면 `project_id`가 확정된다"는 전제로 API 스펙만 기술한다.
+모든 요청에 아래 헤더가 필요하다(상세 서명 규칙/검증 순서는 [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2.2~2.5 참고).
+
+```text
+X-API-Key
+X-API-Timestamp
+X-API-Nonce
+X-API-Signature
+```
 
 ## 1.3 API 버전
 
-S2S API이므로 [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2.4의 버전 정책이 적용된다. 아래 모든 엔드포인트는 `/v1` 접두어를 붙인다(예: `POST /v1/coupons/{code}/reserve`). [05_COUPON_USAGE_SCENARIO.md](./05_COUPON_USAGE_SCENARIO.md)의 시퀀스 다이어그램은 버전 정책 확정 이전에 그려진 것이라 `/v1` 없이 표기되어 있다 — 실제 스펙은 본 문서 기준을 따른다.
+S2S API이므로 [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2.7의 버전 정책이 적용된다. 아래 모든 엔드포인트는 `/v1` 접두어를 붙인다(예: `POST /v1/coupons/{code}/reserve`). [05_COUPON_USAGE_SCENARIO.md](./05_COUPON_USAGE_SCENARIO.md)의 시퀀스 다이어그램은 버전 정책 확정 이전에 그려진 것이라 `/v1` 없이 표기되어 있다 — 실제 스펙은 본 문서 기준을 따른다.
 
 ## 1.4 코드/사용자 식별
 
@@ -265,8 +272,17 @@ CONFIRM의 코드없음(31005)은 RESERVE와 원인이 같으므로 `result_type
 # 5. 관련 문서
 
 - 쿠폰 사용 흐름/동시성 설계 근거: [05_COUPON_USAGE_SCENARIO.md](./05_COUPON_USAGE_SCENARIO.md)
-- 테이블 DDL: `database/tables/coupon_campaign.sql`, `coupon_code.sql`, `coupon_code_usage.sql`, `log_coupon_use.sql`
+- 테이블 DDL: `database/tables/coupon_campaign.sql`, `coupon_code.sql`, `coupon_code_usage.sql`, `log_coupon_use.sql`, `project_api_nonce.sql`
 - 공통 응답/에러코드: [07_API_COMMON.md](./07_API_COMMON.md)
-- S2S 인증: [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2장
+- S2S 인증(HMAC 서명/헤더/재전송 방지): [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2장
 
-**아직 미확정(TODO)**: S2S 인증 헤더/서명 세부 스펙 — CLAUDE.md TODO #3 참고.
+본 장의 모든 엔드포인트는 각자의 Errors 표에 없더라도 인증 단계 실패 시 아래 result 코드를 공통으로 반환할 수 있다(2장 참고).
+
+| Result Code | HTTP | 설명 |
+|---|---|---|
+| 10010 | 401 | API Key 없음/유효하지 않음 |
+| 10011 | 401 | 서명(Signature) 불일치 |
+| 10012 | 401 | 필수 인증 헤더 누락/형식 오류 |
+| 10013 | 401 | Timestamp 허용범위 초과 |
+| 10014 | 401 | 프로젝트 사용중지 |
+| 10015 | 401 | Nonce 재사용 감지(재전송 의심) |

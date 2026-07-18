@@ -6,7 +6,7 @@
 
 ```text
 1. 사용자 인증   : 관리 콘솔 사용자 ↔ Coupon Platform API (JWT + user_session)
-2. 서버간(S2S) 인증 : 게임서버 → Coupon Platform API (API Key + Secret)
+2. 서버간(S2S) 인증 : 게임서버 → Coupon Platform API (API Key + HMAC-SHA256 요청 서명)
 ```
 
 세부 엔드포인트/result 코드 스펙은 관리 콘솔 API 설계 시점에 별도 문서로 정리한다(현재 미확정).
@@ -149,23 +149,85 @@ WHERE user_id = ?
 
 ## 2.1 인증 방식
 
-- `project.api_key` + `project.api_secret_hash`(SHA-256 해시) 기반
-- Secret 원문은 발급 시점에만 노출, 이후 해시값만 저장/비교
+- **HMAC-SHA256 요청 서명** 방식을 채택한다 — Secret 원문 자체는 요청에 실리지 않고, Secret으로 서명한 값만 매 요청마다 전송한다
+- `project.api_key`로 프로젝트를 식별하고, `project.api_secret`(AES-256-CBC 암호화, Base64)을 복호화해 서명 검증에 사용한다
+- Secret 저장 방식이 단방향 해시가 아니라 **가역 암호화**인 이유: 서버가 요청마다 클라이언트가 보낸 서명을 재계산해서 대조해야 하는데, 단방향 해시로는 원문을 복원할 수 없어 서명 재계산 자체가 불가능하다. `user.phone_number`와 동일한 AES-256-CBC(`ENCRYPTION_KEY`)를 재사용한다(전용 키를 별도로 두지 않음 — 이미 앱에 reversible 암호화 인프라가 있고, 별도 키 관리 비용을 늘릴 만큼 위협 모델이 다르지 않다고 판단)
+- 평문 Secret이 API 응답에 노출되는 시점(발급/재발급 1회)은 기존과 동일하다 — 이 절의 변경은 **저장/검증 방식**에 관한 것이지, Secret 노출 정책에 관한 것이 아니다
 
-## 2.2 Secret Rotation (Grace Period 방식)
+### 왜 단순 헤더 대조(정적 Key+Secret 전송) 대신 HMAC인가
 
-- Secret 재발급 시 기존 해시를 `api_secret_hash_prev`로 이동, 신규 해시를 `api_secret_hash`에 저장
+단순히 `X-API-Secret` 헤더로 원문을 매번 실어보내고 서버가 해시 대조만 하는 방식도 검토했다(그 경우 `api_secret_hash`를 그대로 단방향 해시로 유지할 수 있어 스키마 변경이 필요 없다). 다만 이 방식은 두 가지 약점이 있다.
+
+1. Secret 원문이 리버스프록시/APM 로깅 등 TLS 밖의 경로로 새면 재발급 전까지 영구적으로 유효한 자격증명이 그대로 유출된다
+2. Timestamp 윈도우만으로는 완전한 재전송 차단이 안 된다 — 캡처한 요청을 윈도우 시간 내에 그대로 재전송하는 것 자체는 막지 못하고 "재전송 가능한 시간"만 제한할 뿐이다. 이 경우 FIXED 코드 + `use_limit_per_user > 1` 조합에서 재전송으로 보상이 중복 지급될 수 있다([05_COUPON_USAGE_SCENARIO.md](./05_COUPON_USAGE_SCENARIO.md) 4장 참고)
+
+재화(쿠폰 보상) 지급이 걸린 API라 이 잔여 위험을 감수하지 않기로 하고, Secret을 가역 암호화로 바꾸는 스키마 비용을 들여서라도 HMAC + nonce로 재전송을 원천 차단하는 쪽을 택했다.
+
+## 2.2 요청 헤더 스펙
+
+게임서버는 [17_COUPON_USAGE_API.md](./17_COUPON_USAGE_API.md)의 모든 엔드포인트 호출 시 아래 헤더를 포함해야 한다. Secret 원문은 어떤 헤더에도 실리지 않는다.
+
+| 헤더 | 필수 | 설명 |
+|---|---|---|
+| `X-API-Key` | Y | `project.api_key` |
+| `X-API-Timestamp` | Y | 요청 생성 시각, Unix Epoch 초 단위 정수 문자열(예: `1721270400`) |
+| `X-API-Nonce` | Y | 요청마다 새로 생성하는 1회성 임의 문자열(형식 강제 없음, 예: UUID v4). 재전송 방지에 사용(2.5 참고) |
+| `X-API-Signature` | Y | 2.3의 서명 대상 문자열을 Secret으로 HMAC-SHA256 서명한 값(hex) |
+
+[07_API_COMMON.md](./07_API_COMMON.md) 4장의 날짜/시간 포맷(`YYYY-MM-DD HH:mm:ss`) 정책은 요청/응답 **바디**에 대한 것이고, `X-API-Timestamp`는 인증 헤더라 그 정책과 무관하게 Unix Epoch 초를 사용한다 — 윈도우 비교가 문자열 파싱 없이 정수 비교로 끝나야 하기 때문이다.
+
+## 2.3 서명 생성 규칙
+
+서명 대상 문자열(string to sign)은 다음과 같이 구성한다.
+
+```text
+stringToSign = HTTP_METHOD + "\n"
+             + PATH (쿼리스트링 제외) + "\n"
+             + RAW_QUERY_STRING (없으면 빈 문자열) + "\n"
+             + X-API-Timestamp + "\n"
+             + X-API-Nonce + "\n"
+             + RAW_BODY (없으면 빈 문자열, JSON 원문 그대로 — 파싱 후 재직렬화 금지)
+
+X-API-Signature = HMAC-SHA256(secret, stringToSign)  // hex 인코딩
+```
+
+- 쿼리스트링(`GET /coupons/unconfirmed` 등)까지 서명 대상에 포함시키는 이유: 그렇지 않으면 서명은 그대로 두고 쿼리 파라미터(`game_user_id` 등)만 바꿔치기하는 변조가 가능해진다
+- `RAW_BODY`를 파싱 후 재직렬화하지 않고 원문 그대로 서명에 사용해야 한다 — JSON 키 순서/공백 차이로 서버가 재직렬화한 문자열이 클라이언트가 서명한 문자열과 달라지면 정상 요청도 서명 불일치로 거부된다
+- 서명 비교는 타이밍 공격을 막기 위해 상수 시간 비교(Node.js `crypto.timingSafeEqual`)로 수행한다
+
+## 2.4 인증 검증 순서
+
+```text
+1. 필수 헤더(X-API-Key/X-API-Timestamp/X-API-Nonce/X-API-Signature) 존재 및 형식 확인
+   (X-API-Timestamp가 정수로 파싱되는지 포함) — 실패 시 10012
+2. X-API-Timestamp 허용범위 확인: |NOW() - timestamp| <= S2S_TIMESTAMP_TOLERANCE_SEC
+   (과거/미래 양방향 검사 — 서버 시각만으로 끝나는 값싼 검사라 DB 조회 전에 먼저 수행) — 실패 시 10013
+3. X-API-Key로 project 조회 — 실패 시 10010
+4. project.status 확인 (0:중지) — 실패 시 10014
+5. project.api_secret(및 유예기간 내 api_secret_prev) 복호화 후 2.3의 stringToSign으로 서명 재계산,
+   X-API-Signature와 상수 시간 비교 — 두 Secret 중 어느 쪽과도 불일치하면 10011
+6. (project_id, X-API-Nonce)로 project_api_nonce에 INSERT 시도 — UNIQUE 위반(이미 사용된 nonce)이면
+   재전송으로 판단해 10015 (2.5 참고)
+7. 모두 통과 — project_id 확정, 이후 요청 처리로 진행
+```
+
+서명 검증(5번)을 nonce 등록(6번)보다 먼저 하는 이유: 순서를 바꾸면 서명이 아예 틀린 요청도 nonce 테이블에 행을 남기게 되어, 인증되지 않은 요청으로 테이블만 불필요하게 채우는 것을 막기 위함이다.
+
+## 2.5 Nonce 저장 및 재전송(Replay) 방지
+
+- `project_api_nonce` 테이블(`database/tables/project_api_nonce.sql`)에 `(project_id, nonce)` UNIQUE 제약으로 1회성을 보장한다 — INSERT 자체의 유니크 제약 위반을 이용하므로 동시에 같은 nonce가 들어와도 원자적으로 하나만 성공한다
+- 보관 기간은 `S2S_TIMESTAMP_TOLERANCE_SEC`만큼이면 충분하다 — 그 범위를 벗어난 요청은 2.4의 2번 단계(Timestamp 허용범위)에서 이미 거부되므로, 그 이후에는 같은 nonce가 다시 와도 위협이 되지 않는다
+- 정리 배치(`S2S_NONCE_CLEANUP_CRON`, 기본 `*/10 * * * *` — 10분 간격)가 `created_at`이 `NOW() - S2S_TIMESTAMP_TOLERANCE_SEC`보다 과거인 행을 물리 삭제한다. `SESSION_CLEANUP_CRON`(1일 1회)보다 훨씬 잦은 이유는 reserve/confirm 트래픽이 호출마다 1행씩 쌓여 테이블이 빠르게 커질 수 있기 때문이다
+
+## 2.6 Secret Rotation (Grace Period 방식)
+
+- Secret 재발급 시 기존 암호화값을 `api_secret_prev`로 이동, 신규 암호화값을 `api_secret`에 저장
 - `secret_rotated_at`에 재발급 시각 기록
-- 유예기간(`API_SECRET_GRACE_PERIOD_DAYS`) 동안은 `api_secret_hash`/`api_secret_hash_prev` 둘 다 유효한 것으로 검증
-- 유예기간 경과 후 배치가 `api_secret_hash_prev`를 `NULL` 처리
+- 유예기간(`API_SECRET_GRACE_PERIOD_DAYS`) 동안은 `api_secret`/`api_secret_prev` 둘 다 복호화해 서명 검증에 사용(2.4의 5번 — 어느 한쪽과만 일치해도 통과)
+- 유예기간 경과 후 배치(`API_SECRET_CLEANUP_CRON`, 기본 `0 5 * * *`)가 `secret_rotated_at + API_SECRET_GRACE_PERIOD_DAYS`가 지난 `api_secret_prev`를 `NULL` 처리 — `SESSION_CLEANUP_CRON`과 동일하게 서버 기동 시 `node-cron`으로 등록
+- Secret 발급(프로젝트 생성 시)/재발급 API 자체의 인증 주체는 관리 콘솔 사용자(SUPER_ADMIN/DEVELOPER)다 — [10_PROJECT_API.md](./10_PROJECT_API.md) 2.1/2.5 참고. 그 API들은 이 절의 S2S 인증과는 별개로 JWT 기반 사용자 인증(1장)을 그대로 따른다
 
-## 2.3 미확정 사항
-
-- 요청 서명 방식(단순 헤더 대조 vs HMAC 서명) — 최종 확정 전
-- 유예기간 배치 실행 주기
-- Secret 발급/재발급 API 자체의 인증 주체(관리 콘솔 사용자 권한 범위)
-
-## 2.4 API 버전 관리
+## 2.7 API 버전 관리
 
 S2S API(게임서버가 호출하는 쿠폰 발급/사용 관련 엔드포인트)는 버전 관리 대상이다. 게임서버(테넌트)마다 연동 시점이 달라, 쿠폰 서버의 배포 주기가 특정 게임서버의 대응 여부에 묶이면 안 되기 때문이다.
 

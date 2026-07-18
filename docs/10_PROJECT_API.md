@@ -44,7 +44,7 @@ POST /projects
 
 ### Business Rules
 
-- 생성 시 `api_key`/`api_secret`을 서버가 즉시 발급한다(`project.api_key`/`api_secret_hash`가 NOT NULL 컬럼이라 발급 없이는 프로젝트를 만들 수 없음 — [03_DATABASE_SCHEMA.md](./03_DATABASE_SCHEMA.md) 2장 참고)
+- 생성 시 `api_key`/`api_secret`을 서버가 즉시 발급한다(`project.api_key`/`api_secret`이 NOT NULL 컬럼이라 발급 없이는 프로젝트를 만들 수 없음 — [03_DATABASE_SCHEMA.md](./03_DATABASE_SCHEMA.md) 2장 참고)
 - `api_secret` 평문은 이 응답에만 1회 노출되며, 이후 어떤 조회 API도 평문/해시를 반환하지 않는다
 - `secret_rotated_at`은 생성 시 `NULL`(최초 발급 후 미변경 상태)
 
@@ -106,7 +106,7 @@ ORDER BY status DESC,
 
 ### Response
 
-페이지네이션 응답 형식([07_API_COMMON.md](./07_API_COMMON.md) 2장 참고). `api_secret_hash`/평문 `api_secret`은 포함하지 않는다. `api_key`는 식별자 성격이라 그대로 노출한다.
+페이지네이션 응답 형식([07_API_COMMON.md](./07_API_COMMON.md) 2장 참고). `api_secret`(암호화값/평문 모두)은 포함하지 않는다. `api_key`는 식별자 성격이라 그대로 노출한다.
 
 ```json
 {
@@ -184,7 +184,7 @@ project_id
 company_id
 project_code
 api_key            (재발급 절차 없음 — 프로젝트 생성 시 1회 발급으로 고정)
-api_secret_hash    (2.5 Rotate Project API Secret 전용)
+api_secret         (2.5 Rotate Project API Secret 전용)
 ```
 
 ### Validation
@@ -213,7 +213,7 @@ POST /projects/{project_id}/api-secret/rotate
 
 ### Description
 
-기존 `api_secret_hash`를 `api_secret_hash_prev`로 이동하고 신규 Secret을 발급한다. 유예기간 동안은 기존 Secret도 함께 유효하다([06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2.2 Grace Period 참고).
+기존 `api_secret`(암호화값)을 `api_secret_prev`로 이동하고 신규 Secret을 발급한다. 유예기간 동안은 기존 Secret도 함께 유효하다([06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2.6 Secret Rotation 참고).
 
 ### Request
 
@@ -237,7 +237,7 @@ Body 없음 (`project_id`는 path parameter로만 전달).
 - `api_key`는 변경되지 않는다(Secret만 재발급 대상)
 - DEVELOPER 호출 시 JWT의 `role_code`(여러 프로젝트 중 최고 권한)가 아니라 해당 `project_id`의 실제 `user_role`을 재검증한다
 - 재발급 즉시 관리자가 평문을 복사해 게임서버 설정에 반영해야 한다 — 재확인 불가
-- 유예기간 경과 후 배치가 `api_secret_hash_prev`를 `NULL` 처리한다
+- 유예기간 경과 후 배치가 `api_secret_prev`를 `NULL` 처리한다([06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2.6 참고)
 
 ---
 

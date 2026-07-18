@@ -38,9 +38,9 @@ Coupon Platform 데이터베이스 스키마 정의 문서
 - `project_code`는 `company_id` 범위 내 UNIQUE (전역 UNIQUE 아님)
 - 논리 삭제(status) 사용
 - `created_by` / `updated_by` 컬럼 없음 (의도적 설계)
-- `api_key` / `api_secret_hash` / `api_secret_hash_prev` / `secret_rotated_at` — 게임서버 → 쿠폰서버 방향 S2S 호출 인증용
-  - `api_secret_hash`: 현재 사용 중인 Secret의 SHA-256 해시값 (평문 저장 금지)
-  - `api_secret_hash_prev`: 재발급 직후 유예기간(grace period) 동안만 유지되는 직전 Secret 해시값. 유예기간 경과 시 배치로 `NULL` 처리
+- `api_key` / `api_secret` / `api_secret_prev` / `secret_rotated_at` — 게임서버 → 쿠폰서버 방향 S2S 호출 인증용(HMAC 요청 서명, [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2장 참고)
+  - `api_secret`: 현재 사용 중인 Secret의 AES-256-CBC 암호화값(Base64) — 단방향 해시가 아니라 가역 암호화다. 서버가 요청마다 서명을 재계산해 대조해야 해서 원문 복원이 필요하기 때문(평문 자체가 DB에 그대로 저장되는 것은 아님)
+  - `api_secret_prev`: 재발급 직후 유예기간(grace period) 동안만 유지되는 직전 Secret 암호화값. 유예기간 경과 시 배치로 `NULL` 처리
   - `secret_rotated_at`: 마지막 Secret 재발급 시각 (`NULL`이면 최초 발급 후 미변경)
 
 ### 상태
@@ -256,7 +256,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 - `coupon_code_usage`는 성공한 소모 건만 남기지만, 이 테이블은 실패한 시도까지 전부 기록한다(부정사용 탐지: 코드 브루트포스, 한도 우회 시도 등 / 운영 디버깅 목적). RESERVE/CONFIRM 요청 모두 기록 대상
 - `code_value`는 FK가 아님 — 존재하지 않는 코드로 시도한 요청도 그대로 남겨야 브루트포스 탐지가 가능하므로 문자열 원문을 그대로 저장
 - `coupon_campaign_id`는 NULL 허용 — 코드 자체가 존재하지 않는 시도는 캠페인을 특정할 수 없음
-- `result_type`은 잠정 값(0:성공, 10:코드없음, 20:이미소모/중지, 30:캠페인 사용불가, 40:사용자한도초과, 50:소모기록없음(CONFIRM 전용)) — reserve/confirm API 상세 스펙(TODO) 확정 시 재검토
+- `result_type`(0:성공, 10:코드없음, 20:이미소모/중지, 30:캠페인 사용불가, 40:사용자한도초과, 50:소모기록없음(CONFIRM 전용))의 API result 코드 매핑은 [17_COUPON_USAGE_API.md](./17_COUPON_USAGE_API.md) 4장 참고
 - 물리 수정 및 삭제를 허용하지 않음(Append-Only)
 - 전체 컬럼 FK 없음(`project_id`/`coupon_campaign_id`/`code_value` 포함) — 로그 원칙
 
@@ -266,6 +266,19 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 | --- | ------- |
 | 10  | RESERVE |
 | 20  | CONFIRM |
+
+---
+
+## 12. project_api_nonce
+
+S2S(게임서버 → 쿠폰서버) HMAC 요청 서명의 재전송(replay) 방지용 1회성 nonce 저장소([06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2장 참고)
+
+### 특징
+
+- `X-API-Nonce` 헤더값을 서명 검증 통과 후 `(project_id, nonce)` UNIQUE 제약으로 INSERT 시도 — 위반 시 재전송(replay)으로 판단해 거부. INSERT 자체의 유니크 제약을 이용하므로 동시 요청에도 원자적으로 하나만 성공
+- 로그 테이블이 아니라 실시간 보안 검증용 기능 테이블이라 `project_id`에 FK를 건다(로그 테이블의 FK 미적용 원칙과 다름)
+- 보관 기간이 `S2S_TIMESTAMP_TOLERANCE_SEC`(기본 300초)만 필요해 `log_*` 테이블과 달리 장기 보관하지 않음 — 그 범위를 벗어난 요청은 Timestamp 검증 단계에서 이미 거부되므로 오래된 nonce는 재사용 위협이 없음
+- 정리 배치(`S2S_NONCE_CLEANUP_CRON`, 기본 10분 간격)가 `created_at`이 허용범위보다 과거인 행을 물리 삭제 — 세션 정리(1일 1회)보다 훨씬 잦은 이유는 reserve/confirm 호출마다 1행씩 쌓여 테이블이 빠르게 커질 수 있기 때문
 
 ---
 

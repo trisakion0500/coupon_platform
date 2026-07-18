@@ -24,8 +24,8 @@ erDiagram
         VARCHAR100  project_name
         VARCHAR1000 description             "NULL허용"
         VARCHAR64   api_key                 UK "게임서버→쿠폰서버 S2S 인증"
-        VARCHAR255  api_secret_hash         "평문 저장 금지"
-        VARCHAR255  api_secret_hash_prev    "NULL허용, 재발급 유예기간 동안만 유지"
+        VARCHAR255  api_secret              "AES-256-CBC 암호화(Base64), HMAC 서명검증용"
+        VARCHAR255  api_secret_prev         "NULL허용, 재발급 유예기간 동안만 유지"
         DATETIME    secret_rotated_at       "NULL허용"
         TINYINT     status
         DATETIME    created_at
@@ -163,7 +163,14 @@ erDiagram
         BIGINT      coupon_campaign_id  "FK없음, NULL허용"
         VARCHAR50   code_value          "FK아님, 존재하지 않는 코드도 기록"
         VARCHAR100  game_user_id        "FK없음"
-        TINYINT     result_type         "0:성공, 그외:실패사유(잠정)"
+        TINYINT     result_type         "0:성공, 그외:실패사유(17_COUPON_USAGE_API.md 4장 매핑)"
+        DATETIME    created_at
+    }
+
+    project_api_nonce {
+        BIGINT      project_api_nonce_id    PK
+        BIGINT      project_id              FK
+        VARCHAR64   nonce                   "UK(project_id+nonce)"
         DATETIME    created_at
     }
 
@@ -172,6 +179,7 @@ erDiagram
     company  ||--|{  user         : "소속"
     project  ||--o{  user_role    : "권한부여"
     user     ||--o{  user_role    : "권한보유"
+    project  ||--o{  project_api_nonce : "S2S 재전송 방지"
 
     %% ── 쿠폰 도메인 관계 ─────────────────────────────
     project          ||--o{  coupon_campaign     : "소유"
@@ -220,4 +228,4 @@ erDiagram
 | coupon_code | status | 0:중지 / 1:미사용(RANDOM)·사용중(FIXED) / 2:사용완료(RANDOM 전용) |
 | log_coupon_campaign | action | 10:CREATE / 20:UPDATE / 30:STATUS_CHANGE / 40:APPROVE / 50:REJECT |
 | log_coupon_use | action | 10:RESERVE / 20:CONFIRM |
-| log_coupon_use | result_type | 0:성공 / 10:코드없음 / 20:이미소모·중지 / 30:캠페인 사용불가 / 40:사용자한도초과 / 50:소모기록없음(CONFIRM 전용) — 잠정, API 스펙 확정 시 재검토 |
+| log_coupon_use | result_type | 0:성공 / 10:코드없음 / 20:이미소모·중지 / 30:캠페인 사용불가 / 40:사용자한도초과 / 50:소모기록없음(CONFIRM 전용) — API result 코드 매핑은 [17_COUPON_USAGE_API.md](./17_COUPON_USAGE_API.md) 4장 참고 |

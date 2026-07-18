@@ -24,7 +24,14 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- ------------------------------------------------------------------------------------------------------------ --
 -- 명칭 : project
 -- 작성 : 2026.07.11 trisakion
+-- 수정 : 2026.07.18 trisakion — api_secret_hash(단방향 SHA-256) -> api_secret(AES-256-CBC 가역 암호화)
 -- 내용 : 서비스 프로젝트 정보
+-- api_secret (가역 암호화, 단방향 해시 아님)
+--  S2S 인증을 HMAC-SHA256 요청 서명 방식으로 확정하면서(docs/06_AUTH_SECURITY.md 2장), 서버가
+--  서명을 검증하려면 매 요청마다 원문 Secret으로 HMAC을 재계산해야 한다 — 단방향 해시로는
+--  원문을 복원할 수 없어 이 방식 자체가 불가능하므로, phone_number(user 테이블)와 동일하게
+--  AES-256-CBC(Base64, ENCRYPTION_KEY)로 가역 암호화해 저장한다. 평문이 API 응답에 노출되는
+--  시점(발급/재발급 1회)은 기존과 동일하고, 그 외 조회 API는 여전히 평문/암호문 모두 반환하지 않는다.
 -- ------------------------------------------------------------------------------------------------------------ --
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `project`;
@@ -35,8 +42,8 @@ CREATE TABLE `project` (
   `project_name`			VARCHAR(100)			NOT NULL															COMMENT '프로젝트명',
   `description`				VARCHAR(1000)						DEFAULT NULL											COMMENT 'Project 설명',
   `api_key`					VARCHAR(64)				NOT NULL															COMMENT '서버간 호출용 API Key (게임서버 -> 쿠폰서버)',
-  `api_secret_hash`			VARCHAR(255)			NOT NULL															COMMENT '현재 사용중인 API Secret 해시값 (평문 저장 금지)',
-  `api_secret_hash_prev`	VARCHAR(255)						DEFAULT NULL											COMMENT '직전 API Secret 해시값 (재발급 후 유예기간 동안만 유지, 유예기간 경과 시 배치로 NULL 처리)',
+  `api_secret`				VARCHAR(255)			NOT NULL															COMMENT '현재 사용중인 API Secret (AES-256-CBC 암호화(Base64)) — HMAC 서명 검증 시 복호화해서 사용',
+  `api_secret_prev`		VARCHAR(255)						DEFAULT NULL											COMMENT '직전 API Secret 암호화값 (재발급 후 유예기간 동안만 유지, 유예기간 경과 시 배치로 NULL 처리)',
   `secret_rotated_at`		DATETIME							DEFAULT NULL											COMMENT '마지막 Secret 재발급 시각 (NULL이면 최초 발급 후 미변경)',
   `status`					TINYINT		UNSIGNED	NOT NULL	DEFAULT 1												COMMENT '상태 (1:사용, 0:중지)',
   `created_at`				DATETIME				NOT NULL	DEFAULT CURRENT_TIMESTAMP								COMMENT '생성일시',
@@ -48,10 +55,45 @@ CREATE TABLE `project` (
   KEY `ix_status` (`status`),
   CONSTRAINT `fk_project_company_id` FOREIGN KEY (`company_id`) REFERENCES `company` (`company_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='서비스 프로젝트 정보';
-INSERT INTO `project` (`project_id`, `company_id`, `project_code`, `project_name`, `description`, `api_key`, `api_secret_hash`, `status`, `created_at`, `updated_at`)
+-- api_secret 시드값은 개발 환경용 플레이스홀더(AES-256-CBC(Base64) 형식만 흉내낸 값)다.
+-- 실제 ENCRYPTION_KEY로 암호화된 값이 아니므로 로컬에서 실제 서명 검증까지 확인하려면
+-- 프로젝트 생성/Secret 재발급 API로 다시 발급받아야 한다.
+INSERT INTO `project` (`project_id`, `company_id`, `project_code`, `project_name`, `description`, `api_key`, `api_secret`, `status`, `created_at`, `updated_at`)
 VALUES
-(1, 1, 'ADMIN_PROJECT', 'Administrator Company Default Project', NULL, 'dev-admin-project-api-key', 'f9c87e280f0434e663a6bf099cb55704913dda28392c593724a2f1773ad8ff3d', 1, '1970-01-01 00:00:00', '1970-01-01 00:00:00'),
-(2, 2, 'DEV_PROJECT',   'Developer Company Default Project',     NULL, 'dev-dev-project-api-key',   '24b2574cb5aef9d55637b3d01c15b9f402e63fcef294ef06ceb9a4511bc01dc7', 1, '1970-01-01 00:00:00', '1970-01-01 00:00:00');
+(1, 1, 'ADMIN_PROJECT', 'Administrator Company Default Project', NULL, 'dev-admin-project-api-key', 'U2FsdGVkX18k7f3qz9pQwK2vXeYtBjE1oNc5rM8hZdA=', 1, '1970-01-01 00:00:00', '1970-01-01 00:00:00'),
+(2, 2, 'DEV_PROJECT',   'Developer Company Default Project',     NULL, 'dev-dev-project-api-key',   'U2FsdGVkX1+aBcD3fGh6IjK9lMnOpQr2StUvWxYz012=', 1, '1970-01-01 00:00:00', '1970-01-01 00:00:00');
+SET FOREIGN_KEY_CHECKS = 1;
+-- ------------------------------------------------------------------------------------------------------------ --
+-- 명칭 : project_api_nonce
+-- 작성 : 2026.07.18 trisakion
+-- 내용 : S2S(게임서버 -> 쿠폰서버) HMAC 요청 서명의 재전송(replay) 방지용 1회성 nonce 저장소.
+--        docs/06_AUTH_SECURITY.md 2장 참고 — X-API-Nonce 헤더값을 서명 검증 통과 후 이 테이블에
+--        (project_id, nonce) 조합으로 INSERT 시도하고, UNIQUE 제약 위반이면 재사용(재전송)으로 판단해
+--        거부한다. INSERT-then-check가 아니라 INSERT 자체의 유니크 제약 위반을 이용하는 것이므로
+--        동시에 같은 nonce로 두 요청이 들어와도 원자적으로 하나만 성공한다(경쟁 상태 없음).
+-- 보관 기간 (짧고 빈번한 정리 필요 — 로그 테이블과 다른 정리 주기)
+--  nonce는 X-API-Timestamp 허용범위(S2S_TIMESTAMP_TOLERANCE_SEC, 기본 300초) 밖으로 나가면
+--  타임스탬프 검증 자체에서 이미 거부되므로, 그 이후에는 같은 nonce라도 재사용될 위험이 없다.
+--  따라서 이 테이블은 허용범위만큼만 데이터를 보관하면 충분하고, log_* 테이블처럼 장기 보관하지
+--  않는다. reserve/confirm 트래픽이 많으면 행 수가 빠르게 늘 수 있어(호출마다 1행) 정리 배치는
+--  session cleanup(1일 1회)보다 훨씬 잦은 주기로 돈다(S2S_NONCE_CLEANUP_CRON, 기본 10분 간격) —
+--  created_at 이 (NOW() - S2S_TIMESTAMP_TOLERANCE_SEC)보다 과거인 행을 물리 삭제한다.
+-- FK 적용 (로그 테이블과 달리 FK를 건다)
+--  이 테이블은 감사/이력 목적이 아니라 실시간 보안 검증에 쓰이는 기능 테이블이라, 로그 테이블의
+--  "FK 미적용" 원칙(CLAUDE.md 참고) 대상이 아니다 — project 참조 무결성을 그대로 강제한다.
+-- ------------------------------------------------------------------------------------------------------------ --
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS `project_api_nonce`;
+CREATE TABLE `project_api_nonce` (
+  `project_api_nonce_id`	BIGINT		UNSIGNED	NOT NULL	AUTO_INCREMENT											COMMENT 'Nonce 저장 행 ID',
+  `project_id`				BIGINT		UNSIGNED	NOT NULL															COMMENT '프로젝트 ID (project.project_id)',
+  `nonce`					VARCHAR(64)				NOT NULL															COMMENT 'X-API-Nonce 헤더값 원문 (게임서버가 요청마다 새로 생성, 형식 강제 없음)',
+  `created_at`				DATETIME				NOT NULL	DEFAULT CURRENT_TIMESTAMP								COMMENT '수신일시 (정리 배치의 기준 컬럼)',
+  PRIMARY KEY (`project_api_nonce_id`),
+  UNIQUE KEY `uk_project_nonce` (`project_id`,`nonce`),
+  KEY `ix_created_at` (`created_at`),
+  CONSTRAINT `fk_project_api_nonce_project` FOREIGN KEY (`project_id`) REFERENCES `project` (`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='S2S HMAC 요청 재전송 방지용 nonce 저장소 (짧은 보관 후 배치 정리)';
 SET FOREIGN_KEY_CHECKS = 1;
 -- ------------------------------------------------------------------------------------------------------------ --
 -- 명칭 : user
