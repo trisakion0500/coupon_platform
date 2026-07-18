@@ -1,10 +1,10 @@
-# 14_SCREEN_LIST.md
+# 15_SCREEN_LIST.md
 
 # 화면 목록 (Screen List)
 
 Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근 권한 정의.
 
-역할 정의 및 메뉴별 접근 권한 상세는 [13_MENU_PERMISSION.md](./13_MENU_PERMISSION.md) 참고.
+역할 정의 및 메뉴별 접근 권한 상세는 [14_MENU_PERMISSION.md](./14_MENU_PERMISSION.md) 참고.
 
 ---
 
@@ -27,7 +27,9 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
 | SCR-040 | 감사 로그 목록      | `/admin/audit-logs`                | O           | O         | -       | -        | SUPER_ADMIN 외: 자사만                                     |
 | SCR-041 | 감사 로그 상세      | `/admin/audit-logs/:idx`           | O           | O         | -       | -        |                                                             |
 | **비관리 메뉴** |
-| SCR-100 | 쿠폰 컨트롤         | *(쿠폰 도메인 설계 후 정의)*       | O           | O         | O       | O        | OPERATOR: 등록 시 승인요청 상태로 전환. 세부 화면은 캠페인/코드 설계 완료 후 추가 |
+| SCR-100 | 캠페인 목록         | `/campaigns`                       | O           | O         | O       | O        | 헤더의 전역 프로젝트 선택을 그대로 필터로 사용, "전체 프로젝트" 상태로는 진입 불가 |
+| SCR-101 | 캠페인 등록         | `/campaigns/new`                   | O           | O         | O       | O        | OPERATOR: 등록 시 승인요청 상태로 전환                     |
+| SCR-102 | 캠페인 상세         | `/campaigns/:coupon_campaign_id`   | O           | O         | O       | O        | 탭: 캠페인 정보 / 코드 목록 / 사용 이력. 승인·반려는 SUPER_ADMIN/DEVELOPER/MANAGER만 |
 | **내 계정** |
 | SCR-200 | 내 계정             | `/my-account`                      | O           | O         | O       | O        | 내 정보 조회 + 비밀번호 변경 + 로그아웃                    |
 
@@ -211,11 +213,53 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
 
 ## 2.3 비관리 메뉴
 
-### SCR-100. 쿠폰 컨트롤
+### SCR-100. 캠페인 목록
 
-- **Route:** 미정
-- **접근:** SUPER_ADMIN, DEVELOPER, MANAGER(즉시 반영), OPERATOR(등록 시 승인요청 상태로 전환)
-- **주요 기능:** 쿠폰 도메인(캠페인/코드/사용이력) 설계 완료 후 정의. 현재는 [13_MENU_PERMISSION.md](./13_MENU_PERMISSION.md) 3.1의 원칙만 확정된 상태.
+- **Route:** `/campaigns`
+- **접근:** SUPER_ADMIN, DEVELOPER, MANAGER, OPERATOR (스코핑 내 `project_id`만 — [14_MENU_PERMISSION.md](./14_MENU_PERMISSION.md) 3.1 참고)
+- **주요 기능:** 캠페인 목록 조회. 프로젝트 필터는 화면 자체가 아닌 헤더의 전역 프로젝트 선택을 그대로 사용(SUPER_ADMIN이 "전체 프로젝트"를 선택한 상태로는 이 화면에 진입할 수 없고, 진입 시 프로젝트를 먼저 선택하라는 안내와 함께 선택 UI로 유도한다 — `GET /campaigns`는 `project_id`가 필수라 "전체" 조회 자체를 지원하지 않음). 상태(`status`)/승인상태(`approval_status`)/생성상태(`generation_status`)/코드유형(`code_type`) 필터, 페이지네이션, 등록 버튼, 행 클릭 시 상세 이동
+- **연관 API:**
+
+  | Method | Endpoint    | 설명       |
+  | ------ | ----------- | ---------- |
+  | GET    | /campaigns  | 캠페인 목록 |
+
+---
+
+### SCR-101. 캠페인 등록
+
+- **Route:** `/campaigns/new`
+- **접근:** SUPER_ADMIN, DEVELOPER, MANAGER, OPERATOR (스코핑 내 `project_id`만)
+- **주요 기능:** 캠페인명 / 사용기간 / 코드발급방식(RANDOM·FIXED) / 하이픈여부(RANDOM만) / 목표수량(RANDOM만) / 사용자당 한도 / 보상내용(JSON) 입력 및 등록. OPERATOR가 등록하면 승인대기 상태로, 그 외 역할은 즉시 승인불요로 시작([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.1 참고). 등록 직후 상세 화면(SCR-102)으로 이동해 코드 발급을 이어서 진행하도록 안내
+- **연관 API:**
+
+  | Method | Endpoint     | 설명      |
+  | ------ | ------------ | --------- |
+  | POST   | /campaigns   | 캠페인 등록 |
+
+---
+
+### SCR-102. 캠페인 상세
+
+- **Route:** `/campaigns/:coupon_campaign_id`
+- **접근:** SUPER_ADMIN, DEVELOPER, MANAGER, OPERATOR (스코핑 내 `project_id`만). 승인/반려 버튼은 SUPER_ADMIN, DEVELOPER, MANAGER만 노출(OPERATOR는 자기 캠페인도 승인 불가 — [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 1.2 참고)
+- **주요 기능:** 탭 구성 3개
+  1. **캠페인 정보**: 상세 조회, 이름/사용기간/사용자당한도/보상내용/`usable_qty` 수정, 상태변경(대기→활성→일시중지→종료), 승인/반려(승인대기 상태일 때만 버튼 노출). **OPERATOR가 `status=2`(활성)이면서 `approval_status`가 3(승인완료)/4(반려)인 캠페인을 수정 저장하려 하면** 저장 직전 `ConfirmModal`로 "지금 수정하면 캠페인이 일시중지됩니다. 계속하시겠습니까?" 확인을 거친다(수정 시 재승인 부수효과 — [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.4 참고). SUPER_ADMIN/DEVELOPER/MANAGER는 이 확인 없이 즉시 저장된다(승인권한자의 수정은 재승인/일시중지 부수효과가 아예 발동하지 않으므로)
+  2. **코드 목록**: RANDOM은 발급 현황(`generated_qty`/`requested_qty`, `generation_status`)과 코드 목록 페이지네이션 + 발급 요청/재시도 버튼(`generation_status`에 따라 노출 분기), FIXED는 코드 1건 등록 폼(미발급 시) 또는 등록된 코드 표시(발급 후)
+  3. **사용 이력**: `game_user_id`/미컨슘 여부 필터, 페이지네이션 — [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 4.1 참고
+- **연관 API:**
+
+  | Method | Endpoint                                   | 설명                        |
+  | ------ | -------------------------------------------- | --------------------------- |
+  | GET    | /campaigns/{coupon_campaign_id}             | 캠페인 상세                 |
+  | PATCH  | /campaigns/{coupon_campaign_id}             | 캠페인 수정                 |
+  | POST   | /campaigns/{coupon_campaign_id}/status      | 상태 변경                   |
+  | POST   | /campaigns/{coupon_campaign_id}/approve     | 승인                        |
+  | POST   | /campaigns/{coupon_campaign_id}/reject      | 반려                        |
+  | POST   | /campaigns/{coupon_campaign_id}/codes       | 코드 발급(RANDOM 비동기/FIXED 동기) |
+  | POST   | /campaigns/{coupon_campaign_id}/codes/retry | 코드 발급 재시도(RANDOM만)   |
+  | GET    | /campaigns/{coupon_campaign_id}/codes       | 코드 목록                   |
+  | GET    | /campaigns/{coupon_campaign_id}/usages      | 사용 이력                   |
 
 ---
 

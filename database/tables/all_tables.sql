@@ -27,7 +27,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- 수정 : 2026.07.18 trisakion — api_secret_hash(단방향 SHA-256) -> api_secret(AES-256-CBC 가역 암호화)
 -- 내용 : 서비스 프로젝트 정보
 -- api_secret (가역 암호화, 단방향 해시 아님)
---  S2S 인증을 HMAC-SHA256 요청 서명 방식으로 확정하면서(docs/06_AUTH_SECURITY.md 2장), 서버가
+--  S2S 인증을 HMAC-SHA256 요청 서명 방식으로 확정하면서(docs/07_AUTH_SECURITY.md 2장), 서버가
 --  서명을 검증하려면 매 요청마다 원문 Secret으로 HMAC을 재계산해야 한다 — 단방향 해시로는
 --  원문을 복원할 수 없어 이 방식 자체가 불가능하므로, phone_number(user 테이블)와 동일하게
 --  AES-256-CBC(Base64, ENCRYPTION_KEY)로 가역 암호화해 저장한다. 평문이 API 응답에 노출되는
@@ -67,7 +67,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- 명칭 : project_api_nonce
 -- 작성 : 2026.07.18 trisakion
 -- 내용 : S2S(게임서버 -> 쿠폰서버) HMAC 요청 서명의 재전송(replay) 방지용 1회성 nonce 저장소.
---        docs/06_AUTH_SECURITY.md 2장 참고 — X-API-Nonce 헤더값을 서명 검증 통과 후 이 테이블에
+--        docs/07_AUTH_SECURITY.md 2장 참고 — X-API-Nonce 헤더값을 서명 검증 통과 후 이 테이블에
 --        (project_id, nonce) 조합으로 INSERT 시도하고, UNIQUE 제약 위반이면 재사용(재전송)으로 판단해
 --        거부한다. INSERT-then-check가 아니라 INSERT 자체의 유니크 제약 위반을 이용하는 것이므로
 --        동시에 같은 nonce로 두 요청이 들어와도 원자적으로 하나만 성공한다(경쟁 상태 없음).
@@ -486,7 +486,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 --  0:성공, 10:코드없음(RESERVE/CONFIRM 공통, API 31005), 20:이미소모/중지(RESERVE, API 33001),
 --  30:캠페인 사용불가(RESERVE, API 33002), 40:사용자한도초과(RESERVE, API 33003),
 --  50:소모기록없음(CONFIRM 전용, reserve 안 된 코드에 confirm, API 31006)
---  API 상세 스펙 및 매핑표: docs/17_COUPON_USAGE_API.md 4장
+--  API 상세 스펙 및 매핑표: docs/18_COUPON_USAGE_API.md 4장
 -- ------------------------------------------------------------------------------------------------------------ --
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `log_coupon_use`;
@@ -497,7 +497,7 @@ CREATE TABLE `log_coupon_use` (
   `coupon_campaign_id`		BIGINT		UNSIGNED				DEFAULT NULL											COMMENT '캠페인 ID (코드 자체가 없는 시도는 특정 불가하여 NULL 허용, FK 없음)',
   `code_value`				VARCHAR(50)				NOT NULL															COMMENT '시도한 쿠폰 코드 문자열 원문 (존재하지 않는 코드도 그대로 기록, FK 아님)',
   `game_user_id`			VARCHAR(100)			NOT NULL															COMMENT '게임서버 유저 식별자 (원문 문자열, FK 없음)',
-  `result_type`				TINYINT		UNSIGNED	NOT NULL															COMMENT '처리 결과 (0:성공, 10:코드없음, 20:이미소모/중지, 30:캠페인 사용불가, 40:사용자한도초과, 50:소모기록없음(CONFIRM 전용)) — API result 코드 매핑은 docs/17_COUPON_USAGE_API.md 4장 참고',
+  `result_type`				TINYINT		UNSIGNED	NOT NULL															COMMENT '처리 결과 (0:성공, 10:코드없음, 20:이미소모/중지, 30:캠페인 사용불가, 40:사용자한도초과, 50:소모기록없음(CONFIRM 전용)) — API result 코드 매핑은 docs/18_COUPON_USAGE_API.md 4장 참고',
   `created_at`				DATETIME				NOT NULL	DEFAULT CURRENT_TIMESTAMP								COMMENT '시도 일시',
   PRIMARY KEY (`idx`),
   KEY `ix_project_created` (`project_id`,`created_at`),

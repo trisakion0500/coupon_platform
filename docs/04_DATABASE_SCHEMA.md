@@ -1,4 +1,4 @@
-# 03_DATABASE_SCHEMA.md
+# 04_DATABASE_SCHEMA.md
 
 ## 개요
 
@@ -38,7 +38,7 @@ Coupon Platform 데이터베이스 스키마 정의 문서
 - `project_code`는 `company_id` 범위 내 UNIQUE (전역 UNIQUE 아님)
 - 논리 삭제(status) 사용
 - `created_by` / `updated_by` 컬럼 없음 (의도적 설계)
-- `api_key` / `api_secret` / `api_secret_prev` / `secret_rotated_at` — 게임서버 → 쿠폰서버 방향 S2S 호출 인증용(HMAC 요청 서명, [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2장 참고)
+- `api_key` / `api_secret` / `api_secret_prev` / `secret_rotated_at` — 게임서버 → 쿠폰서버 방향 S2S 호출 인증용(HMAC 요청 서명, [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2장 참고)
   - `api_secret`: 현재 사용 중인 Secret의 AES-256-CBC 암호화값(Base64) — 단방향 해시가 아니라 가역 암호화다. 서버가 요청마다 서명을 재계산해 대조해야 해서 원문 복원이 필요하기 때문(평문 자체가 DB에 그대로 저장되는 것은 아님)
   - `api_secret_prev`: 재발급 직후 유예기간(grace period) 동안만 유지되는 직전 Secret 암호화값. 유예기간 경과 시 배치로 `NULL` 처리
   - `secret_rotated_at`: 마지막 Secret 재발급 시각 (`NULL`이면 최초 발급 후 미변경)
@@ -92,7 +92,7 @@ Coupon Platform 데이터베이스 스키마 정의 문서
 | 30  | MANAGER     |
 | 40  | OPERATOR    |
 
-권한은 상위(숫자가 작을수록 고권한)가 하위 권한을 모두 포함하는 누적 구조다: `SUPER_ADMIN ⊇ DEVELOPER ⊇ MANAGER ⊇ OPERATOR`. 역할별 상세 권한은 [09_COMPANY_API.md](./09_COMPANY_API.md) 1.2 참고.
+권한은 상위(숫자가 작을수록 고권한)가 하위 권한을 모두 포함하는 누적 구조다: `SUPER_ADMIN ⊇ DEVELOPER ⊇ MANAGER ⊇ OPERATOR`. 역할별 상세 권한은 [10_COMPANY_API.md](./10_COMPANY_API.md) 1.2 참고.
 
 ### 특수 규칙
 
@@ -193,7 +193,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 - **동시성**: 사용자당 한도 체크는 단순 `COUNT` 후 `INSERT`로는 동시 요청 시 한도를 넘길 수 있어, `SELECT COUNT(*) ... WHERE coupon_campaign_id=? AND game_user_id=? FOR UPDATE`로 조회해 `ix_campaign_user` 인덱스 구간에 갭락을 걸어 동시 INSERT를 직렬화한 뒤 판단해야 함
 - 상태 컬럼 없음 — 모든 행이 이미 소모 확정 상태이므로 별도 상태값 불필요(`confirmed_at` nullable 하나로 미컨슘 여부 표현)
 
-상세 흐름/동시성 처리/미컨슘 조회 API는 [05_COUPON_USAGE_SCENARIO.md](./05_COUPON_USAGE_SCENARIO.md) 참고.
+상세 흐름/동시성 처리/미컨슘 조회 API는 [06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md) 참고.
 
 ---
 
@@ -209,7 +209,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 - 물리 수정 및 삭제를 허용하지 않음(Append-Only)
 - `company_id`/`project_id`는 로그 스코핑(조회 필터링)용이며 FK 없음
 - `created_by`도 로그 테이블 원칙상 FK 없음
-- `created_by_name`은 로그 생성 시점 사용자명 스냅샷(향후 DB 분리 대비 `user` 테이블 조인 제거용)
+- `created_by_name`은 로그 생성 시점 사용자명 스냅샷(별도 DB에 있는 로그 테이블에서 `user` 테이블 조인 없이 조회하기 위함 — [02_DEV_CONVENTIONS.md](./02_DEV_CONVENTIONS.md) 1장 참고)
 - `user_session`은 세션 이력 테이블이므로 감사 대상에서 제외
 
 ### 작업 유형
@@ -256,7 +256,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 - `coupon_code_usage`는 성공한 소모 건만 남기지만, 이 테이블은 실패한 시도까지 전부 기록한다(부정사용 탐지: 코드 브루트포스, 한도 우회 시도 등 / 운영 디버깅 목적). RESERVE/CONFIRM 요청 모두 기록 대상
 - `code_value`는 FK가 아님 — 존재하지 않는 코드로 시도한 요청도 그대로 남겨야 브루트포스 탐지가 가능하므로 문자열 원문을 그대로 저장
 - `coupon_campaign_id`는 NULL 허용 — 코드 자체가 존재하지 않는 시도는 캠페인을 특정할 수 없음
-- `result_type`(0:성공, 10:코드없음, 20:이미소모/중지, 30:캠페인 사용불가, 40:사용자한도초과, 50:소모기록없음(CONFIRM 전용))의 API result 코드 매핑은 [17_COUPON_USAGE_API.md](./17_COUPON_USAGE_API.md) 4장 참고
+- `result_type`(0:성공, 10:코드없음, 20:이미소모/중지, 30:캠페인 사용불가, 40:사용자한도초과, 50:소모기록없음(CONFIRM 전용))의 API result 코드 매핑은 [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md) 4장 참고
 - 물리 수정 및 삭제를 허용하지 않음(Append-Only)
 - 전체 컬럼 FK 없음(`project_id`/`coupon_campaign_id`/`code_value` 포함) — 로그 원칙
 
@@ -271,7 +271,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 
 ## 12. project_api_nonce
 
-S2S(게임서버 → 쿠폰서버) HMAC 요청 서명의 재전송(replay) 방지용 1회성 nonce 저장소([06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2장 참고)
+S2S(게임서버 → 쿠폰서버) HMAC 요청 서명의 재전송(replay) 방지용 1회성 nonce 저장소([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2장 참고)
 
 ### 특징
 

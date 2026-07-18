@@ -4,7 +4,7 @@
 -- 수정 : 2026.07.18 trisakion — api_secret_hash(단방향 SHA-256) -> api_secret(AES-256-CBC 가역 암호화)
 -- 내용 : 서비스 프로젝트 정보
 -- api_secret (가역 암호화, 단방향 해시 아님)
---  S2S 인증을 HMAC-SHA256 요청 서명 방식으로 확정하면서(docs/06_AUTH_SECURITY.md 2장), 서버가
+--  S2S 인증을 HMAC-SHA256 요청 서명 방식으로 확정하면서(docs/07_AUTH_SECURITY.md 2장), 서버가
 --  서명을 검증하려면 매 요청마다 원문 Secret으로 HMAC을 재계산해야 한다 — 단방향 해시로는
 --  원문을 복원할 수 없어 이 방식 자체가 불가능하므로, phone_number(user 테이블)와 동일하게
 --  AES-256-CBC(Base64, ENCRYPTION_KEY)로 가역 암호화해 저장한다. 평문이 API 응답에 노출되는

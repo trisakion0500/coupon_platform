@@ -1,4 +1,4 @@
-# 15_LAYOUT.md
+# 16_LAYOUT.md
 
 # 공통 레이아웃 구조
 
@@ -9,7 +9,7 @@
 | 타입        | 적용 Route                  | 사이드바     | 비고                             |
 | ----------- | ---------------------------- | ------------ | -------------------------------- |
 | AuthLayout  | `/login`, `/signup`          | 없음         | 미인증 전용, 공통 Footer만 적용  |
-| MainLayout  | 쿠폰 컨트롤 화면(경로 미정)  | 비관리 메뉴  | 기본 레이아웃                    |
+| MainLayout  | `/campaigns`, `/campaigns/new`, `/campaigns/:coupon_campaign_id` | 비관리 메뉴  | 기본 레이아웃                    |
 | AdminLayout | `/admin/*`                   | 관리 메뉴    | MANAGER/OPERATOR 접근 불가       |
 
 ---
@@ -34,7 +34,7 @@ MainLayout, AdminLayout에서 동일하게 사용한다.
 | [관리] 버튼       | SUPER_ADMIN, DEVELOPER만 노출. 클릭 시 `/admin` 이동                  |
 | 사용자명 드롭다운 | 내 계정(`/my-account`) / 로그아웃                                     |
 
-회사/프로젝트 목록은 [09_COMPANY_API.md](./09_COMPANY_API.md) 3장 `GET /companies/active-header-data`로 로그인 시 1회 로드한다.
+회사/프로젝트 목록은 [10_COMPANY_API.md](./10_COMPANY_API.md) 3장 `GET /companies/active-header-data`로 로그인 시 1회 로드한다.
 
 > **관리 화면 잠금**: `/admin/companies`, `/admin/projects`, `/admin/users`, `/admin/audit-logs`(목록 화면)를 제외한 나머지 관리 화면(등록/상세·수정)에서는 회사·프로젝트 선택 모두 비활성화된다 — 작업 도중 헤더 선택이 바뀌면 상세 내용과 어긋나 보여 혼란을 주기 때문. 관리 메뉴가 아닌 화면(쿠폰 컨트롤 등)은 대상 아님.
 
@@ -59,8 +59,8 @@ MainLayout, AdminLayout에서 동일하게 사용한다.
 │          │                                           │
 │ Sidebar  │ Content                                   │
 │          │                                           │
-│ 쿠폰     │                                           │
-│ 컨트롤   │                                           │
+│ 캠페인   │                                           │
+│ 목록     │                                           │
 │          │                                           │
 ├──────────┴───────────────────────────────────────────┤
 │ Footer                                               │
@@ -69,13 +69,13 @@ MainLayout, AdminLayout에서 동일하게 사용한다.
 
 ## 3.1 Sidebar 메뉴 및 역할별 노출
 
-쿠폰 도메인(캠페인/코드/사용이력) 설계 완료 후 실제 메뉴 항목을 확정한다. 현재 확정된 원칙만 기록한다.
+| 메뉴        | Route         | SUPER_ADMIN | DEVELOPER | MANAGER | OPERATOR |
+| ----------- | ------------- | :---------: | :-------: | :-----: | :------: |
+| 캠페인 목록 | `/campaigns`  | O           | O         | O       | O        |
 
-| 메뉴        | Route     | SUPER_ADMIN | DEVELOPER | MANAGER | OPERATOR |
-| ----------- | --------- | :---------: | :-------: | :-----: | :------: |
-| 쿠폰 컨트롤 | 미정      | O           | O         | O       | O        |
-
-> OPERATOR가 등록하는 항목은 승인요청 상태로 전환되고, SUPER_ADMIN/DEVELOPER/MANAGER가 승인 처리한다([13_MENU_PERMISSION.md](./13_MENU_PERMISSION.md) 3.1 참고). 세부 화면 구성은 [14_SCREEN_LIST.md](./14_SCREEN_LIST.md) SCR-100 참고.
+> OPERATOR가 등록하는 항목은 승인요청 상태로 전환되고, SUPER_ADMIN/DEVELOPER/MANAGER가 승인 처리한다([14_MENU_PERMISSION.md](./14_MENU_PERMISSION.md) 3.1 참고). 세부 화면 구성은 [15_SCREEN_LIST.md](./15_SCREEN_LIST.md) SCR-100~102 참고.
+>
+> **프로젝트 선택 필수**: `GET /campaigns`가 `project_id`를 필수로 받아 "전체 프로젝트" 조회를 지원하지 않으므로([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.2 참고), SUPER_ADMIN이 헤더에서 "전체 프로젝트"를 선택한 상태로 사이드바의 캠페인 목록을 클릭하면 화면 진입 대신 프로젝트 선택을 요구하는 안내(모달 또는 인라인 메시지)를 띄운다. 다른 관리 메뉴(회사/사용자/감사로그)는 회사 단위 스코핑이라 이 제약이 없다 — 프로젝트 단위로 스코핑되는 화면에서만 발생하는 제약이다.
 
 > 내 계정(`/my-account`)은 사이드바가 아니라 헤더 우측 아바타 드롭다운에서 접근한다(§2.1) — 같은 화면으로 가는 진입점을 사이드바에 중복 등록하지 않기 위함.
 
@@ -154,9 +154,11 @@ MainLayout, AdminLayout 하단 공통.
 ```
 /login                        → AuthLayout   (미인증 전용)
 /signup                       → AuthLayout   (미인증 전용)
-/                             → redirect → 쿠폰 컨트롤 홈(경로 미정)
+/                             → redirect → /campaigns
 
-(쿠폰 컨트롤 화면 경로)        → MainLayout   (쿠폰 도메인 설계 후 확정)
+/campaigns                    → MainLayout   (SCR-100 캠페인 목록)
+/campaigns/new                → MainLayout   (SCR-101 캠페인 등록)
+/campaigns/:coupon_campaign_id → MainLayout  (SCR-102 캠페인 상세)
 /my-account                   → MainLayout
 
 /admin                        → AdminLayout  (역할별 첫 메뉴로 redirect)
@@ -179,9 +181,10 @@ MainLayout, AdminLayout 하단 공통.
 | 조건                                          | 처리                                                         |
 | ---------------------------------------------- | -------------------------------------------------------------|
 | 미인증 상태로 인증 필요 Route 접근            | `/login` 리다이렉트                                          |
-| 인증 상태로 `/login`, `/signup` 접근          | 쿠폰 컨트롤 홈으로 리다이렉트                                |
+| 인증 상태로 `/login`, `/signup` 접근          | `/campaigns`로 리다이렉트                                     |
 | MANAGER/OPERATOR가 `/admin/*` 접근            | 403 페이지                                                    |
 | `/admin` 접근 시 역할별 첫 메뉴 redirect      | SUPER_ADMIN → `/admin/companies` / DEVELOPER → `/admin/projects` |
+| `selectedProjectId`가 `null`(전체 프로젝트)인 상태로 `/campaigns*` 접근 | 페이지 진입은 허용하되 목록 대신 프로젝트 선택 안내 표시(3.1 참고) — 하드 리다이렉트가 아니라 화면 내 안내인 이유는 사용자가 헤더에서 바로 프로젝트를 골라 이어서 볼 수 있게 하기 위함 |
 
 ---
 
@@ -204,9 +207,9 @@ MainLayout, AdminLayout 하단 공통.
 | ------------------- | ------------------ | ----------------------------------------------------------------------|
 | selectedCompanyId   | number \| null    | 헤더에서 선택된 회사(null=SUPER_ADMIN의 "전체 회사")                 |
 | selectedProjectId   | number \| null    | 헤더에서 선택된 프로젝트(null=SUPER_ADMIN의 "전체 프로젝트")         |
-| companyList         | ActiveCompany[]   | 회사 목록 캐시(`{company_id, company_name}`, 로그인 시 1회 로드 — [09_COMPANY_API.md](./09_COMPANY_API.md) 3장) |
-| projectList         | ActiveProject[]   | 프로젝트 목록 캐시(`{project_id, project_name, company_id}`, 로그인 시 1회 로드 — [09_COMPANY_API.md](./09_COMPANY_API.md) 3장) |
-| projectRoleCode     | RoleCode \| null  | 선택된 프로젝트에서 호출자의 실제 role_code([10_PROJECT_API.md](./10_PROJECT_API.md) 3.1 `GET /user-roles/me`) |
+| companyList         | ActiveCompany[]   | 회사 목록 캐시(`{company_id, company_name}`, 로그인 시 1회 로드 — [10_COMPANY_API.md](./10_COMPANY_API.md) 3장) |
+| projectList         | ActiveProject[]   | 프로젝트 목록 캐시(`{project_id, project_name, company_id}`, 로그인 시 1회 로드 — [10_COMPANY_API.md](./10_COMPANY_API.md) 3장) |
+| projectRoleCode     | RoleCode \| null  | 선택된 프로젝트에서 호출자의 실제 role_code([11_PROJECT_API.md](./11_PROJECT_API.md) 3.1 `GET /user-roles/me`) |
 
 ---
 
@@ -219,4 +222,4 @@ MainLayout, AdminLayout 하단 공통.
 | PageHeader       | 페이지 제목 + 우측 액션 버튼 영역                                     |
 | DataTable        | Ant Design Table 래퍼 — 페이지네이션/로딩 처리, `ResizeObserver` 기반 동적 높이 산정으로 flex-column 부모 내부에서만 스크롤. 헤더 타이틀은 전역 CSS로 중앙정렬(데이터 셀은 그대로 좌측 정렬) |
 | StatusBadge      | status 값을 색상 뱃지로 표시                                          |
-| ConfirmModal     | 승인/반려/삭제 등 확인 모달                                           |
+| ConfirmModal     | 승인/반려/삭제 등 확인 모달 (예: SCR-102에서 OPERATOR가 활성 캠페인 수정 시 일시중지 경고) |

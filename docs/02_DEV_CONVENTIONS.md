@@ -1,0 +1,77 @@
+# 02_DEV_CONVENTIONS.md
+
+# 개발 컨벤션
+
+실제 코드를 작성할 때 따르는 컨벤션을 모아둔 문서다. 프로젝트 설계 배경/의사결정 과정 같은 협업 방식 규칙은 여기 포함하지 않는다(리포에 커밋되지 않는 로컬 `CLAUDE.md`에서 관리).
+
+---
+
+# 1. 로깅 원칙
+
+`log_audit`/`log_coupon_campaign`/`log_coupon_use` 등 로그 테이블은 **실 운영 환경에서 메인 서비스 DB와 물리적으로 별도인 VM/DB(별도 서비스)에 둔다** — "향후 분리될 수도 있다"는 가능성이 아니라 확정된 전제다. `database/tables/all_tables.sql`에 다른 테이블과 함께 묶여 있는 것은 로컬 개발 편의를 위한 것일 뿐, 실제 배포 시 로그 테이블 DDL은 별도 DB 인스턴스에 적용한다. 과거 로그 적재 문제로 DB 전체가 장애를 겪은 경험 때문에, 로그가 안 쌓이는 상황이 오더라도 메인 트랜잭션(쿠폰 발급/사용 등 핵심 기능)은 절대 실패하면 안 된다.
+
+- 로그 테이블에 FK를 걸지 않는다(물리적으로 분리된 DB는 FK로 묶을 수 없음)
+- 로그 조회에 필요한 참조 정보는 조인 없이 볼 수 있도록 스냅샷 컬럼(예: `created_by_name`)으로 미리 비정규화해둔다
+- **로그 기록은 메인 트랜잭션과 같은 DB 커넥션/트랜잭션에 절대 묶이지 않는다** — 물리적으로 다른 DB라 애초에 같은 트랜잭션으로 묶을 수도 없다(분산 트랜잭션/XA 사용 안 함). 메인 SP가 커밋된 뒤 별도 커넥션으로 로그 기록을 시도하고, 그 시도가 실패해도 메인 트랜잭션을 재시도·롤백시키지 않는다(강한 결합 금지)
+
+---
+
+# 2. 코드 모듈화 원칙
+
+- **두 번 이상 중복되는 코드는 모듈화한다**: 동일하거나 사소한 차이만 있는 로직이 두 곳 이상에서 쓰이게 되면 공통 함수/모듈로 분리한다.
+- **개발 초기에 자주 쓰일 공통 기능은 먼저 모듈화한다**: DB 커넥션(mysql2 풀 획득/해제, SP 호출 래퍼), 공통 응답 포맷(result/data) 빌더, S2S 인증 가드 등 프로젝트 전반에서 반복 호출될 인프라성 기능은 개별 도메인 로직을 만들기 전에 먼저 공통 모듈로 정리해둔다.
+
+---
+
+# 3. Stored Procedure / Function 컨벤션
+
+## 3.1 네이밍
+
+형식: `USP_도메인_동작`(Procedure) / `FN_설명`(Function) — **전부 대문자**로 작성해 Procedure/Function을 접두어로 구분한다.
+
+```text
+USP_CAMPAIGN_CREATE
+USP_CAMPAIGN_UPDATE
+USP_CAMPAIGN_APPROVE
+USP_COUPON_RESERVE
+USP_COUPON_CONFIRM
+
+FN_CHECK_PROJECT_ACCESS
+FN_CHECK_ROLE_LEVEL
+```
+
+- 도메인은 테이블/기능 단위(`CAMPAIGN`, `COUPON`, `USER` 등)
+- 동작은 동사 위주로 짧게(`CREATE`/`UPDATE`/`APPROVE`/`RESERVE` 등)
+- Function은 여러 도메인의 SP에서 공용으로 호출되는 경우가 많아 특정 도메인에 묶이지 않는 서술적 이름(`FN_설명`)을 쓴다
+
+## 3.2 권한 체크는 재사용 가능한 Function으로 분리
+
+SP마다 반복되는 권한/스코핑 체크(예: "SUPER_ADMIN은 전체, 그 외는 `user_role`에 활성 배정된 `project_id`만")는 각 SP에 인라인으로 복붙하지 않고, 별도 Function으로 뽑아 호출한다.
+
+```text
+FN_CHECK_PROJECT_ACCESS(user_id, project_id) RETURNS BOOLEAN
+FN_CHECK_ROLE_LEVEL(user_id, min_role_code) RETURNS BOOLEAN
+```
+
+- 권한 판단 로직이 바뀌면 이 Function들만 수정하면 되고, SP마다 흩어진 동일 로직을 일일이 찾아 고치지 않아도 된다
+- 캠페인/코드/사용이력 API([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 1.2 참고)처럼 여러 엔드포인트가 동일한 스코핑 규칙을 공유하는 경우 특히 중요하다
+
+## 3.3 주석은 철저히
+
+SP/Function 본문에는 **무엇을 하는지(what)뿐 아니라 왜 이렇게 처리하는지(why)**를 반드시 남긴다 — 특히 동시성 처리(조건부 UPDATE/갭락), 검증 순서, 부수효과가 있는 분기는 이유를 적어두지 않으면 나중에 왜 이렇게 짰는지 아무도 모른다. `database/tables/*.sql`의 테이블 DDL들이 이미 이 스타일(헤더 주석에 설계 이유 기록)로 작성돼 있으니, SP/Function 본문에도 동일한 수준으로 적용한다.
+
+---
+
+# 4. 동시성 처리 원칙
+
+**동시성이 필요한 UPDATE는 조건부 갱신(conditional UPDATE)을 우선한다.** 체크 후 쓰기(check-then-act) 대신 WHERE절에 조건을 넣어 원자성을 확보한다(예: `coupon_code`/`coupon_campaign`).
+
+- 개수 기반 한도 체크처럼 조건부 UPDATE로 해결이 안 되는 경우에만 `SELECT ... FOR UPDATE` 갭락을 쓴다
+- UNSIGNED 오버플로 유도 같은 SQL 모드 의존적인 트릭은 쓰지 않는다(strict 모드가 아니면 조용히 값이 깨질 수 있음)
+
+---
+
+# 5. 관련 문서
+
+- DB 접근 정책(mysql2, SP 전용): [01_TECH_STACK.md](./01_TECH_STACK.md)
+- 테이블별 특징/공통 정책: [04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md)

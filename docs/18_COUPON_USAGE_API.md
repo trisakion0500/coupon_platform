@@ -1,4 +1,4 @@
-# 17_COUPON_USAGE_API.md
+# 18_COUPON_USAGE_API.md
 
 # Coupon Platform REST API Specification — Coupon Usage (Reserve / Confirm)
 
@@ -8,13 +8,13 @@
 
 ## 1.1 Response Format
 
-공통 응답 포맷/에러코드는 [07_API_COMMON.md](./07_API_COMMON.md)를 따른다.
+공통 응답 포맷/에러코드는 [08_API_COMMON.md](./08_API_COMMON.md)를 따른다.
 
 ## 1.2 Permission
 
-본 장의 API는 관리 콘솔 사용자가 아니라 **게임서버가 S2S로 호출**한다. `user_role`(SUPER_ADMIN/DEVELOPER/MANAGER/OPERATOR) 체계와 무관하며, 인증은 `project.api_key` + HMAC-SHA256 요청 서명으로 이루어진다([06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2장). `project_id`는 이 인증으로 자동 스코핑되므로 이후 각 API의 요청/쿼리에 `project_id`를 별도로 받지 않는다.
+본 장의 API는 관리 콘솔 사용자가 아니라 **게임서버가 S2S로 호출**한다. `user_role`(SUPER_ADMIN/DEVELOPER/MANAGER/OPERATOR) 체계와 무관하며, 인증은 `project.api_key` + HMAC-SHA256 요청 서명으로 이루어진다([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2장). `project_id`는 이 인증으로 자동 스코핑되므로 이후 각 API의 요청/쿼리에 `project_id`를 별도로 받지 않는다.
 
-모든 요청에 아래 헤더가 필요하다(상세 서명 규칙/검증 순서는 [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2.2~2.5 참고).
+모든 요청에 아래 헤더가 필요하다(상세 서명 규칙/검증 순서는 [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2.2~2.5 참고).
 
 ```text
 X-API-Key
@@ -25,12 +25,12 @@ X-API-Signature
 
 ## 1.3 API 버전
 
-S2S API이므로 [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2.7의 버전 정책이 적용된다. 아래 모든 엔드포인트는 `/v1` 접두어를 붙인다(예: `POST /v1/coupons/{code}/reserve`). [05_COUPON_USAGE_SCENARIO.md](./05_COUPON_USAGE_SCENARIO.md)의 시퀀스 다이어그램은 버전 정책 확정 이전에 그려진 것이라 `/v1` 없이 표기되어 있다 — 실제 스펙은 본 문서 기준을 따른다.
+S2S API이므로 [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2.7의 버전 정책이 적용된다. 아래 모든 엔드포인트는 `/v1` 접두어를 붙인다(예: `POST /v1/coupons/{code}/reserve`). [06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md)의 시퀀스 다이어그램은 버전 정책 확정 이전에 그려진 것이라 `/v1` 없이 표기되어 있다 — 실제 스펙은 본 문서 기준을 따른다.
 
 ## 1.4 코드/사용자 식별
 
-- `{code}` 경로 파라미터 = `coupon_code.code_value`. 조회는 항상 `WHERE project_id=? AND code_value=?`로 스코핑되어 다른 프로젝트 소속 코드는 존재하지 않는 것과 동일하게 처리된다([05_COUPON_USAGE_SCENARIO.md](./05_COUPON_USAGE_SCENARIO.md) 1.2 참고)
-- `game_user_id`는 관리 콘솔 `user`와 무관한 게임서버 자체 유저 식별자다. FK 없이 원문 문자열 그대로 저장한다(길이 제약은 [07_API_COMMON.md](./07_API_COMMON.md) 7장 참고)
+- `{code}` 경로 파라미터 = `coupon_code.code_value`. 조회는 항상 `WHERE project_id=? AND code_value=?`로 스코핑되어 다른 프로젝트 소속 코드는 존재하지 않는 것과 동일하게 처리된다([06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md) 1.2 참고)
+- `game_user_id`는 관리 콘솔 `user`와 무관한 게임서버 자체 유저 식별자다. FK 없이 원문 문자열 그대로 저장한다(길이 제약은 [08_API_COMMON.md](./08_API_COMMON.md) 7장 참고)
 
 ## 1.5 로그 기록
 
@@ -64,7 +64,7 @@ S2S (1.2 참고)
 
 - `game_user_id` 필수, 최대 100자
 
-### Processing (요약 — 상세 흐름/동시성 근거는 [05_COUPON_USAGE_SCENARIO.md](./05_COUPON_USAGE_SCENARIO.md) 2장 참고)
+### Processing (요약 — 상세 흐름/동시성 근거는 [06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md) 2장 참고)
 
 1. `coupon_code` 조회 (`project_id`+`code_value`) — 없으면 31005
 2. `code_type`별 코드 잠금/검증
@@ -143,7 +143,7 @@ S2S (1.2 참고)
 ### Business Rules
 
 - confirm은 `coupon_code`/`coupon_campaign`의 어떤 상태도 바꾸지 않는다 — 소모 확정은 이미 reserve에서 끝났고, confirm은 지급 결과 보고일 뿐이다
-- 재시도로 두 번 이상 호출돼도 무해하므로 별도 락을 걸지 않는다([05_COUPON_USAGE_SCENARIO.md](./05_COUPON_USAGE_SCENARIO.md) 2.2 참고)
+- 재시도로 두 번 이상 호출돼도 무해하므로 별도 락을 걸지 않는다([06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md) 2.2 참고)
 
 ### Response
 
@@ -169,7 +169,7 @@ S2S (1.2 참고)
 
 # 3. Unconfirmed Query API
 
-confirm이 안 온 소모 건을 게임서버가 스스로 조회해 재처리할 수 있도록 제공한다(설계 근거는 [05_COUPON_USAGE_SCENARIO.md](./05_COUPON_USAGE_SCENARIO.md) 3장 참고). 특정유저 조회와 전체유저 조회를 엔드포인트 하나로 통합하고, `game_user_id` 지정 여부로 동작이 갈린다.
+confirm이 안 온 소모 건을 게임서버가 스스로 조회해 재처리할 수 있도록 제공한다(설계 근거는 [06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md) 3장 참고). 특정유저 조회와 전체유저 조회를 엔드포인트 하나로 통합하고, `game_user_id` 지정 여부로 동작이 갈린다.
 
 ## 3.1 Get Unconfirmed Coupon Usages
 
@@ -199,7 +199,7 @@ S2S (1.2 참고)
 ### Business Rules
 
 - 두 모드 모두 실제 쿼리는 `coupon_code_usage.project_id`(비정규화 컬럼) 기준으로 스코핑하고, `confirmed_at IS NULL` 조건은 공통이다
-- `game_user_id`만으로 조회하는 특정유저 모드도 내부적으로 `WHERE project_id=? AND game_user_id=?`로 스코핑해 다른 프로젝트의 동일 `game_user_id` 데이터가 섞이지 않는다([05_COUPON_USAGE_SCENARIO.md](./05_COUPON_USAGE_SCENARIO.md) 3.2 참고)
+- `game_user_id`만으로 조회하는 특정유저 모드도 내부적으로 `WHERE project_id=? AND game_user_id=?`로 스코핑해 다른 프로젝트의 동일 `game_user_id` 데이터가 섞이지 않는다([06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md) 3.2 참고)
 
 ### Response — 특정유저 조회 (`game_user_id` 지정)
 
@@ -222,7 +222,7 @@ S2S (1.2 참고)
 
 ### Response — 전체유저 조회 (`game_user_id` 미지정)
 
-페이지네이션 응답 형식([07_API_COMMON.md](./07_API_COMMON.md) 2장 참고).
+페이지네이션 응답 형식([08_API_COMMON.md](./08_API_COMMON.md) 2장 참고).
 
 ```json
 {
@@ -271,10 +271,10 @@ CONFIRM의 코드없음(31005)은 RESERVE와 원인이 같으므로 `result_type
 
 # 5. 관련 문서
 
-- 쿠폰 사용 흐름/동시성 설계 근거: [05_COUPON_USAGE_SCENARIO.md](./05_COUPON_USAGE_SCENARIO.md)
+- 쿠폰 사용 흐름/동시성 설계 근거: [06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md)
 - 테이블 DDL: `database/tables/coupon_campaign.sql`, `coupon_code.sql`, `coupon_code_usage.sql`, `log_coupon_use.sql`, `project_api_nonce.sql`
-- 공통 응답/에러코드: [07_API_COMMON.md](./07_API_COMMON.md)
-- S2S 인증(HMAC 서명/헤더/재전송 방지): [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2장
+- 공통 응답/에러코드: [08_API_COMMON.md](./08_API_COMMON.md)
+- S2S 인증(HMAC 서명/헤더/재전송 방지): [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2장
 
 본 장의 모든 엔드포인트는 각자의 Errors 표에 없더라도 인증 단계 실패 시 아래 result 코드를 공통으로 반환할 수 있다(2장 참고).
 

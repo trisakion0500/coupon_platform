@@ -1,4 +1,4 @@
-# 05_COUPON_USAGE_SCENARIO.md
+# 06_COUPON_USAGE_SCENARIO.md
 
 ## 개요
 
@@ -214,4 +214,4 @@ created_at            소모(reserve) 확정 일시
 # 5. 관련 문서
 
 - 테이블 DDL: `database/tables/coupon_campaign.sql`, `coupon_code.sql`, `coupon_code_usage.sql`
-- S2S 인증(게임서버 → 쿠폰서버) 정책: [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) — 요청 서명 방식 등 세부는 본 문서의 흐름 확정 후 후속 작업으로 결정 예정(TODO)
+- S2S 인증(게임서버 → 쿠폰서버) 정책: [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) — 요청 서명 방식 등 세부는 본 문서의 흐름 확정 후 후속 작업으로 결정 예정(TODO)

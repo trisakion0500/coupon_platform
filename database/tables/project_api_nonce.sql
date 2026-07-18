@@ -2,7 +2,7 @@
 -- 명칭 : project_api_nonce
 -- 작성 : 2026.07.18 trisakion
 -- 내용 : S2S(게임서버 -> 쿠폰서버) HMAC 요청 서명의 재전송(replay) 방지용 1회성 nonce 저장소.
---        docs/06_AUTH_SECURITY.md 2장 참고 — X-API-Nonce 헤더값을 서명 검증 통과 후 이 테이블에
+--        docs/07_AUTH_SECURITY.md 2장 참고 — X-API-Nonce 헤더값을 서명 검증 통과 후 이 테이블에
 --        (project_id, nonce) 조합으로 INSERT 시도하고, UNIQUE 제약 위반이면 재사용(재전송)으로 판단해
 --        거부한다. INSERT-then-check가 아니라 INSERT 자체의 유니크 제약 위반을 이용하는 것이므로
 --        동시에 같은 nonce로 두 요청이 들어와도 원자적으로 하나만 성공한다(경쟁 상태 없음).

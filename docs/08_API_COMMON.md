@@ -1,4 +1,4 @@
-# 07_API_COMMON.md
+# 08_API_COMMON.md
 
 ## 개요
 
@@ -10,7 +10,7 @@
 관리 콘솔 Frontend ↔ Coupon Platform API
 ```
 
-게임서버 ↔ Coupon Platform 간 S2S 호출 규약은 [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2장을 따른다. 사용자 인증(토큰/세션) 정책은 [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 1장에 정의되어 있으며, 본 문서에서는 반복하지 않는다.
+게임서버 ↔ Coupon Platform 간 S2S 호출 규약은 [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2장을 따른다. 사용자 인증(토큰/세션) 정책은 [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 1장에 정의되어 있으며, 본 문서에서는 반복하지 않는다.
 
 ---
 
@@ -139,6 +139,7 @@ Coupon Platform API는 HTTP Status Code와 Result Code를 함께 사용한다. �
 | GET /log-audits   | 감사 로그 목록 |
 | GET /campaigns    | 캠페인 목록 |
 | GET /campaigns/{id}/codes | 쿠폰 코드 목록 |
+| GET /campaigns/{id}/usages | 쿠폰 사용 이력(관리 콘솔 조회) |
 | GET /coupons/unconfirmed (`game_user_id` 미지정, 전체유저 조회) | 미컨슘 쿠폰 사용 기록 목록 |
 
 ## 2.2 미적용 대상 (전체 로드)
@@ -221,13 +222,13 @@ script-src-attr 'none'; style-src 'self' https: 'unsafe-inline'; upgrade-insecur
 
 ## 5.3 Rate Limiting 정책
 
-세부 정책은 [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 1.4 참고.
+세부 정책은 [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 1.4 참고.
 
 알고리즘은 Fixed Window Counter를 사용한다(`express-rate-limit` 동일 계열 라이브러리 기준). 윈도우 경계에서 최대 `max`의 2배까지 통과하는 경계 버스트가 이론상 가능하지만, 초 단위로 정밀하게 막아야 하는 시나리오가 아니라 로그인 브루트포스 방지 목적으로는 충분해 슬라이딩 윈도우 등 별도 라이브러리는 채택하지 않는다.
 
 ## 5.4 세션 정리(Session Cleanup) 정책
 
-세부 정책은 [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 1.3 참고.
+세부 정책은 [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 1.3 참고.
 
 서버 기동 시 `node-cron` 계열로 크론 잡을 등록하고, 만료 세션을 정리하는 Stored Procedure를 호출해 대상 행을 DELETE한다. `expired_at`은 로그인 시점에 `JWT_REFRESH_EXPIRES_IN`만큼 더한 절대 시각으로 이미 저장돼 있어, 정리 로직은 만료 기간 값 자체를 알 필요 없이 `NOW()`와 비교만 하면 된다 — `JWT_REFRESH_EXPIRES_IN`을 바꿔도 정리 로직 수정은 불필요하다. `status=1`(활성)이면서 아직 만료되지 않은 세션은 조건에 걸리지 않아 삭제되지 않는다.
 
@@ -364,4 +365,4 @@ Anonymous (인증 불필요)
 | 50000 | 시스템 오류(서버 내부 오류) |
 | 50001 | 데이터베이스 오류(SP 내부 오류) |
 
-캠페인/코드 발급 관련 오류 코드는 위 표에 반영 완료([16_CAMPAIGN_API.md](./16_CAMPAIGN_API.md) 참고). 쿠폰 사용(reserve/confirm) 관련 오류 코드도 위 표에 반영 완료([17_COUPON_USAGE_API.md](./17_COUPON_USAGE_API.md) 참고). S2S 인증(HMAC 서명 검증) 실패 코드(`10010`~`10015`)도 위 표에 반영 완료([06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md) 2장 참고).
+캠페인/코드 발급 관련 오류 코드는 위 표에 반영 완료([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 참고). 쿠폰 사용(reserve/confirm) 관련 오류 코드도 위 표에 반영 완료([18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md) 참고). S2S 인증(HMAC 서명 검증) 실패 코드(`10010`~`10015`)도 위 표에 반영 완료([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2장 참고).

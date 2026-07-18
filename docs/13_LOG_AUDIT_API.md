@@ -1,4 +1,4 @@
-# 12_LOG_AUDIT_API.md
+# 13_LOG_AUDIT_API.md
 
 # Coupon Platform REST API Specification — Audit Log
 
@@ -10,7 +10,7 @@
 
 감사 로그는 관리 콘솔 데이터 변경 이력을 추적하기 위한 Append-Only 데이터이며, 시스템에 의해 자동 생성된다. 사용자는 감사 로그를 조회할 수만 있으며 직접 생성/수정/삭제할 수 없다.
 
-공통 응답 포맷/에러코드는 [07_API_COMMON.md](./07_API_COMMON.md)를 따른다. Role 정의는 [09_COMPANY_API.md](./09_COMPANY_API.md) 1.2를 따른다.
+공통 응답 포맷/에러코드는 [08_API_COMMON.md](./08_API_COMMON.md)를 따른다. Role 정의는 [10_COMPANY_API.md](./10_COMPANY_API.md) 1.2를 따른다.
 
 ---
 
@@ -18,7 +18,7 @@
 
 ## 2.1 감사 대상 테이블
 
-감사 로그 생성 대상([03_DATABASE_SCHEMA.md](./03_DATABASE_SCHEMA.md) 9장 참고)
+감사 로그 생성 대상([04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md) 9장 참고)
 
 ```text
 company
@@ -34,7 +34,7 @@ user_session (세션 이력 테이블이므로 제외)
 log_audit (자기 자신, Append-Only 원칙)
 ```
 
-쿠폰 도메인(캠페인/코드 등) 테이블은 설계 완료 후 자체 이벤트 로그로 별도 관리하며, 본 감사 로그 대상에는 포함하지 않는다([03_DATABASE_SCHEMA.md](./03_DATABASE_SCHEMA.md) 9장 참고).
+쿠폰 도메인(캠페인/코드 등) 테이블은 설계 완료 후 자체 이벤트 로그로 별도 관리하며, 본 감사 로그 대상에는 포함하지 않는다([04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md) 9장 참고).
 
 ## 2.2 작업 유형(Action Type)
 
@@ -77,7 +77,7 @@ after_json = 상태 변경 후 전체 Row
 | ---------- | ------------- | ------- |
 | user       | password_hash | `"***"` |
 
-`PATCH /auth/password`([08_AUTH_API.md](./08_AUTH_API.md) 9장), `POST /users/{user_id}/reset-password`([11_USER_API.md](./11_USER_API.md) 1.7) 호출 시 `user` 테이블 UPDATE 감사 로그가 생성되며, 이때 `password_hash`는 마스킹된다.
+`PATCH /auth/password`([09_AUTH_API.md](./09_AUTH_API.md) 9장), `POST /users/{user_id}/reset-password`([12_USER_API.md](./12_USER_API.md) 1.7) 호출 시 `user` 테이블 UPDATE 감사 로그가 생성되며, 이때 `password_hash`는 마스킹된다.
 
 ## 2.5 수정 및 삭제 정책
 
@@ -94,7 +94,7 @@ after_json = 상태 변경 후 전체 Row
 | MANAGER   | 조회 불가                      |
 | OPERATOR  | 조회 불가                      |
 
-MANAGER/OPERATOR는 회사/프로젝트/사용자 관리메뉴 자체에 접근 권한이 없으므로([09_COMPANY_API.md](./09_COMPANY_API.md) 1.2 참고) 그 변경 이력인 감사 로그도 조회 대상이 아니다.
+MANAGER/OPERATOR는 회사/프로젝트/사용자 관리메뉴 자체에 접근 권한이 없으므로([10_COMPANY_API.md](./10_COMPANY_API.md) 1.2 참고) 그 변경 이력인 감사 로그도 조회 대상이 아니다.
 
 ---
 

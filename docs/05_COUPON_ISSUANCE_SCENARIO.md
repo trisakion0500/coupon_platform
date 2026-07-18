@@ -1,8 +1,8 @@
-# 04_COUPON_ISSUANCE_SCENARIO.md
+# 05_COUPON_ISSUANCE_SCENARIO.md
 
 ## 개요
 
-본 문서는 관리자가 쿠폰 캠페인을 만들고 실제 쿠폰 코드를 발급하는 흐름(캠페인 생성 → 코드 발급 → 생성 실패 시 재시도)을 정리한다. API 엔드포인트/result 코드 등 상세 스펙이 아니라 **흐름 자체의 설계 근거**를 다룬다 — 상세 API 스펙은 [16_CAMPAIGN_API.md](./16_CAMPAIGN_API.md)에서 정리한다.
+본 문서는 관리자가 쿠폰 캠페인을 만들고 실제 쿠폰 코드를 발급하는 흐름(캠페인 생성 → 코드 발급 → 생성 실패 시 재시도)을 정리한다. API 엔드포인트/result 코드 등 상세 스펙이 아니라 **흐름 자체의 설계 근거**를 다룬다 — 상세 API 스펙은 [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md)에서 정리한다.
 
 관련 테이블: `database/tables/coupon_campaign.sql`, `coupon_code.sql`
 
@@ -19,7 +19,7 @@ POST /campaigns/{id}/codes   코드 발급(RANDOM 대량생성 또는 FIXED 단�
 
 RANDOM 대량생성은 수천~수만 건을 만들 수 있어 시간이 걸리고 실패 가능성도 있다. 캠페인 생성 요청 안에 이 처리까지 묶으면 캠페인 생성 자체가 타임아웃/부분실패 위험을 떠안게 된다. 분리하면 캠페인은 항상 즉시·단순하게 생성되고, 코드 발급은 독립적으로 재시도·모니터링할 수 있다. `coupon_campaign.requested_qty`(목표)/`generated_qty`(실제) 컬럼이 이미 "코드 발급 전 캠페인"이라는 상태를 표현할 수 있게 설계돼 있었다는 점도 이 분리와 자연스럽게 맞는다.
 
-캠페인 승인 워크플로우(`approval_status`)는 코드 발급과 독립적으로 동작한다 — 승인 여부와 무관하게 코드는 미리 만들어 둘 수 있으며, `coupon_campaign.status`가 활성(2)으로 전환되는 시점에만 승인 여부(`approval_status IN (1,3)`)를 체크한다(자세한 내용은 `coupon_campaign.sql` 헤더 주석, `03_DATABASE_SCHEMA.md` 참고).
+캠페인 승인 워크플로우(`approval_status`)는 코드 발급과 독립적으로 동작한다 — 승인 여부와 무관하게 코드는 미리 만들어 둘 수 있으며, `coupon_campaign.status`가 활성(2)으로 전환되는 시점에만 승인 여부(`approval_status IN (1,3)`)를 체크한다(자세한 내용은 `coupon_campaign.sql` 헤더 주석, `04_DATABASE_SCHEMA.md` 참고).
 
 ---
 
@@ -90,7 +90,7 @@ flowchart TD
 
 ## 2.2 안정성 — 코드 생성 실패 처리
 
-RANDOM 대량생성 전용이다. FIXED는 코드 1건을 동기로 즉시 INSERT 시도하는 것뿐이라 아래 backoff 재시도/`generation_status=4`(실패) 전이 대상이 아니다 — 실패(코드값 중복)하면 `generation_status`를 `1`(대기)로 그대로 둔 채 즉시 오류 응답하고, 관리자가 다른 값으로 [16_CAMPAIGN_API.md](./16_CAMPAIGN_API.md) 3.1을 다시 호출하면 된다.
+RANDOM 대량생성 전용이다. FIXED는 코드 1건을 동기로 즉시 INSERT 시도하는 것뿐이라 아래 backoff 재시도/`generation_status=4`(실패) 전이 대상이 아니다 — 실패(코드값 중복)하면 `generation_status`를 `1`(대기)로 그대로 둔 채 즉시 오류 응답하고, 관리자가 다른 값으로 [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 3.1을 다시 호출하면 된다.
 
 | 실패 유형 | 원인 | 처리 |
 |-----------|------|------|
@@ -121,7 +121,7 @@ POST /campaigns/{id}/codes/retry
 
 - 테이블 DDL: `database/tables/coupon_campaign.sql`, `coupon_code.sql`
 - 재시도 알고리즘 참고: exponential backoff + jitter, 재시도 가능 에러 판별, 재시도 소진 시 예외 처리 패턴
-- 쿠폰 사용(reserve/confirm) 흐름: [05_COUPON_USAGE_SCENARIO.md](./05_COUPON_USAGE_SCENARIO.md)
-- S2S 인증 정책: [06_AUTH_SECURITY.md](./06_AUTH_SECURITY.md)
+- 쿠폰 사용(reserve/confirm) 흐름: [06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md)
+- S2S 인증 정책: [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md)
 
-상세 요청/응답 스키마, result 코드, FIXED 코드 검증 규칙, 캠페인 승인/반려 API 스펙은 [16_CAMPAIGN_API.md](./16_CAMPAIGN_API.md)에서 확정했다.
+상세 요청/응답 스키마, result 코드, FIXED 코드 검증 규칙, 캠페인 승인/반려 API 스펙은 [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md)에서 확정했다.

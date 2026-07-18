@@ -33,42 +33,39 @@ docs/               ERD, 스키마, API 명세, 화면/레이아웃 설계 문�
 
 기본 도메인(company/project/user/user_role/user_session), 쿠폰 도메인(coupon_campaign/coupon_code/coupon_code_usage), 로그(log_audit/log_coupon_campaign/log_coupon_use), 인증 인프라(project_api_nonce) 총 12개 테이블로 구성되어 있습니다.
 
-- ERD: [`docs/02_ERD.md`](docs/02_ERD.md)
-- 테이블별 상세 설계: [`docs/03_DATABASE_SCHEMA.md`](docs/03_DATABASE_SCHEMA.md)
-- 캠페인/코드 발급 시나리오: [`docs/04_COUPON_ISSUANCE_SCENARIO.md`](docs/04_COUPON_ISSUANCE_SCENARIO.md)
-- 쿠폰 사용(reserve/confirm) 시나리오: [`docs/05_COUPON_USAGE_SCENARIO.md`](docs/05_COUPON_USAGE_SCENARIO.md)
+- ERD: [`docs/03_ERD.md`](docs/03_ERD.md)
+- 테이블별 상세 설계: [`docs/04_DATABASE_SCHEMA.md`](docs/04_DATABASE_SCHEMA.md)
+- 캠페인/코드 발급 시나리오: [`docs/05_COUPON_ISSUANCE_SCENARIO.md`](docs/05_COUPON_ISSUANCE_SCENARIO.md)
+- 쿠폰 사용(reserve/confirm) 시나리오: [`docs/06_COUPON_USAGE_SCENARIO.md`](docs/06_COUPON_USAGE_SCENARIO.md)
 
 ## 문서 목록
 
 | 번호 | 문서 | 내용 |
 | ---- | ---- | ---- |
 | 01 | [TECH_STACK](docs/01_TECH_STACK.md) | 기술 스택, 환경변수 |
-| 02 | [ERD](docs/02_ERD.md) | 전체 테이블 ERD, 비정규화 FK, 상태코드 요약 |
-| 03 | [DATABASE_SCHEMA](docs/03_DATABASE_SCHEMA.md) | 테이블별 특징/상태/특수규칙 |
-| 04 | [COUPON_ISSUANCE_SCENARIO](docs/04_COUPON_ISSUANCE_SCENARIO.md) | 캠페인/코드 발급 흐름, 비동기 생성, 재시도 처리 |
-| 05 | [COUPON_USAGE_SCENARIO](docs/05_COUPON_USAGE_SCENARIO.md) | 쿠폰 사용 흐름, 동시성 처리 |
-| 06 | [AUTH_SECURITY](docs/06_AUTH_SECURITY.md) | 사용자 인증, S2S 인증 정책 |
-| 07 | [API_COMMON](docs/07_API_COMMON.md) | 응답포맷/에러코드/페이지네이션 |
-| 08 | [AUTH_API](docs/08_AUTH_API.md) | 회원가입/로그인/로그아웃 등 |
-| 09 | [COMPANY_API](docs/09_COMPANY_API.md) | 회사 CRUD |
-| 10 | [PROJECT_API](docs/10_PROJECT_API.md) | 프로젝트 CRUD, Secret 발급/재발급 |
-| 11 | [USER_API](docs/11_USER_API.md) | 사용자 승인/반려/권한 배정 |
-| 12 | [LOG_AUDIT_API](docs/12_LOG_AUDIT_API.md) | 감사로그 조회 |
-| 13 | [MENU_PERMISSION](docs/13_MENU_PERMISSION.md) | 역할별 메뉴 접근 권한 |
-| 14 | [SCREEN_LIST](docs/14_SCREEN_LIST.md) | 화면 목록 및 연관 API |
-| 15 | [LAYOUT](docs/15_LAYOUT.md) | 레이아웃, 라우트, 공통 컴포넌트 |
-| 16 | [CAMPAIGN_API](docs/16_CAMPAIGN_API.md) | 캠페인 CRUD, 상태변경, 승인/반려, 코드 발급(RANDOM 비동기/FIXED 동기) |
-| 17 | [COUPON_USAGE_API](docs/17_COUPON_USAGE_API.md) | 쿠폰 사용 reserve/confirm, 미컨슘 조회 |
+| 02 | [DEV_CONVENTIONS](docs/02_DEV_CONVENTIONS.md) | 로깅 원칙, 코드 모듈화 기준, SP 네이밍, 동시성 처리 컨벤션 |
+| 03 | [ERD](docs/03_ERD.md) | 전체 테이블 ERD, 비정규화 FK, 상태코드 요약 |
+| 04 | [DATABASE_SCHEMA](docs/04_DATABASE_SCHEMA.md) | 테이블별 특징/상태/특수규칙 |
+| 05 | [COUPON_ISSUANCE_SCENARIO](docs/05_COUPON_ISSUANCE_SCENARIO.md) | 캠페인/코드 발급 흐름, 비동기 생성, 재시도 처리 |
+| 06 | [COUPON_USAGE_SCENARIO](docs/06_COUPON_USAGE_SCENARIO.md) | 쿠폰 사용 흐름, 동시성 처리 |
+| 07 | [AUTH_SECURITY](docs/07_AUTH_SECURITY.md) | 사용자 인증, S2S 인증 정책 |
+| 08 | [API_COMMON](docs/08_API_COMMON.md) | 응답포맷/에러코드/페이지네이션 |
+| 09 | [AUTH_API](docs/09_AUTH_API.md) | 회원가입/로그인/로그아웃 등 |
+| 10 | [COMPANY_API](docs/10_COMPANY_API.md) | 회사 CRUD |
+| 11 | [PROJECT_API](docs/11_PROJECT_API.md) | 프로젝트 CRUD, Secret 발급/재발급 |
+| 12 | [USER_API](docs/12_USER_API.md) | 사용자 승인/반려/권한 배정 |
+| 13 | [LOG_AUDIT_API](docs/13_LOG_AUDIT_API.md) | 감사로그 조회 |
+| 14 | [MENU_PERMISSION](docs/14_MENU_PERMISSION.md) | 역할별 메뉴 접근 권한 |
+| 15 | [SCREEN_LIST](docs/15_SCREEN_LIST.md) | 화면 목록 및 연관 API |
+| 16 | [LAYOUT](docs/16_LAYOUT.md) | 레이아웃, 라우트, 공통 컴포넌트 |
+| 17 | [CAMPAIGN_API](docs/17_CAMPAIGN_API.md) | 캠페인 CRUD, 상태변경, 승인/반려, 코드 발급(RANDOM 비동기/FIXED 동기) |
+| 18 | [COUPON_USAGE_API](docs/18_COUPON_USAGE_API.md) | 쿠폰 사용 reserve/confirm, 미컨슘 조회 |
 
 ## 현재 진행 상황
 
-DB 설계(테이블 12개) 및 관련 문서가 완료된 상태이며, 다음 작업이 남아 있습니다.
-
-- 쿠폰 컨트롤 화면 및 관련 메뉴/레이아웃 세부
-
-백엔드/프론트엔드 구현은 아직 시작 전입니다.
+DB 설계(테이블 12개)와 관련 문서(01~18)가 모두 완료된 상태입니다. 백엔드/프론트엔드 구현은 아직 시작 전입니다.
 
 ### 향후 개선사항 (우선순위 낮음, 별도 검토 필요)
 
 - 쿠폰 사용(reserve/confirm) API 레이트리미터 — 프로젝트 단위(인프라 보호) + 프로젝트·유저 단위(오남용 방지) 이중 적용 검토. 카운터 저장소를 어디에 둘지(Redis 도입 여부 vs MySQL 카운터의 핫패스 쓰기 비용)가 선행 결정 필요해 별도 논의로 분리
-- **Redis 도입 시 함께 이관할 대상**: 위 레이트리미터 카운터 + `project_api_nonce`(S2S nonce, TTL 자연만료로 정리 배치 자체가 불필요해짐) + `user_session`(TTL 자연만료로 `SESSION_CLEANUP_CRON` 불필요해짐 — `user_session.user_id`에 FK를 안 건 것도 애초에 이 전환을 대비한 설계, `03_DATABASE_SCHEMA.md` 참고). 셋 다 "짧은 TTL + 잦은 쓰기"라는 동일한 패턴이라 Redis 도입은 한 번에 세 가지를 같이 검토하는 게 맞음
+- **Redis 도입 시 함께 이관할 대상**: 위 레이트리미터 카운터 + `project_api_nonce`(S2S nonce, TTL 자연만료로 정리 배치 자체가 불필요해짐) + `user_session`(TTL 자연만료로 `SESSION_CLEANUP_CRON` 불필요해짐 — `user_session.user_id`에 FK를 안 건 것도 애초에 이 전환을 대비한 설계, `04_DATABASE_SCHEMA.md` 참고). 셋 다 "짧은 TTL + 잦은 쓰기"라는 동일한 패턴이라 Redis 도입은 한 번에 세 가지를 같이 검토하는 게 맞음
