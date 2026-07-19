@@ -107,6 +107,8 @@ describe('ProjectService', () => {
         null,
         20,
         0,
+        developer.userId,
+        developer.roleCode,
       ]);
     });
 
@@ -120,6 +122,8 @@ describe('ProjectService', () => {
         null,
         20,
         0,
+        superAdmin.userId,
+        superAdmin.roleCode,
       ]);
     });
 
@@ -137,6 +141,13 @@ describe('ProjectService', () => {
         total_count: 1,
         items: [projectRow],
       });
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects the company scope (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(
+        service.list({ page: 1, page_size: 20 }, developer),
+      ).rejects.toMatchObject({ resultCode: ResultCode.PERMISSION_DENIED });
     });
   });
 
@@ -175,6 +186,13 @@ describe('ProjectService', () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31002 });
       await expect(service.getById(999, superAdmin)).rejects.toMatchObject({
         resultCode: ResultCode.PROJECT_NOT_FOUND,
+      });
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects the company scope (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(service.getById(10, developer)).rejects.toMatchObject({
+        resultCode: ResultCode.PERMISSION_DENIED,
       });
     });
   });

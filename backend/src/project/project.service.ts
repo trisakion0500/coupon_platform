@@ -127,8 +127,13 @@ export class ProjectService {
       query.status ?? null,
       query.page_size,
       offset,
+      requester.userId,
+      requester.roleCode,
     ]);
 
+    if (result === 20001) {
+      throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
     if (result !== 0) {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
@@ -159,14 +164,19 @@ export class ProjectService {
   ): Promise<ProjectRow> {
     const { result, data } = await this.spExecutor.callProcedure<ProjectRow[]>(
       'SP_PROJECT_GET_BY_ID',
-      [projectId],
+      [projectId, requester.userId, requester.roleCode],
     );
 
+    if (result === 20001) {
+      throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
     if (result !== 0 || !data?.[0]) {
       throw new BusinessException(ResultCode.PROJECT_NOT_FOUND);
     }
 
     const project = data[0];
+    // SP가 이미 회사 접근을 재검증하지만(FN_CHECK_COMPANY_ACCESS), 앱 레이어에서도 동일한
+    // 판단을 한 번 더 확인한다 — 방어적 이중 체크(02_DEV_CONVENTIONS.md 3.2).
     if (
       requester.roleCode !== RoleCode.SUPER_ADMIN &&
       project.company_id !== requester.companyId

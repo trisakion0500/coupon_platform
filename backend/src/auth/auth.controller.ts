@@ -57,7 +57,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   getMe(@Req() req: AuthenticatedRequest) {
-    return this.authService.getMe(req.user!.userId);
+    return this.authService.getMe(req.user!.userId, req.user!.roleCode);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -67,7 +67,11 @@ export class AuthController {
     @Req() req: AuthenticatedRequest,
     @Body() dto: ChangePasswordDto,
   ): Promise<Record<string, never>> {
-    await this.authService.changePassword(req.user!.userId, dto);
+    await this.authService.changePassword(
+      req.user!.userId,
+      req.user!.roleCode,
+      dto,
+    );
     return {};
   }
 }

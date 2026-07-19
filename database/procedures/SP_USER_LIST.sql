@@ -1,11 +1,13 @@
 DROP PROCEDURE IF EXISTS `SP_USER_LIST`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_LIST` (
-    IN i_company_id BIGINT UNSIGNED,  -- 회사 ID 필터 (NULL이면 전체 - SUPER_ADMIN 전용, DEVELOPER는 서비스가 항상 자기 회사로 고정)
-    IN i_status     TINYINT UNSIGNED, -- 상태 필터 (NULL이면 전체)
-    IN i_limit      INT,              -- 페이지당 행 수
-    IN i_offset     INT               -- 시작 오프셋
-) COMMENT '사용자 목록 조회 - status ASC 정렬 (12_USER_API.md 1.1/1.2)'
+    IN i_company_id        BIGINT UNSIGNED,  -- 회사 ID 필터 (NULL이면 전체 - SUPER_ADMIN 전용, DEVELOPER는 서비스가 항상 자기 회사로 고정)
+    IN i_status            TINYINT UNSIGNED, -- 상태 필터 (NULL이면 전체)
+    IN i_limit             INT,              -- 페이지당 행 수
+    IN i_offset            INT,              -- 시작 오프셋
+    IN i_requester_user_id BIGINT UNSIGNED,  -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+    IN i_requester_role    TINYINT UNSIGNED  -- 호출자 role_code (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '사용자 목록 조회 - status ASC 정렬, 회사 접근 재검증 (12_USER_API.md 1.1/1.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_LIST
@@ -16,6 +18,10 @@ BEGIN
     --        하는 화면 요구사항이 있어 status ASC로 정렬한다(12_USER_API.md 1.1 Sorting, 다른
     --        도메인과 다른 정렬 방향이라는 점을 주석으로 명시).
     --        password_hash는 반환 컬럼에서 제외한다 — 목록/상세 어디서도 앱으로 내보낼 이유가 없다.
+    --        DEVELOPER의 회사 단위 스코핑은 앱 레이어(UserService)가 i_company_id에 항상 자기
+    --        companyId를 채워 호출하는 방식으로 1차 강제하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로
+    --        호출자가 실제 그 회사 소속인지 2차로 재검증한다(방어적 이중 체크,
+    --        02_DEV_CONVENTIONS.md 3.2). role_code=10(SUPER_ADMIN)이면 재검증을 건너뛴다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -28,17 +34,25 @@ BEGIN
         SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
     END;
 
-    SELECT 0 AS RESULT;
-    SELECT
-        `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
-        `phone_number`, `department`, `position`, `status`, `last_login_at`,
-        `created_at`, `updated_at`,
-        COUNT(*) OVER() AS total_count
-    FROM `user`
-    WHERE (i_company_id IS NULL OR `company_id` = i_company_id)
-      AND (i_status IS NULL OR `status` = i_status)
-    ORDER BY `status` ASC, `user_name` ASC
-    LIMIT i_limit OFFSET i_offset;
+    proc_block: BEGIN
+        IF i_requester_role <> 10
+           AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, i_company_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
+            `phone_number`, `department`, `position`, `status`, `last_login_at`,
+            `created_at`, `updated_at`,
+            COUNT(*) OVER() AS total_count
+        FROM `user`
+        WHERE (i_company_id IS NULL OR `company_id` = i_company_id)
+          AND (i_status IS NULL OR `status` = i_status)
+        ORDER BY `status` ASC, `user_name` ASC
+        LIMIT i_limit OFFSET i_offset;
+    END proc_block;
 END$$
 
 DELIMITER ;

@@ -1,20 +1,31 @@
 DROP PROCEDURE IF EXISTS `SP_USER_GET_BY_ID`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_GET_BY_ID` (
-    IN i_user_id BIGINT UNSIGNED  -- 조회할 사용자 ID
-) COMMENT 'user_id로 전체 컬럼 조회 - GET /auth/me, 비밀번호 변경 시 현재 해시 조회 공용'
+    IN i_user_id           BIGINT UNSIGNED,  -- 조회할 사용자 ID
+    IN i_requester_user_id BIGINT UNSIGNED,  -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+    IN i_requester_role    TINYINT UNSIGNED  -- 호출자 role_code (JWT 페이로드 값 그대로 신뢰)
+) COMMENT 'user_id로 전체 컬럼 조회, 회사 접근 재검증 - GET /auth/me, 비밀번호 변경 시 현재 해시 조회, 관리자 상세조회 공용'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_GET_BY_ID
     -- 작성 : 2026.07.19 trisakion
-    -- 내용 : GET /auth/me와 PATCH /auth/password(현재 비밀번호 검증용 해시 조회) 양쪽에서
-    --        공용으로 쓰는 조회 SP. password_hash를 포함해 전체 컬럼을 그대로 반환하며,
-    --        API 응답에 어떤 필드를 노출할지(예: password_hash 제외, phone_number 복호화)는
-    --        서비스 레이어가 결정한다 — SP는 원본 데이터만 돌려준다.
+    -- 내용 : GET /auth/me, PATCH /auth/password(현재 비밀번호 검증용 해시 조회), 관리자용
+    --        GET /users/{user_id}(12_USER_API.md 1.3) 세 곳에서 공용으로 쓰는 조회 SP.
+    --        password_hash를 포함해 전체 컬럼을 그대로 반환하며, API 응답에 어떤 필드를 노출할지
+    --        (예: password_hash 제외, phone_number 복호화)는 서비스 레이어가 결정한다.
+    --        i_requester_user_id/i_requester_role은 자기 정보 조회(auth.service.ts)에서는 항상
+    --        i_user_id와 동일한 값이 들어와 FN_CHECK_COMPANY_ACCESS가 자기 자신의 company_id와
+    --        비교하게 되므로 결과적으로 항상 통과한다 - 자기 정보는 role과 무관하게 항상 볼 수
+    --        있어야 하므로 이는 의도된 동작이다. 관리자 조회(user.service.ts)에서는 실제 호출자와
+    --        다른 대상 user_id가 들어와, DEVELOPER가 타사 사용자를 조회하면 20001로 차단한다
+    --        (12_USER_API.md 1.3, 앱 레이어의 1차 체크를 SP가 2차로 재검증 -
+    --        02_DEV_CONVENTIONS.md 3.2). 존재 확인(31003)이 접근 재검증보다 먼저다 - 없는
+    --        리소스는 권한 여부와 무관하게 항상 404가 맞다. role_code=10이면 재검증을 건너뛴다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_company_id  BIGINT UNSIGNED DEFAULT NULL;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -24,8 +35,16 @@ BEGIN
     END;
 
     proc_block: BEGIN
-        IF NOT EXISTS (SELECT 1 FROM `user` WHERE `user_id` = i_user_id) THEN
+        SELECT `company_id` INTO v_company_id FROM `user` WHERE `user_id` = i_user_id;
+
+        IF v_company_id IS NULL THEN
             SELECT 31003 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF i_requester_role <> 10
+           AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, v_company_id) THEN
+            SELECT 20001 AS RESULT;
             LEAVE proc_block;
         END IF;
 

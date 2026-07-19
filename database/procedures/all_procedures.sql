@@ -650,20 +650,26 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_PROJECT_GET_BY_ID`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_GET_BY_ID` (
-    IN i_project_id BIGINT UNSIGNED  -- 조회할 프로젝트 ID
-) COMMENT '프로젝트 상세 조회 - company 조인 (11_PROJECT_API.md 2.3)'
+    IN i_project_id        BIGINT UNSIGNED,  -- 조회할 프로젝트 ID
+    IN i_requester_user_id BIGINT UNSIGNED,  -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+    IN i_requester_role    TINYINT UNSIGNED  -- 호출자 role_code (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '프로젝트 상세 조회 - company 조인, 회사 접근 재검증 (11_PROJECT_API.md 2.3)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_GET_BY_ID
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : project_id로 프로젝트 상세를 조회한다. company_code/company_name을 함께 반환하기
     --        위해 company를 조인한다. 없으면 31002. DEVELOPER의 타사 프로젝트 접근 차단(20001)은
-    --        여기서 판단하지 않는다 — 앱 레이어(ProjectService)가 조회 결과의 company_id를
-    --        요청자의 companyId와 비교해 판단한다(이 SP는 SUPER_ADMIN/DEVELOPER 구분을 모른다).
+    --        앱 레이어(ProjectService)가 조회 결과의 company_id를 요청자의 companyId와 비교해
+    --        1차로 판단하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로 호출자가 실제 그 프로젝트의 회사
+    --        소속인지 2차로 재검증한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2). 존재 확인이
+    --        먼저이고(31002), 그 다음 접근 재검증(20001) 순서다 - 없는 리소스는 권한 여부와
+    --        무관하게 항상 404가 맞다. role_code=10(SUPER_ADMIN)이면 재검증을 건너뛴다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_company_id  BIGINT UNSIGNED DEFAULT NULL;
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS CONDITION 1
@@ -672,8 +678,16 @@ BEGIN
     END;
 
     proc_block: BEGIN
-        IF NOT EXISTS (SELECT 1 FROM `project` WHERE `project_id` = i_project_id) THEN
+        SELECT `company_id` INTO v_company_id FROM `project` WHERE `project_id` = i_project_id;
+
+        IF v_company_id IS NULL THEN
             SELECT 31002 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF i_requester_role <> 10
+           AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, v_company_id) THEN
+            SELECT 20001 AS RESULT;
             LEAVE proc_block;
         END IF;
 
@@ -696,11 +710,13 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_PROJECT_LIST`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_LIST` (
-    IN i_company_id BIGINT UNSIGNED,   -- 회사 필터 (NULL이면 전체 — DEVELOPER 호출 시 앱 레이어가 자기 회사로 강제)
-    IN i_status     TINYINT UNSIGNED,  -- 상태 필터 (NULL이면 전체)
-    IN i_page_size  INT,               -- 페이지당 행 수
-    IN i_offset     INT                -- 시작 오프셋
-) COMMENT '프로젝트 목록 조회 - 페이지네이션, company 조인 (11_PROJECT_API.md 2.2)'
+    IN i_company_id        BIGINT UNSIGNED,   -- 회사 필터 (NULL이면 전체 — DEVELOPER 호출 시 앱 레이어가 자기 회사로 강제)
+    IN i_status            TINYINT UNSIGNED,  -- 상태 필터 (NULL이면 전체)
+    IN i_page_size         INT,               -- 페이지당 행 수
+    IN i_offset            INT,               -- 시작 오프셋
+    IN i_requester_user_id BIGINT UNSIGNED,   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+    IN i_requester_role    TINYINT UNSIGNED   -- 호출자 role_code (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '프로젝트 목록 조회 - 페이지네이션, company 조인, 회사 접근 재검증 (11_PROJECT_API.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_LIST
@@ -709,7 +725,10 @@ BEGIN
     --        company_code/company_name을 함께 보여줘야 해서 company를 조인한다. DEVELOPER는
     --        본인 소속 company_id만 봐야 하는데(11_PROJECT_API.md 2.2 Business Rules), 그 스코핑은
     --        앱 레이어(ProjectService)가 i_company_id에 항상 자기 companyId를 채워 호출하는
-    --        방식으로 강제한다 — SP는 SUPER_ADMIN/DEVELOPER 구분을 모르고 그냥 필터만 적용한다.
+    --        방식으로 1차 강제하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로 호출자가 실제 그 회사
+    --        소속인지 2차로 재검증한다(앱 레이어 버그로 잘못된 company_id가 넘어와도 SP가
+    --        마지막 방어선 역할을 하도록, 02_DEV_CONVENTIONS.md 3.2). role_code=10(SUPER_ADMIN)이면
+    --        이 재검증 자체를 건너뛴다 - SUPER_ADMIN은 특정 회사에 매인 값이 아니다.
     --        total_count는 SP_COMPANY_LIST와 동일하게 COUNT(*) OVER()로 함께 반환한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
@@ -722,18 +741,26 @@ BEGIN
         SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
     END;
 
-    SELECT 0 AS RESULT;
-    SELECT
-        p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
-        p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
-        p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`,
-        COUNT(*) OVER() AS total_count
-    FROM `project` p
-    JOIN `company` c ON c.`company_id` = p.`company_id`
-    WHERE (i_company_id IS NULL OR p.`company_id` = i_company_id)
-      AND (i_status IS NULL OR p.`status` = i_status)
-    ORDER BY p.`status` DESC, p.`project_name` ASC
-    LIMIT i_page_size OFFSET i_offset;
+    proc_block: BEGIN
+        IF i_requester_role <> 10
+           AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, i_company_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
+            p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
+            p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`,
+            COUNT(*) OVER() AS total_count
+        FROM `project` p
+        JOIN `company` c ON c.`company_id` = p.`company_id`
+        WHERE (i_company_id IS NULL OR p.`company_id` = i_company_id)
+          AND (i_status IS NULL OR p.`status` = i_status)
+        ORDER BY p.`status` DESC, p.`project_name` ASC
+        LIMIT i_page_size OFFSET i_offset;
+    END proc_block;
 END$$
 
 DELIMITER ;
@@ -887,20 +914,31 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_USER_GET_BY_ID`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_GET_BY_ID` (
-    IN i_user_id BIGINT UNSIGNED  -- 조회할 사용자 ID
-) COMMENT 'user_id로 전체 컬럼 조회 - GET /auth/me, 비밀번호 변경 시 현재 해시 조회 공용'
+    IN i_user_id           BIGINT UNSIGNED,  -- 조회할 사용자 ID
+    IN i_requester_user_id BIGINT UNSIGNED,  -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+    IN i_requester_role    TINYINT UNSIGNED  -- 호출자 role_code (JWT 페이로드 값 그대로 신뢰)
+) COMMENT 'user_id로 전체 컬럼 조회, 회사 접근 재검증 - GET /auth/me, 비밀번호 변경 시 현재 해시 조회, 관리자 상세조회 공용'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_GET_BY_ID
     -- 작성 : 2026.07.19 trisakion
-    -- 내용 : GET /auth/me와 PATCH /auth/password(현재 비밀번호 검증용 해시 조회) 양쪽에서
-    --        공용으로 쓰는 조회 SP. password_hash를 포함해 전체 컬럼을 그대로 반환하며,
-    --        API 응답에 어떤 필드를 노출할지(예: password_hash 제외, phone_number 복호화)는
-    --        서비스 레이어가 결정한다 — SP는 원본 데이터만 돌려준다.
+    -- 내용 : GET /auth/me, PATCH /auth/password(현재 비밀번호 검증용 해시 조회), 관리자용
+    --        GET /users/{user_id}(12_USER_API.md 1.3) 세 곳에서 공용으로 쓰는 조회 SP.
+    --        password_hash를 포함해 전체 컬럼을 그대로 반환하며, API 응답에 어떤 필드를 노출할지
+    --        (예: password_hash 제외, phone_number 복호화)는 서비스 레이어가 결정한다.
+    --        i_requester_user_id/i_requester_role은 자기 정보 조회(auth.service.ts)에서는 항상
+    --        i_user_id와 동일한 값이 들어와 FN_CHECK_COMPANY_ACCESS가 자기 자신의 company_id와
+    --        비교하게 되므로 결과적으로 항상 통과한다 - 자기 정보는 role과 무관하게 항상 볼 수
+    --        있어야 하므로 이는 의도된 동작이다. 관리자 조회(user.service.ts)에서는 실제 호출자와
+    --        다른 대상 user_id가 들어와, DEVELOPER가 타사 사용자를 조회하면 20001로 차단한다
+    --        (12_USER_API.md 1.3, 앱 레이어의 1차 체크를 SP가 2차로 재검증 -
+    --        02_DEV_CONVENTIONS.md 3.2). 존재 확인(31003)이 접근 재검증보다 먼저다 - 없는
+    --        리소스는 권한 여부와 무관하게 항상 404가 맞다. role_code=10이면 재검증을 건너뛴다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_company_id  BIGINT UNSIGNED DEFAULT NULL;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -910,8 +948,16 @@ BEGIN
     END;
 
     proc_block: BEGIN
-        IF NOT EXISTS (SELECT 1 FROM `user` WHERE `user_id` = i_user_id) THEN
+        SELECT `company_id` INTO v_company_id FROM `user` WHERE `user_id` = i_user_id;
+
+        IF v_company_id IS NULL THEN
             SELECT 31003 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF i_requester_role <> 10
+           AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, v_company_id) THEN
+            SELECT 20001 AS RESULT;
             LEAVE proc_block;
         END IF;
 
@@ -988,11 +1034,13 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_USER_LIST`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_LIST` (
-    IN i_company_id BIGINT UNSIGNED,  -- 회사 ID 필터 (NULL이면 전체 - SUPER_ADMIN 전용, DEVELOPER는 서비스가 항상 자기 회사로 고정)
-    IN i_status     TINYINT UNSIGNED, -- 상태 필터 (NULL이면 전체)
-    IN i_limit      INT,              -- 페이지당 행 수
-    IN i_offset     INT               -- 시작 오프셋
-) COMMENT '사용자 목록 조회 - status ASC 정렬 (12_USER_API.md 1.1/1.2)'
+    IN i_company_id        BIGINT UNSIGNED,  -- 회사 ID 필터 (NULL이면 전체 - SUPER_ADMIN 전용, DEVELOPER는 서비스가 항상 자기 회사로 고정)
+    IN i_status            TINYINT UNSIGNED, -- 상태 필터 (NULL이면 전체)
+    IN i_limit             INT,              -- 페이지당 행 수
+    IN i_offset            INT,              -- 시작 오프셋
+    IN i_requester_user_id BIGINT UNSIGNED,  -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+    IN i_requester_role    TINYINT UNSIGNED  -- 호출자 role_code (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '사용자 목록 조회 - status ASC 정렬, 회사 접근 재검증 (12_USER_API.md 1.1/1.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_LIST
@@ -1003,6 +1051,10 @@ BEGIN
     --        하는 화면 요구사항이 있어 status ASC로 정렬한다(12_USER_API.md 1.1 Sorting, 다른
     --        도메인과 다른 정렬 방향이라는 점을 주석으로 명시).
     --        password_hash는 반환 컬럼에서 제외한다 — 목록/상세 어디서도 앱으로 내보낼 이유가 없다.
+    --        DEVELOPER의 회사 단위 스코핑은 앱 레이어(UserService)가 i_company_id에 항상 자기
+    --        companyId를 채워 호출하는 방식으로 1차 강제하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로
+    --        호출자가 실제 그 회사 소속인지 2차로 재검증한다(방어적 이중 체크,
+    --        02_DEV_CONVENTIONS.md 3.2). role_code=10(SUPER_ADMIN)이면 재검증을 건너뛴다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -1015,17 +1067,25 @@ BEGIN
         SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
     END;
 
-    SELECT 0 AS RESULT;
-    SELECT
-        `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
-        `phone_number`, `department`, `position`, `status`, `last_login_at`,
-        `created_at`, `updated_at`,
-        COUNT(*) OVER() AS total_count
-    FROM `user`
-    WHERE (i_company_id IS NULL OR `company_id` = i_company_id)
-      AND (i_status IS NULL OR `status` = i_status)
-    ORDER BY `status` ASC, `user_name` ASC
-    LIMIT i_limit OFFSET i_offset;
+    proc_block: BEGIN
+        IF i_requester_role <> 10
+           AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, i_company_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
+            `phone_number`, `department`, `position`, `status`, `last_login_at`,
+            `created_at`, `updated_at`,
+            COUNT(*) OVER() AS total_count
+        FROM `user`
+        WHERE (i_company_id IS NULL OR `company_id` = i_company_id)
+          AND (i_status IS NULL OR `status` = i_status)
+        ORDER BY `status` ASC, `user_name` ASC
+        LIMIT i_limit OFFSET i_offset;
+    END proc_block;
 END$$
 
 DELIMITER ;

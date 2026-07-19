@@ -1,20 +1,26 @@
 DROP PROCEDURE IF EXISTS `SP_PROJECT_GET_BY_ID`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_GET_BY_ID` (
-    IN i_project_id BIGINT UNSIGNED  -- 조회할 프로젝트 ID
-) COMMENT '프로젝트 상세 조회 - company 조인 (11_PROJECT_API.md 2.3)'
+    IN i_project_id        BIGINT UNSIGNED,  -- 조회할 프로젝트 ID
+    IN i_requester_user_id BIGINT UNSIGNED,  -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+    IN i_requester_role    TINYINT UNSIGNED  -- 호출자 role_code (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '프로젝트 상세 조회 - company 조인, 회사 접근 재검증 (11_PROJECT_API.md 2.3)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_GET_BY_ID
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : project_id로 프로젝트 상세를 조회한다. company_code/company_name을 함께 반환하기
     --        위해 company를 조인한다. 없으면 31002. DEVELOPER의 타사 프로젝트 접근 차단(20001)은
-    --        여기서 판단하지 않는다 — 앱 레이어(ProjectService)가 조회 결과의 company_id를
-    --        요청자의 companyId와 비교해 판단한다(이 SP는 SUPER_ADMIN/DEVELOPER 구분을 모른다).
+    --        앱 레이어(ProjectService)가 조회 결과의 company_id를 요청자의 companyId와 비교해
+    --        1차로 판단하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로 호출자가 실제 그 프로젝트의 회사
+    --        소속인지 2차로 재검증한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2). 존재 확인이
+    --        먼저이고(31002), 그 다음 접근 재검증(20001) 순서다 - 없는 리소스는 권한 여부와
+    --        무관하게 항상 404가 맞다. role_code=10(SUPER_ADMIN)이면 재검증을 건너뛴다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_company_id  BIGINT UNSIGNED DEFAULT NULL;
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS CONDITION 1
@@ -23,8 +29,16 @@ BEGIN
     END;
 
     proc_block: BEGIN
-        IF NOT EXISTS (SELECT 1 FROM `project` WHERE `project_id` = i_project_id) THEN
+        SELECT `company_id` INTO v_company_id FROM `project` WHERE `project_id` = i_project_id;
+
+        IF v_company_id IS NULL THEN
             SELECT 31002 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF i_requester_role <> 10
+           AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, v_company_id) THEN
+            SELECT 20001 AS RESULT;
             LEAVE proc_block;
         END IF;
 

@@ -292,7 +292,7 @@ describe('AuthService', () => {
         ],
       });
 
-      const result = await service.getMe(1);
+      const result = await service.getMe(1, 10);
 
       expect(result).toMatchObject({
         user_id: 1,
@@ -305,14 +305,14 @@ describe('AuthService', () => {
       spExecutor.callProcedure.mockRejectedValueOnce(
         new BusinessException(ResultCode.DATABASE_ERROR),
       );
-      await expect(service.getMe(1)).rejects.toMatchObject({
+      await expect(service.getMe(1, 10)).rejects.toMatchObject({
         resultCode: ResultCode.DATABASE_ERROR,
       });
     });
 
     it('throws USER_NOT_FOUND when the user does not exist', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31003 });
-      await expect(service.getMe(999)).rejects.toMatchObject({
+      await expect(service.getMe(999, 10)).rejects.toMatchObject({
         resultCode: ResultCode.USER_NOT_FOUND,
       });
     });
@@ -328,7 +328,7 @@ describe('AuthService', () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 0 }); // SP_USER_PASSWORD_CHANGE
 
       await expect(
-        service.changePassword(1, {
+        service.changePassword(1, 10, {
           current_password: 'old-password',
           new_password: 'new-password',
         }),
@@ -349,7 +349,7 @@ describe('AuthService', () => {
       });
 
       await expect(
-        service.changePassword(1, {
+        service.changePassword(1, 10, {
           current_password: 'wrong-password',
           new_password: 'new-password',
         }),
@@ -367,7 +367,7 @@ describe('AuthService', () => {
       );
 
       await expect(
-        service.changePassword(1, {
+        service.changePassword(1, 10, {
           current_password: 'old-password',
           new_password: 'new-password',
         }),

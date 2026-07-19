@@ -55,6 +55,8 @@ describe('UserService', () => {
         null,
         20,
         0,
+        developer.userId,
+        developer.roleCode,
       ]);
     });
 
@@ -68,6 +70,13 @@ describe('UserService', () => {
 
       expect(result.items[0].phone_number).toBe('010-0000-0000');
       expect(result.total_count).toBe(1);
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects the company scope (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(
+        service.list({ page: 1, page_size: 20 }, developer),
+      ).rejects.toMatchObject({ resultCode: ResultCode.PERMISSION_DENIED });
     });
   });
 
@@ -87,6 +96,13 @@ describe('UserService', () => {
         result: 0,
         data: [{ ...userRow, company_id: 99 }],
       });
+      await expect(service.getById(100, developer)).rejects.toMatchObject({
+        resultCode: ResultCode.PERMISSION_DENIED,
+      });
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects the company scope (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
       await expect(service.getById(100, developer)).rejects.toMatchObject({
         resultCode: ResultCode.PERMISSION_DENIED,
       });
