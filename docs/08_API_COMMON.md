@@ -136,6 +136,7 @@ Coupon Platform API는 HTTP Status Code와 Result Code를 함께 사용한다. �
 | GET /companies    | 회사 목록   |
 | GET /projects     | 프로젝트 목록 |
 | GET /users        | 사용자 목록 |
+| GET /user-roles   | 사용자 권한(user_role) 목록 |
 | GET /log-audits   | 감사 로그 목록 |
 | GET /campaigns    | 캠페인 목록 |
 | GET /campaigns/{id}/codes | 쿠폰 코드 목록 |
@@ -146,7 +147,6 @@ Coupon Platform API는 HTTP Status Code와 Result Code를 함께 사용한다. �
 
 | API             | 표현 방식                  |
 | --------------- | --------------------------- |
-| GET /user-roles | 유저 상세 하위 데이터그리드 |
 | GET /coupons/unconfirmed (`game_user_id` 지정, 특정유저 조회) | 한 유저의 미컨슘 건은 소수라 페이지네이션 없이 전체 반환 |
 
 ## 2.3 요청 파라미터

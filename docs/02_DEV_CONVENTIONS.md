@@ -142,6 +142,34 @@ DELIMITER ;
 
 ---
 
+## 3.6 페이지네이션 목록 SP의 total_count 처리
+
+목록 SP는 3.4의 "RESULT + data 정확히 2개 result set" 규약 때문에 `total_count`를 별도의 세 번째 result set으로 반환할 수 없다. **`COUNT(*) OVER()` 윈도우 함수를 data의 각 행에 얹는 방식은 쓰지 않는다** — 요청한 `offset`이 실제 데이터 범위를 벗어나 페이지네이션 대상 SELECT가 0행을 반환하면, `total_count`를 실어 보낼 행 자체가 없어져 항상 `0`으로 잘못 응답된다(2026-07-19 감사에서 `company`/`project`/`user`/`user_role` 4개 목록 SP 전부에서 이 버그가 발견됨).
+
+대신 총 개수를 계산하는 서브쿼리와 페이지네이션 서브쿼리를 분리하고, `LEFT JOIN ... ON TRUE`로 붙인다 — 총 개수 서브쿼리는 항상 정확히 1행을 반환하므로, 페이지네이션 서브쿼리가 0행이어도 `LEFT JOIN`이 그 1행(데이터 컬럼은 전부 NULL, `total_count`만 채워짐)을 보존한다.
+
+```sql
+SELECT
+    p.`company_id`, p.`company_name`, /* ... */,
+    cnt.`total_count`
+FROM (
+    SELECT COUNT(*) AS total_count FROM `company` WHERE /* 동일 필터 */
+) cnt
+LEFT JOIN (
+    SELECT `company_id`, `company_name` /* ... */
+    FROM `company`
+    WHERE /* 동일 필터 */
+    ORDER BY /* ... */
+    LIMIT i_page_size OFFSET i_offset
+) p ON TRUE;
+```
+
+앱(TypeScript) 서비스 레이어는 이 "데이터 없음" 행을 PK 컬럼이 `NULL`인지로 판별해 `items`에서 제외하고, `total_count`는 그대로 읽는다(`rows[0]?.total_count ?? 0`은 그대로 유지 — data가 정말 빈 배열일 때의 방어 코드).
+
+`SP_COMPANY_LIST`/`SP_PROJECT_LIST`/`SP_USER_LIST`/`SP_USER_ROLE_LIST`가 이 패턴을 쓴다. 캠페인/코드 목록 SP를 새로 만들 때도 동일하게 적용한다.
+
+---
+
 # 4. 동시성 처리 원칙
 
 **동시성이 필요한 UPDATE는 조건부 갱신(conditional UPDATE)을 우선한다.** 체크 후 쓰기(check-then-act) 대신 WHERE절에 조건을 넣어 원자성을 확보한다(예: `coupon_code`/`coupon_campaign`).

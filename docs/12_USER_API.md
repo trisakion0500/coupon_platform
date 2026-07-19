@@ -33,8 +33,8 @@ GET /users
 | ---------- | -------- | ------------------------------------------------------------------- |
 | company_id | N        | SUPER_ADMIN만 유효(DEVELOPER는 항상 본인 소속 회사로 고정 스코핑)   |
 | status     | N        | DEVELOPER도 자유롭게 필터 가능(본인 소속 회사 스코핑은 별개로 적용) |
-| page       | Y        |                                                                       |
-| page_size  | Y        | 20/30/50/100 중 선택. 기본 20                                        |
+| page       | N        | 페이지 번호 (1부터 시작). 기본 1                                    |
+| page_size  | N        | 20/30/50/100 중 선택. 기본 20                                        |
 
 ### Sorting
 
@@ -320,12 +320,14 @@ GET /user-roles
 
 ### Query Parameters
 
-| Name       | Required |
-| ---------- | -------- |
-| user_id    | N        |
-| project_id | N        |
-| role_code  | N        |
-| status     | N        |
+| Name       | Required | Description                                     |
+| ---------- | -------- | ------------------------------------------------ |
+| user_id    | N        |                                                    |
+| project_id | N        |                                                    |
+| role_code  | N        |                                                    |
+| status     | N        |                                                    |
+| page       | N        | 페이지 번호 (1부터 시작). 기본 1                  |
+| page_size  | N        | 20/30/50/100 중 선택. 기본 20                     |
 
 ### Sorting
 
@@ -334,6 +336,10 @@ ORDER BY status DESC,
          role_code ASC,
          user_id ASC
 ```
+
+### Response
+
+페이지네이션 응답 형식([08_API_COMMON.md](./08_API_COMMON.md) 2장 참고). `user_id` 필터를 지정해 사용자 상세 화면(SCR-031)의 하위 데이터그리드로 호출할 때도 동일한 페이지네이션 래퍼로 응답한다 — 한 유저의 배정 건수는 적어 실질적으로 첫 페이지 안에 전부 들어온다.
 
 ---
 
