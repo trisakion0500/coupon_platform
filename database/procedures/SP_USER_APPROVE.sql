@@ -1,8 +1,9 @@
 DROP PROCEDURE IF EXISTS `SP_USER_APPROVE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_APPROVE` (
-    IN i_user_id BIGINT UNSIGNED  -- 승인할 사용자 ID
-) COMMENT '가입승인 - status 0(대기) -> 1(승인) 조건부 UPDATE (12_USER_API.md 1.4)'
+    IN i_user_id           BIGINT UNSIGNED,  -- 승인할 사용자 ID
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '가입승인 - SUPER_ADMIN 재검증, status 0(대기) -> 1(승인) 조건부 UPDATE (12_USER_API.md 1.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_APPROVE
@@ -12,6 +13,9 @@ BEGIN
     --        진단한다 - 사용자 자체가 없으면 31003, 있는데 이미 status=0이 아니면(이미 처리됨)
     --        30004(상태 전이 불가)로 구분한다. 이렇게 하면 성공 경로(가장 흔한 경우)는 존재
     --        여부를 별도로 조회하지 않고 UPDATE 한 번으로 끝난다.
+    --        가입승인은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
+    --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
+    --        02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -25,6 +29,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         UPDATE `user`
         SET `status` = 1
         WHERE `user_id` = i_user_id AND `status` = 0;

@@ -5,8 +5,7 @@ CREATE PROCEDURE `SP_USER_LIST` (
     IN i_status            TINYINT UNSIGNED, -- 상태 필터 (NULL이면 전체)
     IN i_limit             INT,              -- 페이지당 행 수
     IN i_offset            INT,              -- 시작 오프셋
-    IN i_requester_user_id BIGINT UNSIGNED,  -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-    IN i_requester_role    TINYINT UNSIGNED  -- 호출자 role_code (JWT 페이로드 값 그대로 신뢰)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
 ) COMMENT '사용자 목록 조회 - status ASC 정렬, 회사 접근 재검증 (12_USER_API.md 1.1/1.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -21,7 +20,8 @@ BEGIN
     --        DEVELOPER의 회사 단위 스코핑은 앱 레이어(UserService)가 i_company_id에 항상 자기
     --        companyId를 채워 호출하는 방식으로 1차 강제하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로
     --        호출자가 실제 그 회사 소속인지 2차로 재검증한다(방어적 이중 체크,
-    --        02_DEV_CONVENTIONS.md 3.2). role_code=10(SUPER_ADMIN)이면 재검증을 건너뛴다.
+    --        02_DEV_CONVENTIONS.md 3.2). SUPER_ADMIN 우회는 FN_IS_SUPER_ADMIN(i_requester_user_id)로
+    --        SP가 직접 DB에서 재확인한다 - 앱이 넘긴 role_code 값을 그대로 믿지 않는다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -35,7 +35,7 @@ BEGIN
     END;
 
     proc_block: BEGIN
-        IF i_requester_role <> 10
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id)
            AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, i_company_id) THEN
             SELECT 20001 AS RESULT;
             LEAVE proc_block;

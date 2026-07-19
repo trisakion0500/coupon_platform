@@ -58,16 +58,22 @@ export class UserController {
   @Roles(RoleCode.SUPER_ADMIN)
   @Post(':user_id/approve')
   @HttpCode(200)
-  approve(@Param('user_id', ParseIntPipe) userId: number) {
-    return this.userService.approve(userId);
+  approve(
+    @Param('user_id', ParseIntPipe) userId: number,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.userService.approve(userId, req.user!.userId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleCode.SUPER_ADMIN)
   @Post(':user_id/reject')
   @HttpCode(200)
-  reject(@Param('user_id', ParseIntPipe) userId: number) {
-    return this.userService.reject(userId);
+  reject(
+    @Param('user_id', ParseIntPipe) userId: number,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.userService.reject(userId, req.user!.userId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -77,8 +83,9 @@ export class UserController {
   update(
     @Param('user_id', ParseIntPipe) userId: number,
     @Body() dto: UpdateUserDto,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.userService.update(userId, dto);
+    return this.userService.update(userId, dto, req.user!.userId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -88,7 +95,8 @@ export class UserController {
   resetPassword(
     @Param('user_id', ParseIntPipe) userId: number,
     @Body() dto: ResetPasswordDto,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.userService.resetPassword(userId, dto);
+    return this.userService.resetPassword(userId, dto, req.user!.userId);
   }
 }

@@ -49,22 +49,25 @@ export class CompanyController {
   @Roles(RoleCode.SUPER_ADMIN)
   @Post()
   @HttpCode(200)
-  create(@Body() dto: CreateCompanyDto) {
-    return this.companyService.create(dto);
+  create(@Body() dto: CreateCompanyDto, @Req() req: AuthenticatedRequest) {
+    return this.companyService.create(dto, req.user!.userId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleCode.SUPER_ADMIN)
   @Get()
-  list(@Query() query: CompanyListQueryDto) {
-    return this.companyService.list(query);
+  list(@Query() query: CompanyListQueryDto, @Req() req: AuthenticatedRequest) {
+    return this.companyService.list(query, req.user!.userId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleCode.SUPER_ADMIN)
   @Get(':company_id')
-  getById(@Param('company_id', ParseIntPipe) companyId: number) {
-    return this.companyService.getById(companyId);
+  getById(
+    @Param('company_id', ParseIntPipe) companyId: number,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.companyService.getById(companyId, req.user!.userId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -74,7 +77,8 @@ export class CompanyController {
   update(
     @Param('company_id', ParseIntPipe) companyId: number,
     @Body() dto: UpdateCompanyDto,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.companyService.update(companyId, dto);
+    return this.companyService.update(companyId, dto, req.user!.userId);
   }
 }

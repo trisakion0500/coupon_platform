@@ -55,12 +55,28 @@ export interface ActiveHeaderData {
 export class CompanyService {
   constructor(private readonly spExecutor: SpExecutorService) {}
 
-  async create(dto: CreateCompanyDto): Promise<CompanyRow> {
+  /**
+   * 회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, SP도
+   * FN_IS_SUPER_ADMIN(requesterUserId)으로 재확인한다(방어적 이중 체크,
+   * 02_DEV_CONVENTIONS.md 3.2) — SP가 20001을 반환하면 PERMISSION_DENIED로 변환한다.
+   */
+  async create(
+    dto: CreateCompanyDto,
+    requesterUserId: number,
+  ): Promise<CompanyRow> {
     const { result, data } = await this.spExecutor.callProcedure<CompanyRow[]>(
       'SP_COMPANY_CREATE',
-      [dto.company_code, dto.company_name, dto.description ?? null],
+      [
+        dto.company_code,
+        dto.company_name,
+        dto.description ?? null,
+        requesterUserId,
+      ],
     );
 
+    if (result === 20001) {
+      throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
     if (result === 32001) {
       throw new BusinessException(ResultCode.DUPLICATE_DATA);
     }
@@ -71,12 +87,23 @@ export class CompanyService {
     return data[0];
   }
 
-  async list(query: CompanyListQueryDto): Promise<PaginatedResult<CompanyRow>> {
+  async list(
+    query: CompanyListQueryDto,
+    requesterUserId: number,
+  ): Promise<PaginatedResult<CompanyRow>> {
     const offset = (query.page - 1) * query.page_size;
     const { result, data } = await this.spExecutor.callProcedure<
       CompanyListRow[]
-    >('SP_COMPANY_LIST', [query.status ?? null, query.page_size, offset]);
+    >('SP_COMPANY_LIST', [
+      query.status ?? null,
+      query.page_size,
+      offset,
+      requesterUserId,
+    ]);
 
+    if (result === 20001) {
+      throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
     if (result !== 0) {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
@@ -96,12 +123,18 @@ export class CompanyService {
     return buildPaginatedResult(query, totalCount, items);
   }
 
-  async getById(companyId: number): Promise<CompanyRow> {
+  async getById(
+    companyId: number,
+    requesterUserId: number,
+  ): Promise<CompanyRow> {
     const { result, data } = await this.spExecutor.callProcedure<CompanyRow[]>(
       'SP_COMPANY_GET_BY_ID',
-      [companyId],
+      [companyId, requesterUserId],
     );
 
+    if (result === 20001) {
+      throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
     if (result !== 0 || !data?.[0]) {
       throw new BusinessException(ResultCode.COMPANY_NOT_FOUND);
     }
@@ -109,7 +142,11 @@ export class CompanyService {
     return data[0];
   }
 
-  async update(companyId: number, dto: UpdateCompanyDto): Promise<CompanyRow> {
+  async update(
+    companyId: number,
+    dto: UpdateCompanyDto,
+    requesterUserId: number,
+  ): Promise<CompanyRow> {
     const { result, data } = await this.spExecutor.callProcedure<CompanyRow[]>(
       'SP_COMPANY_UPDATE',
       [
@@ -118,12 +155,15 @@ export class CompanyService {
         dto.company_name ?? null,
         dto.description ?? null,
         dto.status ?? null,
+        requesterUserId,
       ],
     );
 
     switch (result) {
       case 0:
         break;
+      case 20001:
+        throw new BusinessException(ResultCode.PERMISSION_DENIED);
       case 31001:
         throw new BusinessException(ResultCode.COMPANY_NOT_FOUND);
       case 32001:

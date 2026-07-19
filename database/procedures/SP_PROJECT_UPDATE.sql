@@ -1,11 +1,12 @@
 DROP PROCEDURE IF EXISTS `SP_PROJECT_UPDATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_UPDATE` (
-    IN i_project_id   BIGINT UNSIGNED,  -- 수정할 프로젝트 ID
-    IN i_project_name VARCHAR(100),     -- 새 프로젝트명 (NULL이면 미변경)
-    IN i_description  VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
-    IN i_status       TINYINT UNSIGNED  -- 새 상태 (NULL이면 미변경)
-) COMMENT '프로젝트 수정 - 조건부 UPDATE (11_PROJECT_API.md 2.4)'
+    IN i_project_id        BIGINT UNSIGNED,  -- 수정할 프로젝트 ID
+    IN i_project_name      VARCHAR(100),     -- 새 프로젝트명 (NULL이면 미변경)
+    IN i_description       VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
+    IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '프로젝트 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE (11_PROJECT_API.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_UPDATE
@@ -14,6 +15,9 @@ BEGIN
     --        아예 없다 — 생성 후 변경 불가 필드라 애초에 받지 않는다(11_PROJECT_API.md 2.4
     --        Non-Updatable Fields). 존재 확인(31002) -> COALESCE 기반 조건부 UPDATE
     --        (02_DEV_CONVENTIONS.md 4장)로 NULL로 넘어온 필드는 기존 값을 유지한다.
+    --        프로젝트 수정은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
+    --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
+    --        02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -26,6 +30,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF NOT EXISTS (SELECT 1 FROM `project` WHERE `project_id` = i_project_id) THEN
             SELECT 31002 AS RESULT;
             LEAVE proc_block;

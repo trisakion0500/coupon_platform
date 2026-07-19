@@ -59,15 +59,15 @@ export class UserRoleController {
   @Roles(RoleCode.SUPER_ADMIN)
   @Post()
   @HttpCode(200)
-  create(@Body() dto: CreateUserRoleDto) {
-    return this.userRoleService.create(dto);
+  create(@Body() dto: CreateUserRoleDto, @Req() req: AuthenticatedRequest) {
+    return this.userRoleService.create(dto, req.user!.userId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleCode.SUPER_ADMIN)
   @Get()
-  list(@Query() query: UserRoleListQueryDto) {
-    return this.userRoleService.list(query);
+  list(@Query() query: UserRoleListQueryDto, @Req() req: AuthenticatedRequest) {
+    return this.userRoleService.list(query, req.user!.userId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -78,7 +78,13 @@ export class UserRoleController {
     @Param('user_id', ParseIntPipe) userId: number,
     @Param('project_id', ParseIntPipe) projectId: number,
     @Body() dto: UpdateUserRoleDto,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.userRoleService.update(userId, projectId, dto);
+    return this.userRoleService.update(
+      userId,
+      projectId,
+      dto,
+      req.user!.userId,
+    );
   }
 }

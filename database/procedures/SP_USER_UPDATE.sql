@@ -1,14 +1,15 @@
 DROP PROCEDURE IF EXISTS `SP_USER_UPDATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_UPDATE` (
-    IN i_user_id          BIGINT UNSIGNED,  -- 수정할 사용자 ID
-    IN i_user_name        VARCHAR(100),     -- 새 사용자명 (NULL이면 미변경)
-    IN i_email            VARCHAR(200),     -- 새 이메일 (NULL이면 미변경)
-    IN i_phone_number_enc VARCHAR(255),     -- 새 휴대폰번호 AES-256-CBC 암호화값 (NULL이면 미변경)
-    IN i_department       VARCHAR(100),     -- 새 부서 (NULL이면 미변경)
-    IN i_position         VARCHAR(100),     -- 새 직급 (NULL이면 미변경)
-    IN i_status           TINYINT UNSIGNED  -- 새 상태 (NULL이면 미변경)
-) COMMENT '사용자 정보 수정 - 조건부 UPDATE + status=3 전환 시 전체 세션 종료 (12_USER_API.md 1.6)'
+    IN i_user_id           BIGINT UNSIGNED,  -- 수정할 사용자 ID
+    IN i_user_name         VARCHAR(100),     -- 새 사용자명 (NULL이면 미변경)
+    IN i_email             VARCHAR(200),     -- 새 이메일 (NULL이면 미변경)
+    IN i_phone_number_enc  VARCHAR(255),     -- 새 휴대폰번호 AES-256-CBC 암호화값 (NULL이면 미변경)
+    IN i_department        VARCHAR(100),     -- 새 부서 (NULL이면 미변경)
+    IN i_position          VARCHAR(100),     -- 새 직급 (NULL이면 미변경)
+    IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '사용자 정보 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE + status=3 전환 시 전체 세션 종료 (12_USER_API.md 1.6)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_UPDATE
@@ -23,6 +24,9 @@ BEGIN
     --        값으로 바뀌는 경우는 세션에 영향을 주지 않는다. UPDATE 규약(3.4)은 status 값 전이
     --        자체를 검증하지 않는다고 명시하므로(화면 버튼 기준일 뿐) 여기서도 임의의 status 값
     --        전달을 그대로 허용한다.
+    --        사용자 수정은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
+    --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
+    --        02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -43,6 +47,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF NOT EXISTS (SELECT 1 FROM `user` WHERE `user_id` = i_user_id) THEN
             SELECT 31003 AS RESULT;
             LEAVE proc_block;

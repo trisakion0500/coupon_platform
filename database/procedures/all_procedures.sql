@@ -10,10 +10,11 @@
 DROP PROCEDURE IF EXISTS `SP_COMPANY_CREATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_COMPANY_CREATE` (
-    IN i_company_code VARCHAR(20),   -- 회사 코드 (전역 UNIQUE)
-    IN i_company_name VARCHAR(100),  -- 회사명
-    IN i_description  VARCHAR(1000)  -- 설명 (선택)
-) COMMENT '회사 생성 - company_code 중복 확인 후 INSERT (10_COMPANY_API.md 2.1)'
+    IN i_company_code      VARCHAR(20),      -- 회사 코드 (전역 UNIQUE)
+    IN i_company_name      VARCHAR(100),     -- 회사명
+    IN i_description       VARCHAR(1000),    -- 설명 (선택)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '회사 생성 - SUPER_ADMIN 재검증, company_code 중복 확인 후 INSERT (10_COMPANY_API.md 2.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COMPANY_CREATE
@@ -21,6 +22,9 @@ BEGIN
     -- 내용 : 회사 생성. company_code 중복을 사전 체크(32001)한 뒤 INSERT한다. SP_USER_SIGNUP과
     --        동일한 이유로 사전 체크는 원자적이지 않으므로(동시에 같은 code로 두 요청이 들어오면
     --        둘 다 통과할 수 있음), INSERT의 UNIQUE 제약 위반(1062) 전용 핸들러를 백스톱으로 둔다.
+    --        회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
+    --        FN_IS_SUPER_ADMIN으로 호출자가 실제 DB상 SUPER_ADMIN인지 재확인한다(방어적 이중
+    --        체크, 02_DEV_CONVENTIONS.md 3.2) - 다른 검증보다 가장 먼저 확인한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -41,6 +45,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF EXISTS (SELECT 1 FROM `company` WHERE `company_code` = i_company_code) THEN
             SELECT 32001 AS RESULT;
             LEAVE proc_block;
@@ -170,13 +179,16 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_COMPANY_GET_BY_ID`;
 DELIMITER $$
 CREATE PROCEDURE `SP_COMPANY_GET_BY_ID` (
-    IN i_company_id BIGINT UNSIGNED  -- 조회할 회사 ID
-) COMMENT '회사 상세 조회 (10_COMPANY_API.md 2.3)'
+    IN i_company_id        BIGINT UNSIGNED,  -- 조회할 회사 ID
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '회사 상세 조회 - SUPER_ADMIN 재검증 (10_COMPANY_API.md 2.3)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COMPANY_GET_BY_ID
     -- 작성 : 2026.07.19 trisakion
-    -- 내용 : company_id로 회사 상세를 조회한다. 없으면 31001.
+    -- 내용 : company_id로 회사 상세를 조회한다. 없으면 31001. 회사 관리메뉴는 SUPER_ADMIN
+    --        전용이라 RolesGuard가 이미 막고 있지만, 이 SP도 FN_IS_SUPER_ADMIN으로 재확인한다
+    --        (방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -189,6 +201,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF NOT EXISTS (SELECT 1 FROM `company` WHERE `company_id` = i_company_id) THEN
             SELECT 31001 AS RESULT;
             LEAVE proc_block;
@@ -211,10 +228,11 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_COMPANY_LIST`;
 DELIMITER $$
 CREATE PROCEDURE `SP_COMPANY_LIST` (
-    IN i_status    TINYINT UNSIGNED,  -- 상태 필터 (NULL이면 전체)
-    IN i_page_size INT,               -- 페이지당 행 수
-    IN i_offset    INT                -- 시작 오프셋
-) COMMENT '회사 목록 조회 - 페이지네이션 (10_COMPANY_API.md 2.2)'
+    IN i_status            TINYINT UNSIGNED,  -- 상태 필터 (NULL이면 전체)
+    IN i_page_size         INT,               -- 페이지당 행 수
+    IN i_offset            INT,               -- 시작 오프셋
+    IN i_requester_user_id BIGINT UNSIGNED    -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '회사 목록 조회 - SUPER_ADMIN 재검증, 페이지네이션 (10_COMPANY_API.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COMPANY_LIST
@@ -224,6 +242,8 @@ BEGIN
     --        허용하므로, 별도의 COUNT(*) 쿼리를 셋째 result set으로 추가하는 대신 COUNT(*) OVER()
     --        윈도우 함수로 총 개수를 data의 각 행에 함께 실어보낸다 — 페이지네이션이 필요한 다른
     --        목록 SP(project/user 등)도 이 패턴을 그대로 재사용한다.
+    --        회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
+    --        FN_IS_SUPER_ADMIN으로 재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -235,15 +255,22 @@ BEGIN
         SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
     END;
 
-    SELECT 0 AS RESULT;
-    SELECT
-        `company_id`, `company_code`, `company_name`, `description`,
-        `status`, `created_at`, `updated_at`,
-        COUNT(*) OVER() AS total_count
-    FROM `company`
-    WHERE i_status IS NULL OR `status` = i_status
-    ORDER BY `status` DESC, `company_name` ASC
-    LIMIT i_page_size OFFSET i_offset;
+    proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `company_id`, `company_code`, `company_name`, `description`,
+            `status`, `created_at`, `updated_at`,
+            COUNT(*) OVER() AS total_count
+        FROM `company`
+        WHERE i_status IS NULL OR `status` = i_status
+        ORDER BY `status` DESC, `company_name` ASC
+        LIMIT i_page_size OFFSET i_offset;
+    END proc_block;
 END$$
 
 DELIMITER ;
@@ -254,12 +281,13 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_COMPANY_UPDATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_COMPANY_UPDATE` (
-    IN i_company_id   BIGINT UNSIGNED,  -- 수정할 회사 ID
-    IN i_company_code VARCHAR(20),      -- 새 회사 코드 (NULL이면 미변경)
-    IN i_company_name VARCHAR(100),     -- 새 회사명 (NULL이면 미변경)
-    IN i_description  VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
-    IN i_status       TINYINT UNSIGNED  -- 새 상태 (NULL이면 미변경)
-) COMMENT '회사 수정 - 조건부 UPDATE (10_COMPANY_API.md 2.4)'
+    IN i_company_id        BIGINT UNSIGNED,  -- 수정할 회사 ID
+    IN i_company_code      VARCHAR(20),      -- 새 회사 코드 (NULL이면 미변경)
+    IN i_company_name      VARCHAR(100),     -- 새 회사명 (NULL이면 미변경)
+    IN i_description       VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
+    IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '회사 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE (10_COMPANY_API.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COMPANY_UPDATE
@@ -272,6 +300,9 @@ BEGIN
     --        SP_COMPANY_CREATE와 동일한 이유로, 사전 중복확인 -> UPDATE 사이에 다른 트랜잭션이
     --        같은 company_code로 끼어드는 경쟁 상태에 대비해 UNIQUE 제약 위반(1062) 백스톱
     --        핸들러를 둔다(2026-07-19 리뷰에서 CREATE에만 있고 UPDATE에는 없던 것을 발견).
+    --        회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
+    --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
+    --        02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -291,6 +322,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF NOT EXISTS (SELECT 1 FROM `company` WHERE `company_id` = i_company_id) THEN
             SELECT 31001 AS RESULT;
             LEAVE proc_block;
@@ -477,13 +513,14 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_PROJECT_CREATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_CREATE` (
-    IN i_company_id     BIGINT UNSIGNED,  -- 소속 회사 ID
-    IN i_project_code   VARCHAR(20),      -- 프로젝트 코드 (company_id 범위 내 UNIQUE)
-    IN i_project_name   VARCHAR(100),     -- 프로젝트명
-    IN i_description     VARCHAR(1000),   -- 설명 (선택)
-    IN i_api_key         VARCHAR(64),     -- 서버간 호출용 API Key (앱 레이어에서 생성)
-    IN i_api_secret_enc  VARCHAR(255)     -- API Secret AES-256-CBC 암호화값 (앱 레이어에서 암호화 완료)
-) COMMENT '프로젝트 생성 - api_key/api_secret 발급 후 INSERT (11_PROJECT_API.md 2.1)'
+    IN i_company_id        BIGINT UNSIGNED,  -- 소속 회사 ID
+    IN i_project_code      VARCHAR(20),      -- 프로젝트 코드 (company_id 범위 내 UNIQUE)
+    IN i_project_name      VARCHAR(100),     -- 프로젝트명
+    IN i_description       VARCHAR(1000),    -- 설명 (선택)
+    IN i_api_key           VARCHAR(64),      -- 서버간 호출용 API Key (앱 레이어에서 생성)
+    IN i_api_secret_enc    VARCHAR(255),     -- API Secret AES-256-CBC 암호화값 (앱 레이어에서 암호화 완료)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '프로젝트 생성 - SUPER_ADMIN 재검증, api_key/api_secret 발급 후 INSERT (11_PROJECT_API.md 2.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_CREATE
@@ -497,6 +534,9 @@ BEGIN
     --        구분하지 않는다.
     --        반환 컬럼에 api_secret(암호문)은 포함하지 않는다 — 앱으로 다시 내보낼 이유가 없고,
     --        평문은 서비스 레이어가 자신이 생성한 값을 응답에 직접 얹는다.
+    --        프로젝트 생성은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
+    --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
+    --        02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -517,6 +557,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF NOT EXISTS (SELECT 1 FROM `company` WHERE `company_id` = i_company_id) THEN
             SELECT 31001 AS RESULT;
             LEAVE proc_block;
@@ -651,8 +696,7 @@ DROP PROCEDURE IF EXISTS `SP_PROJECT_GET_BY_ID`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_GET_BY_ID` (
     IN i_project_id        BIGINT UNSIGNED,  -- 조회할 프로젝트 ID
-    IN i_requester_user_id BIGINT UNSIGNED,  -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-    IN i_requester_role    TINYINT UNSIGNED  -- 호출자 role_code (JWT 페이로드 값 그대로 신뢰)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
 ) COMMENT '프로젝트 상세 조회 - company 조인, 회사 접근 재검증 (11_PROJECT_API.md 2.3)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -664,7 +708,8 @@ BEGIN
     --        1차로 판단하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로 호출자가 실제 그 프로젝트의 회사
     --        소속인지 2차로 재검증한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2). 존재 확인이
     --        먼저이고(31002), 그 다음 접근 재검증(20001) 순서다 - 없는 리소스는 권한 여부와
-    --        무관하게 항상 404가 맞다. role_code=10(SUPER_ADMIN)이면 재검증을 건너뛴다.
+    --        무관하게 항상 404가 맞다. SUPER_ADMIN 우회는 FN_IS_SUPER_ADMIN(i_requester_user_id)로
+    --        SP가 직접 DB에서 재확인한다 - 앱이 넘긴 role_code 값을 그대로 믿지 않는다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -685,7 +730,7 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        IF i_requester_role <> 10
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id)
            AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, v_company_id) THEN
             SELECT 20001 AS RESULT;
             LEAVE proc_block;
@@ -714,8 +759,7 @@ CREATE PROCEDURE `SP_PROJECT_LIST` (
     IN i_status            TINYINT UNSIGNED,  -- 상태 필터 (NULL이면 전체)
     IN i_page_size         INT,               -- 페이지당 행 수
     IN i_offset            INT,               -- 시작 오프셋
-    IN i_requester_user_id BIGINT UNSIGNED,   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-    IN i_requester_role    TINYINT UNSIGNED   -- 호출자 role_code (JWT 페이로드 값 그대로 신뢰)
+    IN i_requester_user_id BIGINT UNSIGNED    -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
 ) COMMENT '프로젝트 목록 조회 - 페이지네이션, company 조인, 회사 접근 재검증 (11_PROJECT_API.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -727,8 +771,10 @@ BEGIN
     --        앱 레이어(ProjectService)가 i_company_id에 항상 자기 companyId를 채워 호출하는
     --        방식으로 1차 강제하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로 호출자가 실제 그 회사
     --        소속인지 2차로 재검증한다(앱 레이어 버그로 잘못된 company_id가 넘어와도 SP가
-    --        마지막 방어선 역할을 하도록, 02_DEV_CONVENTIONS.md 3.2). role_code=10(SUPER_ADMIN)이면
-    --        이 재검증 자체를 건너뛴다 - SUPER_ADMIN은 특정 회사에 매인 값이 아니다.
+    --        마지막 방어선 역할을 하도록, 02_DEV_CONVENTIONS.md 3.2). SUPER_ADMIN 우회는
+    --        FN_IS_SUPER_ADMIN(i_requester_user_id)로 SP가 직접 DB에서 재확인한다 - 앱이
+    --        role_code 값을 함께 넘겨 그 값을 그대로 믿는 방식은 쓰지 않는다(앱 레이어가 잘못된
+    --        role_code를 실어 보내는 버그가 있어도 이 SP는 영향받지 않는다).
     --        total_count는 SP_COMPANY_LIST와 동일하게 COUNT(*) OVER()로 함께 반환한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
@@ -742,7 +788,7 @@ BEGIN
     END;
 
     proc_block: BEGIN
-        IF i_requester_role <> 10
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id)
            AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, i_company_id) THEN
             SELECT 20001 AS RESULT;
             LEAVE proc_block;
@@ -771,11 +817,12 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_PROJECT_UPDATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_UPDATE` (
-    IN i_project_id   BIGINT UNSIGNED,  -- 수정할 프로젝트 ID
-    IN i_project_name VARCHAR(100),     -- 새 프로젝트명 (NULL이면 미변경)
-    IN i_description  VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
-    IN i_status       TINYINT UNSIGNED  -- 새 상태 (NULL이면 미변경)
-) COMMENT '프로젝트 수정 - 조건부 UPDATE (11_PROJECT_API.md 2.4)'
+    IN i_project_id        BIGINT UNSIGNED,  -- 수정할 프로젝트 ID
+    IN i_project_name      VARCHAR(100),     -- 새 프로젝트명 (NULL이면 미변경)
+    IN i_description       VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
+    IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '프로젝트 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE (11_PROJECT_API.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_UPDATE
@@ -784,6 +831,9 @@ BEGIN
     --        아예 없다 — 생성 후 변경 불가 필드라 애초에 받지 않는다(11_PROJECT_API.md 2.4
     --        Non-Updatable Fields). 존재 확인(31002) -> COALESCE 기반 조건부 UPDATE
     --        (02_DEV_CONVENTIONS.md 4장)로 NULL로 넘어온 필드는 기존 값을 유지한다.
+    --        프로젝트 수정은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
+    --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
+    --        02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -796,6 +846,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF NOT EXISTS (SELECT 1 FROM `project` WHERE `project_id` = i_project_id) THEN
             SELECT 31002 AS RESULT;
             LEAVE proc_block;
@@ -859,8 +914,9 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_USER_APPROVE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_APPROVE` (
-    IN i_user_id BIGINT UNSIGNED  -- 승인할 사용자 ID
-) COMMENT '가입승인 - status 0(대기) -> 1(승인) 조건부 UPDATE (12_USER_API.md 1.4)'
+    IN i_user_id           BIGINT UNSIGNED,  -- 승인할 사용자 ID
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '가입승인 - SUPER_ADMIN 재검증, status 0(대기) -> 1(승인) 조건부 UPDATE (12_USER_API.md 1.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_APPROVE
@@ -870,6 +926,9 @@ BEGIN
     --        진단한다 - 사용자 자체가 없으면 31003, 있는데 이미 status=0이 아니면(이미 처리됨)
     --        30004(상태 전이 불가)로 구분한다. 이렇게 하면 성공 경로(가장 흔한 경우)는 존재
     --        여부를 별도로 조회하지 않고 UPDATE 한 번으로 끝난다.
+    --        가입승인은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
+    --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
+    --        02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -883,6 +942,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         UPDATE `user`
         SET `status` = 1
         WHERE `user_id` = i_user_id AND `status` = 0;
@@ -915,8 +979,7 @@ DROP PROCEDURE IF EXISTS `SP_USER_GET_BY_ID`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_GET_BY_ID` (
     IN i_user_id           BIGINT UNSIGNED,  -- 조회할 사용자 ID
-    IN i_requester_user_id BIGINT UNSIGNED,  -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-    IN i_requester_role    TINYINT UNSIGNED  -- 호출자 role_code (JWT 페이로드 값 그대로 신뢰)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
 ) COMMENT 'user_id로 전체 컬럼 조회, 회사 접근 재검증 - GET /auth/me, 비밀번호 변경 시 현재 해시 조회, 관리자 상세조회 공용'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -926,14 +989,15 @@ BEGIN
     --        GET /users/{user_id}(12_USER_API.md 1.3) 세 곳에서 공용으로 쓰는 조회 SP.
     --        password_hash를 포함해 전체 컬럼을 그대로 반환하며, API 응답에 어떤 필드를 노출할지
     --        (예: password_hash 제외, phone_number 복호화)는 서비스 레이어가 결정한다.
-    --        i_requester_user_id/i_requester_role은 자기 정보 조회(auth.service.ts)에서는 항상
-    --        i_user_id와 동일한 값이 들어와 FN_CHECK_COMPANY_ACCESS가 자기 자신의 company_id와
-    --        비교하게 되므로 결과적으로 항상 통과한다 - 자기 정보는 role과 무관하게 항상 볼 수
-    --        있어야 하므로 이는 의도된 동작이다. 관리자 조회(user.service.ts)에서는 실제 호출자와
-    --        다른 대상 user_id가 들어와, DEVELOPER가 타사 사용자를 조회하면 20001로 차단한다
-    --        (12_USER_API.md 1.3, 앱 레이어의 1차 체크를 SP가 2차로 재검증 -
-    --        02_DEV_CONVENTIONS.md 3.2). 존재 확인(31003)이 접근 재검증보다 먼저다 - 없는
-    --        리소스는 권한 여부와 무관하게 항상 404가 맞다. role_code=10이면 재검증을 건너뛴다.
+    --        i_requester_user_id는 자기 정보 조회(auth.service.ts)에서는 항상 i_user_id와 동일한
+    --        값이 들어와 FN_CHECK_COMPANY_ACCESS가 자기 자신의 company_id와 비교하게 되므로
+    --        결과적으로 항상 통과한다 - 자기 정보는 role과 무관하게 항상 볼 수 있어야 하므로 이는
+    --        의도된 동작이다. 관리자 조회(user.service.ts)에서는 실제 호출자와 다른 대상 user_id가
+    --        들어와, DEVELOPER가 타사 사용자를 조회하면 20001로 차단한다(12_USER_API.md 1.3,
+    --        앱 레이어의 1차 체크를 SP가 2차로 재검증 - 02_DEV_CONVENTIONS.md 3.2). 존재 확인
+    --        (31003)이 접근 재검증보다 먼저다 - 없는 리소스는 권한 여부와 무관하게 항상 404가
+    --        맞다. SUPER_ADMIN 우회는 FN_IS_SUPER_ADMIN(i_requester_user_id)로 SP가 직접 DB에서
+    --        재확인한다 - 앱이 role_code 값을 별도로 넘겨 그 값을 믿는 방식은 쓰지 않는다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -955,7 +1019,7 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        IF i_requester_role <> 10
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id)
            AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, v_company_id) THEN
             SELECT 20001 AS RESULT;
             LEAVE proc_block;
@@ -1038,8 +1102,7 @@ CREATE PROCEDURE `SP_USER_LIST` (
     IN i_status            TINYINT UNSIGNED, -- 상태 필터 (NULL이면 전체)
     IN i_limit             INT,              -- 페이지당 행 수
     IN i_offset            INT,              -- 시작 오프셋
-    IN i_requester_user_id BIGINT UNSIGNED,  -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-    IN i_requester_role    TINYINT UNSIGNED  -- 호출자 role_code (JWT 페이로드 값 그대로 신뢰)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
 ) COMMENT '사용자 목록 조회 - status ASC 정렬, 회사 접근 재검증 (12_USER_API.md 1.1/1.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -1054,7 +1117,8 @@ BEGIN
     --        DEVELOPER의 회사 단위 스코핑은 앱 레이어(UserService)가 i_company_id에 항상 자기
     --        companyId를 채워 호출하는 방식으로 1차 강제하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로
     --        호출자가 실제 그 회사 소속인지 2차로 재검증한다(방어적 이중 체크,
-    --        02_DEV_CONVENTIONS.md 3.2). role_code=10(SUPER_ADMIN)이면 재검증을 건너뛴다.
+    --        02_DEV_CONVENTIONS.md 3.2). SUPER_ADMIN 우회는 FN_IS_SUPER_ADMIN(i_requester_user_id)로
+    --        SP가 직접 DB에서 재확인한다 - 앱이 넘긴 role_code 값을 그대로 믿지 않는다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -1068,7 +1132,7 @@ BEGIN
     END;
 
     proc_block: BEGIN
-        IF i_requester_role <> 10
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id)
            AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, i_company_id) THEN
             SELECT 20001 AS RESULT;
             LEAVE proc_block;
@@ -1143,8 +1207,9 @@ DROP PROCEDURE IF EXISTS `SP_USER_PASSWORD_RESET`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_PASSWORD_RESET` (
     IN i_user_id           BIGINT UNSIGNED,  -- 대상 사용자 ID
-    IN i_new_password_hash VARCHAR(255)      -- 새 비밀번호 bcrypt 해시(앱 레이어에서 해시 완료)
-) COMMENT '관리자 비밀번호 강제 초기화 + 전체 활성 세션 종료 (12_USER_API.md 1.7)'
+    IN i_new_password_hash VARCHAR(255),     -- 새 비밀번호 bcrypt 해시(앱 레이어에서 해시 완료)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '관리자 비밀번호 강제 초기화 - SUPER_ADMIN 재검증, 전체 활성 세션 종료 (12_USER_API.md 1.7)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_PASSWORD_RESET
@@ -1154,6 +1219,9 @@ BEGIN
     --        아님) 존재 확인(31003)이 먼저 필요하다는 점이 다르다 - 그래서 SP를 공유하지 않고
     --        별도로 둔다. 현재 비밀번호 검증 없이 즉시 변경하며(12_USER_API.md 1.7 Description),
     --        password_hash 갱신과 "모든 활성 세션 종료"를 하나의 트랜잭션으로 묶는다.
+    --        비밀번호 강제 초기화는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
+    --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
+    --        02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -1168,6 +1236,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF NOT EXISTS (SELECT 1 FROM `user` WHERE `user_id` = i_user_id) THEN
             SELECT 31003 AS RESULT;
             LEAVE proc_block;
@@ -1203,13 +1276,15 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_USER_REJECT`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_REJECT` (
-    IN i_user_id BIGINT UNSIGNED  -- 반려할 사용자 ID
-) COMMENT '가입반려 - status 0(대기) -> 2(반려) 조건부 UPDATE (12_USER_API.md 1.5)'
+    IN i_user_id           BIGINT UNSIGNED,  -- 반려할 사용자 ID
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '가입반려 - SUPER_ADMIN 재검증, status 0(대기) -> 2(반려) 조건부 UPDATE (12_USER_API.md 1.5)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_REJECT
     -- 작성 : 2026.07.19 trisakion
-    -- 내용 : SP_USER_APPROVE와 동일한 조건부 UPDATE + 실패 사유 진단 패턴(31003 vs 30004).
+    -- 내용 : SP_USER_APPROVE와 동일한 조건부 UPDATE + 실패 사유 진단 패턴(31003 vs 30004),
+    --        그리고 동일한 FN_IS_SUPER_ADMIN 재검증(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -1223,6 +1298,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         UPDATE `user`
         SET `status` = 2
         WHERE `user_id` = i_user_id AND `status` = 0;
@@ -1254,10 +1334,11 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_USER_ROLE_CREATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_ROLE_CREATE` (
-    IN i_user_id    BIGINT UNSIGNED,  -- 배정할 사용자 ID
-    IN i_project_id BIGINT UNSIGNED,  -- 배정할 프로젝트 ID
-    IN i_role_code  TINYINT UNSIGNED  -- 권한 코드 (20/30/40 - 10은 앱 레이어 DTO 검증에서 이미 차단)
-) COMMENT 'user_role 배정 생성 - 회사 일치 검증 + 중복 배정 차단 (12_USER_API.md 3.1)'
+    IN i_user_id           BIGINT UNSIGNED,  -- 배정할 사용자 ID
+    IN i_project_id        BIGINT UNSIGNED,  -- 배정할 프로젝트 ID
+    IN i_role_code         TINYINT UNSIGNED, -- 권한 코드 (20/30/40 - 10은 앱 레이어 DTO 검증에서 이미 차단)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT 'user_role 배정 생성 - SUPER_ADMIN 재검증, 회사 일치 검증 + 중복 배정 차단 (12_USER_API.md 3.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_ROLE_CREATE
@@ -1269,6 +1350,8 @@ BEGIN
     --        보아 30003(허용되지 않는 값)을 쓴다 - PERMISSION_DENIED(20001)는 호출자 본인의
     --        권한 부족에, 30003은 요청 바디 조합 자체의 유효성 문제에 쓴다는 구분을 유지한다.
     --        복합 PK(user_id, project_id) 유니크 위반(경쟁 상태 백스톱) - mysql_errno 1062.
+    --        이 SP는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, FN_IS_SUPER_ADMIN으로
+    --        가장 먼저 재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -1287,6 +1370,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF NOT EXISTS (SELECT 1 FROM `user` WHERE `user_id` = i_user_id) THEN
             SELECT 31003 AS RESULT;
             LEAVE proc_block;
@@ -1370,13 +1458,14 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_USER_ROLE_LIST`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_ROLE_LIST` (
-    IN i_user_id    BIGINT UNSIGNED,  -- 사용자 ID 필터 (NULL이면 전체)
-    IN i_project_id BIGINT UNSIGNED,  -- 프로젝트 ID 필터 (NULL이면 전체)
-    IN i_role_code  TINYINT UNSIGNED, -- 권한 코드 필터 (NULL이면 전체)
-    IN i_status     TINYINT UNSIGNED, -- 상태 필터 (NULL이면 전체)
-    IN i_limit      INT,              -- 페이지당 행 수
-    IN i_offset     INT               -- 시작 오프셋
-) COMMENT 'user_role 목록 조회 (12_USER_API.md 3.2)'
+    IN i_user_id           BIGINT UNSIGNED,  -- 사용자 ID 필터 (NULL이면 전체)
+    IN i_project_id        BIGINT UNSIGNED,  -- 프로젝트 ID 필터 (NULL이면 전체)
+    IN i_role_code         TINYINT UNSIGNED, -- 권한 코드 필터 (NULL이면 전체)
+    IN i_status            TINYINT UNSIGNED, -- 상태 필터 (NULL이면 전체)
+    IN i_limit             INT,              -- 페이지당 행 수
+    IN i_offset            INT,              -- 시작 오프셋
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT 'user_role 목록 조회 - SUPER_ADMIN 재검증 (12_USER_API.md 3.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_ROLE_LIST
@@ -1384,53 +1473,8 @@ BEGIN
     -- 내용 : user_id/project_id/role_code/status 조건부 필터 + 페이지네이션. 다른 목록 SP와
     --        동일하게 COUNT(*) OVER()로 total_count를 각 행에 실어 반환한다. 정렬은
     --        12_USER_API.md 3.2 Sorting 그대로(status DESC, role_code ASC, user_id ASC).
-    -- ------------------------------------------------------------------------------------------------------------ --
-    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
-    DECLARE error_no      INT          DEFAULT 0;
-    DECLARE error_message VARCHAR(255) DEFAULT '';
-
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        GET DIAGNOSTICS CONDITION 1
-            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
-        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
-    END;
-
-    SELECT 0 AS RESULT;
-    SELECT
-        `user_id`, `project_id`, `role_code`, `status`, `created_at`, `updated_at`,
-        COUNT(*) OVER() AS total_count
-    FROM `user_role`
-    WHERE (i_user_id IS NULL OR `user_id` = i_user_id)
-      AND (i_project_id IS NULL OR `project_id` = i_project_id)
-      AND (i_role_code IS NULL OR `role_code` = i_role_code)
-      AND (i_status IS NULL OR `status` = i_status)
-    ORDER BY `status` DESC, `role_code` ASC, `user_id` ASC
-    LIMIT i_limit OFFSET i_offset;
-END$$
-
-DELIMITER ;
-
--- ============================================================================================================ --
--- SP_USER_ROLE_UPDATE
--- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `SP_USER_ROLE_UPDATE`;
-DELIMITER $$
-CREATE PROCEDURE `SP_USER_ROLE_UPDATE` (
-    IN i_user_id    BIGINT UNSIGNED,  -- 복합 PK - 사용자 ID
-    IN i_project_id BIGINT UNSIGNED,  -- 복합 PK - 프로젝트 ID
-    IN i_role_code  TINYINT UNSIGNED, -- 새 권한 코드 (NULL이면 미변경, 10은 불가)
-    IN i_status     TINYINT UNSIGNED  -- 새 상태 (NULL이면 미변경)
-) COMMENT 'user_role 수정 - 조건부 UPDATE, role_code=10 전환 차단 (12_USER_API.md 3.3)'
-BEGIN
-    -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : SP_USER_ROLE_UPDATE
-    -- 작성 : 2026.07.19 trisakion
-    -- 내용 : user_id/project_id는 복합 PK라 이 SP에서 변경 대상이 아니다(Non-Updatable Fields,
-    --        12_USER_API.md 3.3). role_code=10(SUPER_ADMIN)으로의 변경은 명시적으로 30003을
-    --        반환한다(3.3 Business Rules) - DTO 레이어에서 20/30/40으로 막지 않고 여기서 막는
-    --        이유는 문서가 이 케이스를 SP/서비스 레벨의 명시적 오류 코드로 지정했기 때문이다.
-    --        물리 삭제 없음 원칙에 따라 권한 중지는 status=0 조건부 UPDATE로만 처리한다.
+    --        이 SP는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, FN_IS_SUPER_ADMIN으로
+    --        재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -1444,6 +1488,68 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `user_id`, `project_id`, `role_code`, `status`, `created_at`, `updated_at`,
+            COUNT(*) OVER() AS total_count
+        FROM `user_role`
+        WHERE (i_user_id IS NULL OR `user_id` = i_user_id)
+          AND (i_project_id IS NULL OR `project_id` = i_project_id)
+          AND (i_role_code IS NULL OR `role_code` = i_role_code)
+          AND (i_status IS NULL OR `status` = i_status)
+        ORDER BY `status` DESC, `role_code` ASC, `user_id` ASC
+        LIMIT i_limit OFFSET i_offset;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_USER_ROLE_UPDATE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_USER_ROLE_UPDATE`;
+DELIMITER $$
+CREATE PROCEDURE `SP_USER_ROLE_UPDATE` (
+    IN i_user_id           BIGINT UNSIGNED,  -- 복합 PK - 사용자 ID
+    IN i_project_id        BIGINT UNSIGNED,  -- 복합 PK - 프로젝트 ID
+    IN i_role_code         TINYINT UNSIGNED, -- 새 권한 코드 (NULL이면 미변경, 10은 불가)
+    IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT 'user_role 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE, role_code=10 전환 차단 (12_USER_API.md 3.3)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_USER_ROLE_UPDATE
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : user_id/project_id는 복합 PK라 이 SP에서 변경 대상이 아니다(Non-Updatable Fields,
+    --        12_USER_API.md 3.3). role_code=10(SUPER_ADMIN)으로의 변경은 명시적으로 30003을
+    --        반환한다(3.3 Business Rules) - DTO 레이어에서 20/30/40으로 막지 않고 여기서 막는
+    --        이유는 문서가 이 케이스를 SP/서비스 레벨의 명시적 오류 코드로 지정했기 때문이다.
+    --        물리 삭제 없음 원칙에 따라 권한 중지는 status=0 조건부 UPDATE로만 처리한다.
+    --        이 SP는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, FN_IS_SUPER_ADMIN으로
+    --        가장 먼저 재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF i_role_code = 10 THEN
             SELECT 30003 AS RESULT;
             LEAVE proc_block;
@@ -1796,14 +1902,15 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_USER_UPDATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_UPDATE` (
-    IN i_user_id          BIGINT UNSIGNED,  -- 수정할 사용자 ID
-    IN i_user_name        VARCHAR(100),     -- 새 사용자명 (NULL이면 미변경)
-    IN i_email            VARCHAR(200),     -- 새 이메일 (NULL이면 미변경)
-    IN i_phone_number_enc VARCHAR(255),     -- 새 휴대폰번호 AES-256-CBC 암호화값 (NULL이면 미변경)
-    IN i_department       VARCHAR(100),     -- 새 부서 (NULL이면 미변경)
-    IN i_position         VARCHAR(100),     -- 새 직급 (NULL이면 미변경)
-    IN i_status           TINYINT UNSIGNED  -- 새 상태 (NULL이면 미변경)
-) COMMENT '사용자 정보 수정 - 조건부 UPDATE + status=3 전환 시 전체 세션 종료 (12_USER_API.md 1.6)'
+    IN i_user_id           BIGINT UNSIGNED,  -- 수정할 사용자 ID
+    IN i_user_name         VARCHAR(100),     -- 새 사용자명 (NULL이면 미변경)
+    IN i_email             VARCHAR(200),     -- 새 이메일 (NULL이면 미변경)
+    IN i_phone_number_enc  VARCHAR(255),     -- 새 휴대폰번호 AES-256-CBC 암호화값 (NULL이면 미변경)
+    IN i_department        VARCHAR(100),     -- 새 부서 (NULL이면 미변경)
+    IN i_position          VARCHAR(100),     -- 새 직급 (NULL이면 미변경)
+    IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '사용자 정보 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE + status=3 전환 시 전체 세션 종료 (12_USER_API.md 1.6)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_UPDATE
@@ -1818,6 +1925,9 @@ BEGIN
     --        값으로 바뀌는 경우는 세션에 영향을 주지 않는다. UPDATE 규약(3.4)은 status 값 전이
     --        자체를 검증하지 않는다고 명시하므로(화면 버튼 기준일 뿐) 여기서도 임의의 status 값
     --        전달을 그대로 허용한다.
+    --        사용자 수정은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
+    --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
+    --        02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -1838,6 +1948,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF NOT EXISTS (SELECT 1 FROM `user` WHERE `user_id` = i_user_id) THEN
             SELECT 31003 AS RESULT;
             LEAVE proc_block;

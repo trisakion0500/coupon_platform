@@ -65,7 +65,7 @@ describe('ProjectService', () => {
         data: [createdRow],
       });
 
-      const result = await service.create(dto);
+      const result = await service.create(dto, 1);
 
       expect(result).toMatchObject(createdRow);
       expect(result.api_secret).toEqual(expect.any(String));
@@ -74,14 +74,14 @@ describe('ProjectService', () => {
 
     it('throws COMPANY_NOT_FOUND on 31001', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31001 });
-      await expect(service.create(dto)).rejects.toMatchObject({
+      await expect(service.create(dto, 1)).rejects.toMatchObject({
         resultCode: ResultCode.COMPANY_NOT_FOUND,
       });
     });
 
     it('throws DUPLICATE_DATA on 32001', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 32001 });
-      await expect(service.create(dto)).rejects.toMatchObject({
+      await expect(service.create(dto, 1)).rejects.toMatchObject({
         resultCode: ResultCode.DUPLICATE_DATA,
       });
     });
@@ -90,8 +90,15 @@ describe('ProjectService', () => {
       spExecutor.callProcedure.mockRejectedValueOnce(
         new BusinessException(ResultCode.DATABASE_ERROR),
       );
-      await expect(service.create(dto)).rejects.toMatchObject({
+      await expect(service.create(dto, 1)).rejects.toMatchObject({
         resultCode: ResultCode.DATABASE_ERROR,
+      });
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(service.create(dto, 2)).rejects.toMatchObject({
+        resultCode: ResultCode.PERMISSION_DENIED,
       });
     });
   });
@@ -108,7 +115,6 @@ describe('ProjectService', () => {
         20,
         0,
         developer.userId,
-        developer.roleCode,
       ]);
     });
 
@@ -123,7 +129,6 @@ describe('ProjectService', () => {
         20,
         0,
         superAdmin.userId,
-        superAdmin.roleCode,
       ]);
     });
 
@@ -204,14 +209,21 @@ describe('ProjectService', () => {
         data: [projectRow],
       });
       await expect(
-        service.update(10, { project_name: 'Renamed' }),
+        service.update(10, { project_name: 'Renamed' }, 1),
       ).resolves.toEqual(projectRow);
     });
 
     it('throws PROJECT_NOT_FOUND on 31002', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31002 });
-      await expect(service.update(999, {})).rejects.toMatchObject({
+      await expect(service.update(999, {}, 1)).rejects.toMatchObject({
         resultCode: ResultCode.PROJECT_NOT_FOUND,
+      });
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(service.update(10, {}, 2)).rejects.toMatchObject({
+        resultCode: ResultCode.PERMISSION_DENIED,
       });
     });
   });

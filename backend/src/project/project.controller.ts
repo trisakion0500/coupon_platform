@@ -43,8 +43,8 @@ export class ProjectController {
   @Roles(RoleCode.SUPER_ADMIN)
   @Post()
   @HttpCode(200)
-  create(@Body() dto: CreateProjectDto) {
-    return this.projectService.create(dto);
+  create(@Body() dto: CreateProjectDto, @Req() req: AuthenticatedRequest) {
+    return this.projectService.create(dto, req.user!.userId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -81,8 +81,9 @@ export class ProjectController {
   update(
     @Param('project_id', ParseIntPipe) projectId: number,
     @Body() dto: UpdateProjectDto,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.projectService.update(projectId, dto);
+    return this.projectService.update(projectId, dto, req.user!.userId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

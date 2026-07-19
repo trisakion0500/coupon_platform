@@ -56,7 +56,6 @@ describe('UserService', () => {
         20,
         0,
         developer.userId,
-        developer.roleCode,
       ]);
     });
 
@@ -122,22 +121,29 @@ describe('UserService', () => {
         result: 0,
         data: [{ ...userRow, status: 1 }],
       });
-      await expect(service.approve(100)).resolves.toMatchObject({
+      await expect(service.approve(100, 1)).resolves.toMatchObject({
         status: 1,
       });
     });
 
     it('throws USER_NOT_FOUND on 31003', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31003 });
-      await expect(service.approve(999)).rejects.toMatchObject({
+      await expect(service.approve(999, 1)).rejects.toMatchObject({
         resultCode: ResultCode.USER_NOT_FOUND,
       });
     });
 
     it('throws INVALID_STATE_TRANSITION on 30004 (already processed)', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 30004 });
-      await expect(service.approve(100)).rejects.toMatchObject({
+      await expect(service.approve(100, 1)).rejects.toMatchObject({
         resultCode: ResultCode.INVALID_STATE_TRANSITION,
+      });
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(service.approve(100, 2)).rejects.toMatchObject({
+        resultCode: ResultCode.PERMISSION_DENIED,
       });
     });
   });
@@ -145,7 +151,7 @@ describe('UserService', () => {
   describe('reject', () => {
     it('throws INVALID_STATE_TRANSITION on 30004', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 30004 });
-      await expect(service.reject(100)).rejects.toMatchObject({
+      await expect(service.reject(100, 1)).rejects.toMatchObject({
         resultCode: ResultCode.INVALID_STATE_TRANSITION,
       });
     });
@@ -158,7 +164,7 @@ describe('UserService', () => {
         data: [userRow],
       });
 
-      await service.update(100, { phone_number: '010-1111-2222' });
+      await service.update(100, { phone_number: '010-1111-2222' }, 1);
 
       expect(crypto.encrypt).toHaveBeenCalledWith('010-1111-2222');
       expect(spExecutor.callProcedure).toHaveBeenCalledWith('SP_USER_UPDATE', [
@@ -169,20 +175,28 @@ describe('UserService', () => {
         null,
         null,
         null,
+        1,
       ]);
     });
 
     it('throws DUPLICATE_DATA on 32001 (email conflict)', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 32001 });
       await expect(
-        service.update(100, { email: 'dup@example.com' }),
+        service.update(100, { email: 'dup@example.com' }, 1),
       ).rejects.toMatchObject({ resultCode: ResultCode.DUPLICATE_DATA });
     });
 
     it('throws USER_NOT_FOUND on 31003', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31003 });
-      await expect(service.update(999, {})).rejects.toMatchObject({
+      await expect(service.update(999, {}, 1)).rejects.toMatchObject({
         resultCode: ResultCode.USER_NOT_FOUND,
+      });
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(service.update(100, {}, 2)).rejects.toMatchObject({
+        resultCode: ResultCode.PERMISSION_DENIED,
       });
     });
   });
@@ -194,22 +208,31 @@ describe('UserService', () => {
         data: [userRow],
       });
 
-      const result = await service.resetPassword(100, {
-        new_password: 'new-pass',
-      });
+      const result = await service.resetPassword(
+        100,
+        { new_password: 'new-pass' },
+        1,
+      );
 
       expect(result.user_id).toBe(100);
       expect(spExecutor.callProcedure).toHaveBeenCalledWith(
         'SP_USER_PASSWORD_RESET',
-        [100, expect.any(String)],
+        [100, expect.any(String), 1],
       );
     });
 
     it('throws USER_NOT_FOUND on 31003', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31003 });
       await expect(
-        service.resetPassword(999, { new_password: 'new-pass' }),
+        service.resetPassword(999, { new_password: 'new-pass' }, 1),
       ).rejects.toMatchObject({ resultCode: ResultCode.USER_NOT_FOUND });
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(
+        service.resetPassword(100, { new_password: 'new-pass' }, 2),
+      ).rejects.toMatchObject({ resultCode: ResultCode.PERMISSION_DENIED });
     });
   });
 });

@@ -64,13 +64,23 @@ export class UserRoleService {
     return { project_id: projectId, role_code: data?.[0]?.role_code ?? null };
   }
 
-  /** 12_USER_API.md 3.1 — SUPER_ADMIN 전용. 회사 불일치(30003)/중복 배정(32001)은 SP가 검증한다. */
-  async create(dto: CreateUserRoleDto): Promise<UserRoleRow> {
+  /**
+   * 12_USER_API.md 3.1 — SUPER_ADMIN 전용(RolesGuard). SP도 FN_IS_SUPER_ADMIN으로 호출자를
+   * 재확인한다(20001, 방어적 이중 체크 - 02_DEV_CONVENTIONS.md 3.2). 회사 불일치(30003)/중복
+   * 배정(32001)도 SP가 검증한다.
+   */
+  async create(
+    dto: CreateUserRoleDto,
+    requesterUserId: number,
+  ): Promise<UserRoleRow> {
     const { result, data } = await this.spExecutor.callProcedure<UserRoleRow[]>(
       'SP_USER_ROLE_CREATE',
-      [dto.user_id, dto.project_id, dto.role_code],
+      [dto.user_id, dto.project_id, dto.role_code, requesterUserId],
     );
 
+    if (result === 20001) {
+      throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
     if (result === 31003) {
       throw new BusinessException(ResultCode.USER_NOT_FOUND);
     }
@@ -90,9 +100,10 @@ export class UserRoleService {
     return data[0];
   }
 
-  /** 12_USER_API.md 3.2 — SUPER_ADMIN 전용, 전부 선택 필터. */
+  /** 12_USER_API.md 3.2 — SUPER_ADMIN 전용(RolesGuard + SP의 FN_IS_SUPER_ADMIN 재확인), 전부 선택 필터. */
   async list(
     query: UserRoleListQueryDto,
+    requesterUserId: number,
   ): Promise<PaginatedResult<UserRoleRow>> {
     const offset = (query.page - 1) * query.page_size;
     const { result, data } = await this.spExecutor.callProcedure<
@@ -104,8 +115,12 @@ export class UserRoleService {
       query.status ?? null,
       query.page_size,
       offset,
+      requesterUserId,
     ]);
 
+    if (result === 20001) {
+      throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
     if (result !== 0) {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
@@ -125,19 +140,29 @@ export class UserRoleService {
   }
 
   /**
-   * 12_USER_API.md 3.3 — SUPER_ADMIN 전용. role_code=10 시도(30003)/배정 없음(31007)은
-   * SP_USER_ROLE_UPDATE가 검증한다.
+   * 12_USER_API.md 3.3 — SUPER_ADMIN 전용(RolesGuard + SP의 FN_IS_SUPER_ADMIN 재확인, 20001).
+   * role_code=10 시도(30003)/배정 없음(31007)은 SP_USER_ROLE_UPDATE가 검증한다.
    */
   async update(
     userId: number,
     projectId: number,
     dto: UpdateUserRoleDto,
+    requesterUserId: number,
   ): Promise<UserRoleRow> {
     const { result, data } = await this.spExecutor.callProcedure<UserRoleRow[]>(
       'SP_USER_ROLE_UPDATE',
-      [userId, projectId, dto.role_code ?? null, dto.status ?? null],
+      [
+        userId,
+        projectId,
+        dto.role_code ?? null,
+        dto.status ?? null,
+        requesterUserId,
+      ],
     );
 
+    if (result === 20001) {
+      throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
     if (result === 30003) {
       throw new BusinessException(ResultCode.DISALLOWED_VALUE);
     }

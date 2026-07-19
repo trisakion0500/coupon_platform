@@ -5,8 +5,7 @@ CREATE PROCEDURE `SP_PROJECT_LIST` (
     IN i_status            TINYINT UNSIGNED,  -- 상태 필터 (NULL이면 전체)
     IN i_page_size         INT,               -- 페이지당 행 수
     IN i_offset            INT,               -- 시작 오프셋
-    IN i_requester_user_id BIGINT UNSIGNED,   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-    IN i_requester_role    TINYINT UNSIGNED   -- 호출자 role_code (JWT 페이로드 값 그대로 신뢰)
+    IN i_requester_user_id BIGINT UNSIGNED    -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
 ) COMMENT '프로젝트 목록 조회 - 페이지네이션, company 조인, 회사 접근 재검증 (11_PROJECT_API.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -18,8 +17,10 @@ BEGIN
     --        앱 레이어(ProjectService)가 i_company_id에 항상 자기 companyId를 채워 호출하는
     --        방식으로 1차 강제하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로 호출자가 실제 그 회사
     --        소속인지 2차로 재검증한다(앱 레이어 버그로 잘못된 company_id가 넘어와도 SP가
-    --        마지막 방어선 역할을 하도록, 02_DEV_CONVENTIONS.md 3.2). role_code=10(SUPER_ADMIN)이면
-    --        이 재검증 자체를 건너뛴다 - SUPER_ADMIN은 특정 회사에 매인 값이 아니다.
+    --        마지막 방어선 역할을 하도록, 02_DEV_CONVENTIONS.md 3.2). SUPER_ADMIN 우회는
+    --        FN_IS_SUPER_ADMIN(i_requester_user_id)로 SP가 직접 DB에서 재확인한다 - 앱이
+    --        role_code 값을 함께 넘겨 그 값을 그대로 믿는 방식은 쓰지 않는다(앱 레이어가 잘못된
+    --        role_code를 실어 보내는 버그가 있어도 이 SP는 영향받지 않는다).
     --        total_count는 SP_COMPANY_LIST와 동일하게 COUNT(*) OVER()로 함께 반환한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
@@ -33,7 +34,7 @@ BEGIN
     END;
 
     proc_block: BEGIN
-        IF i_requester_role <> 10
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id)
            AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, i_company_id) THEN
             SELECT 20001 AS RESULT;
             LEAVE proc_block;

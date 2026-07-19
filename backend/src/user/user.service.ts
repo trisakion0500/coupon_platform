@@ -81,7 +81,6 @@ export class UserService {
         query.page_size,
         offset,
         requester.userId,
-        requester.roleCode,
       ],
     );
 
@@ -109,7 +108,7 @@ export class UserService {
   ): Promise<UserResponse> {
     const { result, data } = await this.spExecutor.callProcedure<UserRow[]>(
       'SP_USER_GET_BY_ID',
-      [userId, requester.userId, requester.roleCode],
+      [userId, requester.userId],
     );
 
     if (result === 20001) {
@@ -132,15 +131,22 @@ export class UserService {
     return this.toUserResponse(user);
   }
 
-  async approve(userId: number): Promise<UserResponse> {
-    return this.runStatusTransition('SP_USER_APPROVE', userId);
+  async approve(
+    userId: number,
+    requesterUserId: number,
+  ): Promise<UserResponse> {
+    return this.runStatusTransition('SP_USER_APPROVE', userId, requesterUserId);
   }
 
-  async reject(userId: number): Promise<UserResponse> {
-    return this.runStatusTransition('SP_USER_REJECT', userId);
+  async reject(userId: number, requesterUserId: number): Promise<UserResponse> {
+    return this.runStatusTransition('SP_USER_REJECT', userId, requesterUserId);
   }
 
-  async update(userId: number, dto: UpdateUserDto): Promise<UserResponse> {
+  async update(
+    userId: number,
+    dto: UpdateUserDto,
+    requesterUserId: number,
+  ): Promise<UserResponse> {
     const phoneNumberEnc = dto.phone_number
       ? this.crypto.encrypt(dto.phone_number)
       : null;
@@ -155,9 +161,13 @@ export class UserService {
         dto.department ?? null,
         dto.position ?? null,
         dto.status ?? null,
+        requesterUserId,
       ],
     );
 
+    if (result === 20001) {
+      throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
     if (result === 31003) {
       throw new BusinessException(ResultCode.USER_NOT_FOUND);
     }
@@ -178,14 +188,18 @@ export class UserService {
   async resetPassword(
     userId: number,
     dto: ResetPasswordDto,
+    requesterUserId: number,
   ): Promise<UserResponse> {
     const newPasswordHash = await bcrypt.hash(dto.new_password, BCRYPT_ROUNDS);
 
     const { result, data } = await this.spExecutor.callProcedure<UserRow[]>(
       'SP_USER_PASSWORD_RESET',
-      [userId, newPasswordHash],
+      [userId, newPasswordHash, requesterUserId],
     );
 
+    if (result === 20001) {
+      throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
     if (result === 31003) {
       throw new BusinessException(ResultCode.USER_NOT_FOUND);
     }
@@ -200,12 +214,16 @@ export class UserService {
   private async runStatusTransition(
     spName: 'SP_USER_APPROVE' | 'SP_USER_REJECT',
     userId: number,
+    requesterUserId: number,
   ): Promise<UserResponse> {
     const { result, data } = await this.spExecutor.callProcedure<UserRow[]>(
       spName,
-      [userId],
+      [userId, requesterUserId],
     );
 
+    if (result === 20001) {
+      throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
     if (result === 31003) {
       throw new BusinessException(ResultCode.USER_NOT_FOUND);
     }

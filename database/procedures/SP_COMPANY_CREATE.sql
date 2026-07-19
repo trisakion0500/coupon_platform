@@ -1,10 +1,11 @@
 DROP PROCEDURE IF EXISTS `SP_COMPANY_CREATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_COMPANY_CREATE` (
-    IN i_company_code VARCHAR(20),   -- 회사 코드 (전역 UNIQUE)
-    IN i_company_name VARCHAR(100),  -- 회사명
-    IN i_description  VARCHAR(1000)  -- 설명 (선택)
-) COMMENT '회사 생성 - company_code 중복 확인 후 INSERT (10_COMPANY_API.md 2.1)'
+    IN i_company_code      VARCHAR(20),      -- 회사 코드 (전역 UNIQUE)
+    IN i_company_name      VARCHAR(100),     -- 회사명
+    IN i_description       VARCHAR(1000),    -- 설명 (선택)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '회사 생성 - SUPER_ADMIN 재검증, company_code 중복 확인 후 INSERT (10_COMPANY_API.md 2.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COMPANY_CREATE
@@ -12,6 +13,9 @@ BEGIN
     -- 내용 : 회사 생성. company_code 중복을 사전 체크(32001)한 뒤 INSERT한다. SP_USER_SIGNUP과
     --        동일한 이유로 사전 체크는 원자적이지 않으므로(동시에 같은 code로 두 요청이 들어오면
     --        둘 다 통과할 수 있음), INSERT의 UNIQUE 제약 위반(1062) 전용 핸들러를 백스톱으로 둔다.
+    --        회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
+    --        FN_IS_SUPER_ADMIN으로 호출자가 실제 DB상 SUPER_ADMIN인지 재확인한다(방어적 이중
+    --        체크, 02_DEV_CONVENTIONS.md 3.2) - 다른 검증보다 가장 먼저 확인한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -32,6 +36,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF EXISTS (SELECT 1 FROM `company` WHERE `company_code` = i_company_code) THEN
             SELECT 32001 AS RESULT;
             LEAVE proc_block;

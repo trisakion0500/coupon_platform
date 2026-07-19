@@ -81,7 +81,10 @@ export class ProjectService {
     private readonly crypto: CryptoService,
   ) {}
 
-  async create(dto: CreateProjectDto): Promise<ProjectCreateResponse> {
+  async create(
+    dto: CreateProjectDto,
+    requesterUserId: number,
+  ): Promise<ProjectCreateResponse> {
     const apiKey = this.generateRandomHex();
     const apiSecretPlain = this.generateRandomHex();
     const apiSecretEnc = this.crypto.encrypt(apiSecretPlain);
@@ -95,8 +98,12 @@ export class ProjectService {
       dto.description ?? null,
       apiKey,
       apiSecretEnc,
+      requesterUserId,
     ]);
 
+    if (result === 20001) {
+      throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
     if (result === 31001) {
       throw new BusinessException(ResultCode.COMPANY_NOT_FOUND);
     }
@@ -128,7 +135,6 @@ export class ProjectService {
       query.page_size,
       offset,
       requester.userId,
-      requester.roleCode,
     ]);
 
     if (result === 20001) {
@@ -164,7 +170,7 @@ export class ProjectService {
   ): Promise<ProjectRow> {
     const { result, data } = await this.spExecutor.callProcedure<ProjectRow[]>(
       'SP_PROJECT_GET_BY_ID',
-      [projectId, requester.userId, requester.roleCode],
+      [projectId, requester.userId],
     );
 
     if (result === 20001) {
@@ -187,7 +193,11 @@ export class ProjectService {
     return project;
   }
 
-  async update(projectId: number, dto: UpdateProjectDto): Promise<ProjectRow> {
+  async update(
+    projectId: number,
+    dto: UpdateProjectDto,
+    requesterUserId: number,
+  ): Promise<ProjectRow> {
     const { result, data } = await this.spExecutor.callProcedure<ProjectRow[]>(
       'SP_PROJECT_UPDATE',
       [
@@ -195,9 +205,13 @@ export class ProjectService {
         dto.project_name ?? null,
         dto.description ?? null,
         dto.status ?? null,
+        requesterUserId,
       ],
     );
 
+    if (result === 20001) {
+      throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
     if (result === 31002) {
       throw new BusinessException(ResultCode.PROJECT_NOT_FOUND);
     }

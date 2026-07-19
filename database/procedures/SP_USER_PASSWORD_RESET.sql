@@ -2,8 +2,9 @@ DROP PROCEDURE IF EXISTS `SP_USER_PASSWORD_RESET`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_PASSWORD_RESET` (
     IN i_user_id           BIGINT UNSIGNED,  -- 대상 사용자 ID
-    IN i_new_password_hash VARCHAR(255)      -- 새 비밀번호 bcrypt 해시(앱 레이어에서 해시 완료)
-) COMMENT '관리자 비밀번호 강제 초기화 + 전체 활성 세션 종료 (12_USER_API.md 1.7)'
+    IN i_new_password_hash VARCHAR(255),     -- 새 비밀번호 bcrypt 해시(앱 레이어에서 해시 완료)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '관리자 비밀번호 강제 초기화 - SUPER_ADMIN 재검증, 전체 활성 세션 종료 (12_USER_API.md 1.7)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_PASSWORD_RESET
@@ -13,6 +14,9 @@ BEGIN
     --        아님) 존재 확인(31003)이 먼저 필요하다는 점이 다르다 - 그래서 SP를 공유하지 않고
     --        별도로 둔다. 현재 비밀번호 검증 없이 즉시 변경하며(12_USER_API.md 1.7 Description),
     --        password_hash 갱신과 "모든 활성 세션 종료"를 하나의 트랜잭션으로 묶는다.
+    --        비밀번호 강제 초기화는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
+    --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
+    --        02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -27,6 +31,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF NOT EXISTS (SELECT 1 FROM `user` WHERE `user_id` = i_user_id) THEN
             SELECT 31003 AS RESULT;
             LEAVE proc_block;

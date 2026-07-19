@@ -2,8 +2,7 @@ DROP PROCEDURE IF EXISTS `SP_PROJECT_GET_BY_ID`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_GET_BY_ID` (
     IN i_project_id        BIGINT UNSIGNED,  -- 조회할 프로젝트 ID
-    IN i_requester_user_id BIGINT UNSIGNED,  -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-    IN i_requester_role    TINYINT UNSIGNED  -- 호출자 role_code (JWT 페이로드 값 그대로 신뢰)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
 ) COMMENT '프로젝트 상세 조회 - company 조인, 회사 접근 재검증 (11_PROJECT_API.md 2.3)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -15,7 +14,8 @@ BEGIN
     --        1차로 판단하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로 호출자가 실제 그 프로젝트의 회사
     --        소속인지 2차로 재검증한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2). 존재 확인이
     --        먼저이고(31002), 그 다음 접근 재검증(20001) 순서다 - 없는 리소스는 권한 여부와
-    --        무관하게 항상 404가 맞다. role_code=10(SUPER_ADMIN)이면 재검증을 건너뛴다.
+    --        무관하게 항상 404가 맞다. SUPER_ADMIN 우회는 FN_IS_SUPER_ADMIN(i_requester_user_id)로
+    --        SP가 직접 DB에서 재확인한다 - 앱이 넘긴 role_code 값을 그대로 믿지 않는다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -36,7 +36,7 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        IF i_requester_role <> 10
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id)
            AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, v_company_id) THEN
             SELECT 20001 AS RESULT;
             LEAVE proc_block;

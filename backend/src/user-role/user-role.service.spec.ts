@@ -51,34 +51,41 @@ describe('UserRoleService', () => {
         data: [{ ...dto, status: 1, created_at: 't', updated_at: 't' }],
       });
 
-      await expect(service.create(dto)).resolves.toMatchObject(dto);
+      await expect(service.create(dto, 1)).resolves.toMatchObject(dto);
     });
 
     it('throws USER_NOT_FOUND on 31003', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31003 });
-      await expect(service.create(dto)).rejects.toMatchObject({
+      await expect(service.create(dto, 1)).rejects.toMatchObject({
         resultCode: ResultCode.USER_NOT_FOUND,
       });
     });
 
     it('throws PROJECT_NOT_FOUND on 31002', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31002 });
-      await expect(service.create(dto)).rejects.toMatchObject({
+      await expect(service.create(dto, 1)).rejects.toMatchObject({
         resultCode: ResultCode.PROJECT_NOT_FOUND,
       });
     });
 
     it('throws DISALLOWED_VALUE on 30003 (company mismatch)', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 30003 });
-      await expect(service.create(dto)).rejects.toMatchObject({
+      await expect(service.create(dto, 1)).rejects.toMatchObject({
         resultCode: ResultCode.DISALLOWED_VALUE,
       });
     });
 
     it('throws DUPLICATE_DATA on 32001', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 32001 });
-      await expect(service.create(dto)).rejects.toMatchObject({
+      await expect(service.create(dto, 1)).rejects.toMatchObject({
         resultCode: ResultCode.DUPLICATE_DATA,
+      });
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(service.create(dto, 2)).rejects.toMatchObject({
+        resultCode: ResultCode.PERMISSION_DENIED,
       });
     });
   });
@@ -100,10 +107,17 @@ describe('UserRoleService', () => {
         ],
       });
 
-      const result = await service.list({ page: 1, page_size: 20 });
+      const result = await service.list({ page: 1, page_size: 20 }, 1);
 
       expect(result.total_count).toBe(1);
       expect(result.items[0]).not.toHaveProperty('total_count');
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(
+        service.list({ page: 1, page_size: 20 }, 2),
+      ).rejects.toMatchObject({ resultCode: ResultCode.PERMISSION_DENIED });
     });
   });
 
@@ -124,22 +138,29 @@ describe('UserRoleService', () => {
       });
 
       await expect(
-        service.update(100, 10, { role_code: 30 }),
+        service.update(100, 10, { role_code: 30 }, 1),
       ).resolves.toMatchObject({ role_code: 30 });
     });
 
     it('throws DISALLOWED_VALUE on 30003 (role_code=10 attempt)', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 30003 });
       await expect(
-        service.update(100, 10, { role_code: 10 }),
+        service.update(100, 10, { role_code: 10 }, 1),
       ).rejects.toMatchObject({ resultCode: ResultCode.DISALLOWED_VALUE });
     });
 
     it('throws USER_ROLE_NOT_FOUND on 31007', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31007 });
       await expect(
-        service.update(999, 999, { status: 0 }),
+        service.update(999, 999, { status: 0 }, 1),
       ).rejects.toMatchObject({ resultCode: ResultCode.USER_ROLE_NOT_FOUND });
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(
+        service.update(100, 10, { status: 0 }, 2),
+      ).rejects.toMatchObject({ resultCode: ResultCode.PERMISSION_DENIED });
     });
   });
 });

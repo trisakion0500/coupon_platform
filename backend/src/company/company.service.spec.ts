@@ -31,12 +31,12 @@ describe('CompanyService', () => {
         data: [companyRow],
       });
 
-      await expect(service.create(dto)).resolves.toEqual(companyRow);
+      await expect(service.create(dto, 1)).resolves.toEqual(companyRow);
     });
 
     it('throws DUPLICATE_DATA on 32001', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 32001 });
-      await expect(service.create(dto)).rejects.toMatchObject({
+      await expect(service.create(dto, 1)).rejects.toMatchObject({
         resultCode: ResultCode.DUPLICATE_DATA,
       });
     });
@@ -45,8 +45,15 @@ describe('CompanyService', () => {
       spExecutor.callProcedure.mockRejectedValueOnce(
         new BusinessException(ResultCode.DATABASE_ERROR),
       );
-      await expect(service.create(dto)).rejects.toMatchObject({
+      await expect(service.create(dto, 1)).rejects.toMatchObject({
         resultCode: ResultCode.DATABASE_ERROR,
+      });
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(service.create(dto, 2)).rejects.toMatchObject({
+        resultCode: ResultCode.PERMISSION_DENIED,
       });
     });
   });
@@ -58,7 +65,7 @@ describe('CompanyService', () => {
         data: [{ ...companyRow, total_count: 1 }],
       });
 
-      const result = await service.list({ page: 1, page_size: 20 });
+      const result = await service.list({ page: 1, page_size: 20 }, 1);
 
       expect(result).toEqual({
         page: 1,
@@ -71,7 +78,7 @@ describe('CompanyService', () => {
     it('returns total_count=0 for an empty page', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 0, data: [] });
 
-      const result = await service.list({ page: 1, page_size: 20 });
+      const result = await service.list({ page: 1, page_size: 20 }, 1);
 
       expect(result).toEqual({
         page: 1,
@@ -79,6 +86,13 @@ describe('CompanyService', () => {
         total_count: 0,
         items: [],
       });
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(
+        service.list({ page: 1, page_size: 20 }, 2),
+      ).rejects.toMatchObject({ resultCode: ResultCode.PERMISSION_DENIED });
     });
   });
 
@@ -88,13 +102,20 @@ describe('CompanyService', () => {
         result: 0,
         data: [companyRow],
       });
-      await expect(service.getById(1)).resolves.toEqual(companyRow);
+      await expect(service.getById(1, 1)).resolves.toEqual(companyRow);
     });
 
     it('throws COMPANY_NOT_FOUND on 31001', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31001 });
-      await expect(service.getById(999)).rejects.toMatchObject({
+      await expect(service.getById(999, 1)).rejects.toMatchObject({
         resultCode: ResultCode.COMPANY_NOT_FOUND,
+      });
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(service.getById(1, 2)).rejects.toMatchObject({
+        resultCode: ResultCode.PERMISSION_DENIED,
       });
     });
   });
@@ -106,13 +127,13 @@ describe('CompanyService', () => {
         data: [companyRow],
       });
       await expect(
-        service.update(1, { company_name: 'Renamed' }),
+        service.update(1, { company_name: 'Renamed' }, 1),
       ).resolves.toEqual(companyRow);
     });
 
     it('throws COMPANY_NOT_FOUND on 31001', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31001 });
-      await expect(service.update(999, {})).rejects.toMatchObject({
+      await expect(service.update(999, {}, 1)).rejects.toMatchObject({
         resultCode: ResultCode.COMPANY_NOT_FOUND,
       });
     });
@@ -120,7 +141,7 @@ describe('CompanyService', () => {
     it('throws DUPLICATE_DATA on 32001', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 32001 });
       await expect(
-        service.update(1, { company_code: 'DUP' }),
+        service.update(1, { company_code: 'DUP' }, 1),
       ).rejects.toMatchObject({ resultCode: ResultCode.DUPLICATE_DATA });
     });
 
@@ -128,8 +149,15 @@ describe('CompanyService', () => {
       spExecutor.callProcedure.mockRejectedValueOnce(
         new BusinessException(ResultCode.DATABASE_ERROR),
       );
-      await expect(service.update(1, {})).rejects.toMatchObject({
+      await expect(service.update(1, {}, 1)).rejects.toMatchObject({
         resultCode: ResultCode.DATABASE_ERROR,
+      });
+    });
+
+    it('throws PERMISSION_DENIED when the SP rejects (20001)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(service.update(1, {}, 2)).rejects.toMatchObject({
+        resultCode: ResultCode.PERMISSION_DENIED,
       });
     });
   });

@@ -1,12 +1,13 @@
 DROP PROCEDURE IF EXISTS `SP_COMPANY_UPDATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_COMPANY_UPDATE` (
-    IN i_company_id   BIGINT UNSIGNED,  -- 수정할 회사 ID
-    IN i_company_code VARCHAR(20),      -- 새 회사 코드 (NULL이면 미변경)
-    IN i_company_name VARCHAR(100),     -- 새 회사명 (NULL이면 미변경)
-    IN i_description  VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
-    IN i_status       TINYINT UNSIGNED  -- 새 상태 (NULL이면 미변경)
-) COMMENT '회사 수정 - 조건부 UPDATE (10_COMPANY_API.md 2.4)'
+    IN i_company_id        BIGINT UNSIGNED,  -- 수정할 회사 ID
+    IN i_company_code      VARCHAR(20),      -- 새 회사 코드 (NULL이면 미변경)
+    IN i_company_name      VARCHAR(100),     -- 새 회사명 (NULL이면 미변경)
+    IN i_description       VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
+    IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '회사 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE (10_COMPANY_API.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COMPANY_UPDATE
@@ -19,6 +20,9 @@ BEGIN
     --        SP_COMPANY_CREATE와 동일한 이유로, 사전 중복확인 -> UPDATE 사이에 다른 트랜잭션이
     --        같은 company_code로 끼어드는 경쟁 상태에 대비해 UNIQUE 제약 위반(1062) 백스톱
     --        핸들러를 둔다(2026-07-19 리뷰에서 CREATE에만 있고 UPDATE에는 없던 것을 발견).
+    --        회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
+    --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
+    --        02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -38,6 +42,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF NOT EXISTS (SELECT 1 FROM `company` WHERE `company_id` = i_company_id) THEN
             SELECT 31001 AS RESULT;
             LEAVE proc_block;

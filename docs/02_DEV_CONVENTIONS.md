@@ -50,15 +50,17 @@ FN_CHECK_ROLE_LEVEL
 SP마다 반복되는 권한/스코핑 체크(예: "SUPER_ADMIN은 전체, 그 외는 `user_role`에 활성 배정된 `project_id`만")는 각 SP에 인라인으로 복붙하지 않고, 별도 Function으로 뽑아 호출한다.
 
 ```text
+FN_IS_SUPER_ADMIN(user_id) RETURNS BOOLEAN
 FN_CHECK_COMPANY_ACCESS(user_id, company_id) RETURNS BOOLEAN
 FN_CHECK_PROJECT_ACCESS(user_id, project_id) RETURNS BOOLEAN
 FN_GET_PROJECT_ROLE_CODE(user_id, project_id) RETURNS TINYINT UNSIGNED  -- 배정 없으면 NULL
 ```
 
 - 권한 판단 로직이 바뀌면 이 Function들만 수정하면 되고, SP마다 흩어진 동일 로직을 일일이 찾아 고치지 않아도 된다
+- `FN_IS_SUPER_ADMIN`은 `user_role`에 `role_code=10`인 활성 배정이 있는지 확인한다 — SUPER_ADMIN 전용 SP(예: `SP_COMPANY_CREATE`)가 호출자의 SUPER_ADMIN 여부를 DB에서 직접 재확인할 때 쓴다. 이 Function 자체가 SUPER_ADMIN 판별을 담당하므로, 다른 세 Function처럼 "role_code=10이면 건너뛴다" 우회 로직이 필요 없다 — 반환값을 그대로 권한 판단에 쓴다.
 - `FN_CHECK_COMPANY_ACCESS`는 `user.company_id` 자체를 확인한다 — DEVELOPER의 회사 단위 스코핑(11_PROJECT_API.md 2.2/2.3, 12_USER_API.md 1.1~1.3)처럼 프로젝트 배정과 무관하게 소속 회사만 맞으면 되는 경우에 쓴다.
-- `FN_CHECK_PROJECT_ACCESS`는 "배정되어 있는가"만 boolean으로 답한다(11_PROJECT_API.md 2.5 Secret 재발급처럼 배정 여부만 확인하면 되는 경우). `FN_GET_PROJECT_ROLE_CODE`는 실제 role_code 값을 반환한다 — role_code의 **값에 따라 처리가 갈리는**(예: MANAGER 이하는 즉시 처리, OPERATOR는 승인대기로 전환, [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md)) SP를 위한 것으로, `FN_CHECK_PROJECT_ACCESS(u,p)`는 `FN_GET_PROJECT_ROLE_CODE(u,p) IS NOT NULL`과 동치다. 세 Function 모두 SUPER_ADMIN 우회는 책임지지 않는다 — 호출하는 SP가 role_code=10이면 Function 자체를 호출하지 않고 먼저 통과시킨다(SUPER_ADMIN은 특정 회사/프로젝트에 매인 값이 아니다).
-- **역할 검증이 필요한 모든 SP는 이 Function들 중 해당하는 것을 사용해 액션 처리 전에 검증한다**(2026-07-19 정책 확정) — 앱(TypeScript) 서비스 레이어가 이미 같은 판단을 하고 있더라도, SP도 호출자의 `i_requester_user_id`/`i_requester_role`을 받아 동일한 검증을 반복한다(방어적 이중 체크: 앱 레이어 버그나 우회 호출에도 DB가 마지막 방어선이 되도록). 예: `SP_PROJECT_LIST`/`SP_PROJECT_GET_BY_ID`/`SP_USER_LIST`/`SP_USER_GET_BY_ID`는 `FN_CHECK_COMPANY_ACCESS`로, `SP_PROJECT_API_SECRET_ROTATE`는 `FN_CHECK_PROJECT_ACCESS`로 재검증한다. 검증 실패 시 `PERMISSION_DENIED`(20001)를 반환한다.
+- `FN_CHECK_PROJECT_ACCESS`는 "배정되어 있는가"만 boolean으로 답한다(11_PROJECT_API.md 2.5 Secret 재발급처럼 배정 여부만 확인하면 되는 경우). `FN_GET_PROJECT_ROLE_CODE`는 실제 role_code 값을 반환한다 — role_code의 **값에 따라 처리가 갈리는**(예: MANAGER 이하는 즉시 처리, OPERATOR는 승인대기로 전환, [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md)) SP를 위한 것으로, `FN_CHECK_PROJECT_ACCESS(u,p)`는 `FN_GET_PROJECT_ROLE_CODE(u,p) IS NOT NULL`과 동치다. `FN_CHECK_COMPANY_ACCESS`/`FN_CHECK_PROJECT_ACCESS`/`FN_GET_PROJECT_ROLE_CODE`는 SUPER_ADMIN 우회를 책임지지 않는다 — 호출하는 SP가 `NOT FN_IS_SUPER_ADMIN(i_requester_user_id)`로 먼저 확인한 뒤에만 이 Function들을 호출한다(SUPER_ADMIN은 특정 회사/프로젝트에 매인 값이 아니라 이 Function들로 표현할 수 없다).
+- **역할 검증이 필요한 모든 SP는 이 Function들 중 해당하는 것을 사용해 액션 처리 전에 검증한다**(2026-07-19 정책 확정) — 앱(TypeScript) 서비스 레이어가 이미 같은 판단을 하고 있더라도, SP도 호출자의 `i_requester_user_id`를 받아 동일한 검증을 반복한다(방어적 이중 체크: 앱 레이어 버그나 우회 호출에도 DB가 마지막 방어선이 되도록). SP는 호출자의 `role_code` 값 자체를 앱으로부터 전달받아 신뢰하지 않는다 — `FN_IS_SUPER_ADMIN`이 DB에서 직접 재확인하므로 별도 `i_requester_role` 파라미터가 필요 없다. 예: `SP_COMPANY_CREATE/LIST/GET_BY_ID/UPDATE`, `SP_PROJECT_CREATE/UPDATE`, `SP_USER_APPROVE/REJECT/UPDATE/PASSWORD_RESET`, `SP_USER_ROLE_CREATE/LIST/UPDATE`는 `FN_IS_SUPER_ADMIN`만으로, `SP_PROJECT_LIST/GET_BY_ID`·`SP_USER_LIST/GET_BY_ID`는 `FN_IS_SUPER_ADMIN`(SUPER_ADMIN 우회) + `FN_CHECK_COMPANY_ACCESS`(그 외 회사 스코핑)로, `SP_PROJECT_API_SECRET_ROTATE`는 `FN_CHECK_PROJECT_ACCESS`로 재검증한다. 검증 실패 시 `PERMISSION_DENIED`(20001)를 반환한다.
 - 캠페인/코드/사용이력 API([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 1.2 참고)처럼 여러 엔드포인트가 동일한 스코핑 규칙을 공유하는 경우 특히 중요하다
 
 ## 3.3 주석은 철저히

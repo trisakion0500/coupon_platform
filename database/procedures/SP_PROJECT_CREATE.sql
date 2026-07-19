@@ -1,13 +1,14 @@
 DROP PROCEDURE IF EXISTS `SP_PROJECT_CREATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_CREATE` (
-    IN i_company_id     BIGINT UNSIGNED,  -- 소속 회사 ID
-    IN i_project_code   VARCHAR(20),      -- 프로젝트 코드 (company_id 범위 내 UNIQUE)
-    IN i_project_name   VARCHAR(100),     -- 프로젝트명
-    IN i_description     VARCHAR(1000),   -- 설명 (선택)
-    IN i_api_key         VARCHAR(64),     -- 서버간 호출용 API Key (앱 레이어에서 생성)
-    IN i_api_secret_enc  VARCHAR(255)     -- API Secret AES-256-CBC 암호화값 (앱 레이어에서 암호화 완료)
-) COMMENT '프로젝트 생성 - api_key/api_secret 발급 후 INSERT (11_PROJECT_API.md 2.1)'
+    IN i_company_id        BIGINT UNSIGNED,  -- 소속 회사 ID
+    IN i_project_code      VARCHAR(20),      -- 프로젝트 코드 (company_id 범위 내 UNIQUE)
+    IN i_project_name      VARCHAR(100),     -- 프로젝트명
+    IN i_description       VARCHAR(1000),    -- 설명 (선택)
+    IN i_api_key           VARCHAR(64),      -- 서버간 호출용 API Key (앱 레이어에서 생성)
+    IN i_api_secret_enc    VARCHAR(255),     -- API Secret AES-256-CBC 암호화값 (앱 레이어에서 암호화 완료)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '프로젝트 생성 - SUPER_ADMIN 재검증, api_key/api_secret 발급 후 INSERT (11_PROJECT_API.md 2.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_CREATE
@@ -21,6 +22,9 @@ BEGIN
     --        구분하지 않는다.
     --        반환 컬럼에 api_secret(암호문)은 포함하지 않는다 — 앱으로 다시 내보낼 이유가 없고,
     --        평문은 서비스 레이어가 자신이 생성한 값을 응답에 직접 얹는다.
+    --        프로젝트 생성은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
+    --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
+    --        02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -41,6 +45,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF NOT EXISTS (SELECT 1 FROM `company` WHERE `company_id` = i_company_id) THEN
             SELECT 31001 AS RESULT;
             LEAVE proc_block;

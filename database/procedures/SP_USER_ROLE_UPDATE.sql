@@ -1,11 +1,12 @@
 DROP PROCEDURE IF EXISTS `SP_USER_ROLE_UPDATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_ROLE_UPDATE` (
-    IN i_user_id    BIGINT UNSIGNED,  -- 복합 PK - 사용자 ID
-    IN i_project_id BIGINT UNSIGNED,  -- 복합 PK - 프로젝트 ID
-    IN i_role_code  TINYINT UNSIGNED, -- 새 권한 코드 (NULL이면 미변경, 10은 불가)
-    IN i_status     TINYINT UNSIGNED  -- 새 상태 (NULL이면 미변경)
-) COMMENT 'user_role 수정 - 조건부 UPDATE, role_code=10 전환 차단 (12_USER_API.md 3.3)'
+    IN i_user_id           BIGINT UNSIGNED,  -- 복합 PK - 사용자 ID
+    IN i_project_id        BIGINT UNSIGNED,  -- 복합 PK - 프로젝트 ID
+    IN i_role_code         TINYINT UNSIGNED, -- 새 권한 코드 (NULL이면 미변경, 10은 불가)
+    IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT 'user_role 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE, role_code=10 전환 차단 (12_USER_API.md 3.3)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_ROLE_UPDATE
@@ -15,6 +16,8 @@ BEGIN
     --        반환한다(3.3 Business Rules) - DTO 레이어에서 20/30/40으로 막지 않고 여기서 막는
     --        이유는 문서가 이 케이스를 SP/서비스 레벨의 명시적 오류 코드로 지정했기 때문이다.
     --        물리 삭제 없음 원칙에 따라 권한 중지는 status=0 조건부 UPDATE로만 처리한다.
+    --        이 SP는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, FN_IS_SUPER_ADMIN으로
+    --        가장 먼저 재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -28,6 +31,11 @@ BEGIN
     END;
 
     proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
         IF i_role_code = 10 THEN
             SELECT 30003 AS RESULT;
             LEAVE proc_block;

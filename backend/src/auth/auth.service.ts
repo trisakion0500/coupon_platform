@@ -167,17 +167,13 @@ export class AuthService {
     };
   }
 
-  async getMe(userId: number, roleCode: number) {
-    const user = await this.fetchUserById(userId, roleCode);
+  async getMe(userId: number) {
+    const user = await this.fetchUserById(userId);
     return this.toUserResponse(user);
   }
 
-  async changePassword(
-    userId: number,
-    roleCode: number,
-    dto: ChangePasswordDto,
-  ): Promise<void> {
-    const user = await this.fetchUserById(userId, roleCode);
+  async changePassword(userId: number, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.fetchUserById(userId);
 
     const passwordMatches = await bcrypt.compare(
       dto.current_password,
@@ -247,16 +243,13 @@ export class AuthService {
 
   /**
    * 자기 자신을 조회하는 용도라 requester_user_id에 userId 자기 자신을 그대로 전달한다 —
-   * FN_CHECK_COMPANY_ACCESS가 "자기 자신의 company_id"와 비교하게 되어 role_code와 무관하게
-   * 항상 통과한다(SP_USER_GET_BY_ID.sql 참고).
+   * FN_CHECK_COMPANY_ACCESS가 "자기 자신의 company_id"와 비교하게 되어 항상 통과한다
+   * (SP_USER_GET_BY_ID.sql 참고).
    */
-  private async fetchUserById(
-    userId: number,
-    roleCode: number,
-  ): Promise<UserRow> {
+  private async fetchUserById(userId: number): Promise<UserRow> {
     const { result, data } = await this.spExecutor.callProcedure<UserRow[]>(
       'SP_USER_GET_BY_ID',
-      [userId, userId, roleCode],
+      [userId, userId],
     );
     if (result !== 0 || !data?.[0]) {
       throw new BusinessException(ResultCode.USER_NOT_FOUND);
