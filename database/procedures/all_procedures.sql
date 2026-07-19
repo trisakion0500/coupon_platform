@@ -373,6 +373,183 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
+-- SP_PROJECT_API_SECRET_CLEANUP
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_PROJECT_API_SECRET_CLEANUP`;
+DELIMITER $$
+CREATE PROCEDURE `SP_PROJECT_API_SECRET_CLEANUP` (
+    IN i_grace_period_days INT UNSIGNED  -- 유예기간(일) — API_SECRET_GRACE_PERIOD_DAYS
+) COMMENT '유예기간 지난 api_secret_prev 정리 배치 (07_AUTH_SECURITY.md 2.6)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_PROJECT_API_SECRET_CLEANUP
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : Secret Rotation Grace Period 방식(07_AUTH_SECURITY.md 2.6)의 정리 배치.
+    --        secret_rotated_at + i_grace_period_days가 지난 행의 api_secret_prev를 NULL
+    --        처리한다 — 그 이후에는 이전 Secret으로 서명해도 더 이상 통과시키지 않는다
+    --        (S2sAuthGuard.verifySignature가 api_secret_prev가 NULL이면 아예 후보에서 제외).
+    --        SP_SESSION_CLEANUP과 동일하게 서버 기동 시 ApiSecretCleanupService가 크론으로 호출한다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    UPDATE `project`
+    SET `api_secret_prev` = NULL
+    WHERE `api_secret_prev` IS NOT NULL
+      AND `secret_rotated_at` IS NOT NULL
+      AND `secret_rotated_at` <= NOW() - INTERVAL i_grace_period_days DAY;
+
+    SELECT 0 AS RESULT;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_PROJECT_API_SECRET_ROTATE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_PROJECT_API_SECRET_ROTATE`;
+DELIMITER $$
+CREATE PROCEDURE `SP_PROJECT_API_SECRET_ROTATE` (
+    IN i_project_id      BIGINT UNSIGNED,  -- 재발급 대상 프로젝트 ID
+    IN i_user_id         BIGINT UNSIGNED,  -- 요청자 user_id (JWT 페이로드 값 그대로 신뢰)
+    IN i_role_code       TINYINT UNSIGNED, -- 요청자 role_code (JWT 페이로드 값 그대로 신뢰)
+    IN i_new_api_secret_enc VARCHAR(255)   -- 새 API Secret AES-256-CBC 암호화값 (앱 레이어에서 암호화 완료)
+) COMMENT 'API Secret 재발급 - Grace Period 방식 (11_PROJECT_API.md 2.5)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_PROJECT_API_SECRET_ROTATE
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : 존재 확인(31002) 후, role_code=10(SUPER_ADMIN)이 아니면 FN_CHECK_PROJECT_ACCESS로
+    --        해당 project_id에 실제 활성 user_role 배정이 있는지 재검증한다(11_PROJECT_API.md 2.5
+    --        Business Rules — JWT의 role_code는 여러 프로젝트 중 최고 권한 하나뿐이라 이 project_id
+    --        기준으로는 다시 확인해야 함). 통과하면 기존 api_secret을 api_secret_prev로 옮기고
+    --        신규 값을 api_secret에 저장, secret_rotated_at을 갱신한다(07_AUTH_SECURITY.md 2.6
+    --        Grace Period 방식). api_key는 변경하지 않는다. 반환 컬럼에 api_secret(암호문)은
+    --        포함하지 않는다 — 평문은 앱 레이어가 자신이 생성한 값을 응답에 직접 얹는다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (SELECT 1 FROM `project` WHERE `project_id` = i_project_id) THEN
+            SELECT 31002 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF i_role_code <> 10 AND NOT FN_CHECK_PROJECT_ACCESS(i_user_id, i_project_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        UPDATE `project`
+        SET
+            `api_secret_prev`   = `api_secret`,
+            `api_secret`        = i_new_api_secret_enc,
+            `secret_rotated_at` = NOW()
+        WHERE `project_id` = i_project_id;
+
+        SELECT 0 AS RESULT;
+        SELECT `project_id`, `secret_rotated_at`
+        FROM `project`
+        WHERE `project_id` = i_project_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_PROJECT_CREATE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_PROJECT_CREATE`;
+DELIMITER $$
+CREATE PROCEDURE `SP_PROJECT_CREATE` (
+    IN i_company_id     BIGINT UNSIGNED,  -- 소속 회사 ID
+    IN i_project_code   VARCHAR(20),      -- 프로젝트 코드 (company_id 범위 내 UNIQUE)
+    IN i_project_name   VARCHAR(100),     -- 프로젝트명
+    IN i_description     VARCHAR(1000),   -- 설명 (선택)
+    IN i_api_key         VARCHAR(64),     -- 서버간 호출용 API Key (앱 레이어에서 생성)
+    IN i_api_secret_enc  VARCHAR(255)     -- API Secret AES-256-CBC 암호화값 (앱 레이어에서 암호화 완료)
+) COMMENT '프로젝트 생성 - api_key/api_secret 발급 후 INSERT (11_PROJECT_API.md 2.1)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_PROJECT_CREATE
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : 프로젝트 생성. company_id 존재(31001) 확인 후 company_id 범위 내 project_code
+    --        중복(32001)을 사전 체크한 뒤 INSERT한다. api_key/api_secret은 이미 앱 레이어
+    --        (ProjectService)에서 생성/암호화가 끝난 값을 그대로 저장한다 — SP는 암호화 로직을
+    --        모른다(SP_USER_SIGNUP과 동일한 원칙). 사전 체크는 원자적이지 않으므로 INSERT의
+    --        UNIQUE 제약 위반(1062, project_code 또는 api_key 어느 쪽이든)도 32001로 통일해
+    --        백스톱한다 — api_key는 256비트 난수라 충돌 가능성이 사실상 0에 가까워 별도 코드로
+    --        구분하지 않는다.
+    --        반환 컬럼에 api_secret(암호문)은 포함하지 않는다 — 앱으로 다시 내보낼 이유가 없고,
+    --        평문은 서비스 레이어가 자신이 생성한 값을 응답에 직접 얹는다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_project_id  BIGINT       DEFAULT NULL;
+
+    -- project_code/api_key 유니크 제약 위반(경쟁 상태 백스톱) — mysql_errno 1062
+    DECLARE EXIT HANDLER FOR 1062
+    BEGIN
+        SELECT 32001 AS RESULT;
+    END;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (SELECT 1 FROM `company` WHERE `company_id` = i_company_id) THEN
+            SELECT 31001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF EXISTS (
+            SELECT 1 FROM `project`
+            WHERE `company_id` = i_company_id AND `project_code` = i_project_code
+        ) THEN
+            SELECT 32001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        INSERT INTO `project` (
+            `company_id`, `project_code`, `project_name`, `description`, `api_key`, `api_secret`
+        ) VALUES (
+            i_company_id, i_project_code, i_project_name, i_description, i_api_key, i_api_secret_enc
+        );
+
+        SET v_project_id = LAST_INSERT_ID();
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `project_id`, `company_id`, `project_code`, `project_name`, `description`,
+            `api_key`, `status`, `created_at`, `updated_at`
+        FROM `project`
+        WHERE `project_id` = v_project_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
 -- SP_PROJECT_GET_BY_API_KEY
 -- ============================================================================================================ --
 DROP PROCEDURE IF EXISTS `SP_PROJECT_GET_BY_API_KEY`;
@@ -417,6 +594,201 @@ BEGIN
             `secret_rotated_at`
         FROM `project`
         WHERE `api_key` = i_api_key;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_PROJECT_GET_BY_CODE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_PROJECT_GET_BY_CODE`;
+DELIMITER $$
+CREATE PROCEDURE `SP_PROJECT_GET_BY_CODE` (
+    IN i_company_id   BIGINT UNSIGNED,  -- 조회할 회사 ID
+    IN i_project_code VARCHAR(20)       -- 조회할 프로젝트 코드
+) COMMENT '회사 범위 내 프로젝트 코드로 조회 - 회원가입 화면 전용 공개 API (11_PROJECT_API.md 2.6)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_PROJECT_GET_BY_CODE
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : 회원가입 화면(로그인 전, 인증 불필요)에서 (company_id, project_code)로 프로젝트를
+    --        찾기 위한 공개 조회. status=1(사용)인 것만 대상으로 하고, project_id/project_name만
+    --        반환한다(민감정보 없음). 없거나 비활성이면 31002.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM `project`
+            WHERE `company_id` = i_company_id AND `project_code` = i_project_code AND `status` = 1
+        ) THEN
+            SELECT 31002 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT `project_id`, `project_name`
+        FROM `project`
+        WHERE `company_id` = i_company_id AND `project_code` = i_project_code AND `status` = 1;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_PROJECT_GET_BY_ID
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_PROJECT_GET_BY_ID`;
+DELIMITER $$
+CREATE PROCEDURE `SP_PROJECT_GET_BY_ID` (
+    IN i_project_id BIGINT UNSIGNED  -- 조회할 프로젝트 ID
+) COMMENT '프로젝트 상세 조회 - company 조인 (11_PROJECT_API.md 2.3)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_PROJECT_GET_BY_ID
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : project_id로 프로젝트 상세를 조회한다. company_code/company_name을 함께 반환하기
+    --        위해 company를 조인한다. 없으면 31002. DEVELOPER의 타사 프로젝트 접근 차단(20001)은
+    --        여기서 판단하지 않는다 — 앱 레이어(ProjectService)가 조회 결과의 company_id를
+    --        요청자의 companyId와 비교해 판단한다(이 SP는 SUPER_ADMIN/DEVELOPER 구분을 모른다).
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (SELECT 1 FROM `project` WHERE `project_id` = i_project_id) THEN
+            SELECT 31002 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
+            p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
+            p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`
+        FROM `project` p
+        JOIN `company` c ON c.`company_id` = p.`company_id`
+        WHERE p.`project_id` = i_project_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_PROJECT_LIST
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_PROJECT_LIST`;
+DELIMITER $$
+CREATE PROCEDURE `SP_PROJECT_LIST` (
+    IN i_company_id BIGINT UNSIGNED,   -- 회사 필터 (NULL이면 전체 — DEVELOPER 호출 시 앱 레이어가 자기 회사로 강제)
+    IN i_status     TINYINT UNSIGNED,  -- 상태 필터 (NULL이면 전체)
+    IN i_page_size  INT,               -- 페이지당 행 수
+    IN i_offset     INT                -- 시작 오프셋
+) COMMENT '프로젝트 목록 조회 - 페이지네이션, company 조인 (11_PROJECT_API.md 2.2)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_PROJECT_LIST
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : 프로젝트 목록을 status DESC, project_name ASC로 정렬해 페이지 단위로 반환한다.
+    --        company_code/company_name을 함께 보여줘야 해서 company를 조인한다. DEVELOPER는
+    --        본인 소속 company_id만 봐야 하는데(11_PROJECT_API.md 2.2 Business Rules), 그 스코핑은
+    --        앱 레이어(ProjectService)가 i_company_id에 항상 자기 companyId를 채워 호출하는
+    --        방식으로 강제한다 — SP는 SUPER_ADMIN/DEVELOPER 구분을 모르고 그냥 필터만 적용한다.
+    --        total_count는 SP_COMPANY_LIST와 동일하게 COUNT(*) OVER()로 함께 반환한다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    SELECT 0 AS RESULT;
+    SELECT
+        p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
+        p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
+        p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`,
+        COUNT(*) OVER() AS total_count
+    FROM `project` p
+    JOIN `company` c ON c.`company_id` = p.`company_id`
+    WHERE (i_company_id IS NULL OR p.`company_id` = i_company_id)
+      AND (i_status IS NULL OR p.`status` = i_status)
+    ORDER BY p.`status` DESC, p.`project_name` ASC
+    LIMIT i_page_size OFFSET i_offset;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_PROJECT_UPDATE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_PROJECT_UPDATE`;
+DELIMITER $$
+CREATE PROCEDURE `SP_PROJECT_UPDATE` (
+    IN i_project_id   BIGINT UNSIGNED,  -- 수정할 프로젝트 ID
+    IN i_project_name VARCHAR(100),     -- 새 프로젝트명 (NULL이면 미변경)
+    IN i_description  VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
+    IN i_status       TINYINT UNSIGNED  -- 새 상태 (NULL이면 미변경)
+) COMMENT '프로젝트 수정 - 조건부 UPDATE (11_PROJECT_API.md 2.4)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_PROJECT_UPDATE
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : 프로젝트 정보 수정. company_id/project_code/api_key/api_secret은 이 SP의 파라미터에
+    --        아예 없다 — 생성 후 변경 불가 필드라 애초에 받지 않는다(11_PROJECT_API.md 2.4
+    --        Non-Updatable Fields). 존재 확인(31002) -> COALESCE 기반 조건부 UPDATE
+    --        (02_DEV_CONVENTIONS.md 4장)로 NULL로 넘어온 필드는 기존 값을 유지한다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (SELECT 1 FROM `project` WHERE `project_id` = i_project_id) THEN
+            SELECT 31002 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        UPDATE `project`
+        SET
+            `project_name` = COALESCE(i_project_name, `project_name`),
+            `description`  = COALESCE(i_description, `description`),
+            `status`       = COALESCE(i_status, `status`)
+        WHERE `project_id` = i_project_id;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
+            p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
+            p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`
+        FROM `project` p
+        JOIN `company` c ON c.`company_id` = p.`company_id`
+        WHERE p.`project_id` = i_project_id;
     END proc_block;
 END$$
 
@@ -597,6 +969,44 @@ BEGIN
     COMMIT;
 
     SELECT 0 AS RESULT;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_USER_ROLE_GET_BY_PROJECT
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_USER_ROLE_GET_BY_PROJECT`;
+DELIMITER $$
+CREATE PROCEDURE `SP_USER_ROLE_GET_BY_PROJECT` (
+    IN i_user_id    BIGINT UNSIGNED,  -- 조회할 사용자 ID
+    IN i_project_id BIGINT UNSIGNED   -- 조회할 프로젝트 ID
+) COMMENT '특정 프로젝트에 대한 사용자의 실제 role_code 조회 (11_PROJECT_API.md 3.1)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_USER_ROLE_GET_BY_PROJECT
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : 헤더에서 선택된 project_id에 대한 호출자의 실제 role_code를 조회한다
+    --        (11_PROJECT_API.md 3.1 — JWT의 role_code는 여러 프로젝트 중 최고 권한 하나뿐이라
+    --        특정 project_id 기준 실제 권한은 이 SP로 별도 조회해야 함). 활성 배정(status=1)이
+    --        없는 것은 오류가 아니라 정상적인 "미배정" 상태라 RESULT는 항상 0이고, 데이터가
+    --        없으면 앱 레이어(UserRoleService)가 role_code:null로 매핑한다. SUPER_ADMIN은
+    --        이 SP를 호출하지 않고 앱 레이어가 즉시 role_code:10을 반환한다(배정 여부 무관).
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    SELECT 0 AS RESULT;
+    SELECT `role_code`
+    FROM `user_role`
+    WHERE `user_id` = i_user_id AND `project_id` = i_project_id AND `status` = 1;
 END$$
 
 DELIMITER ;

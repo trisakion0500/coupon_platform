@@ -42,7 +42,16 @@ CREATE DATABASE coupon_platform
 mysql -u root -p coupon_platform < database/tables/all_tables.sql
 ```
 
-## 3.3 Stored Procedure 생성
+## 3.3 Function 생성
+
+Procedure가 Function을 호출하는 경우가 있어(`SP_PROJECT_API_SECRET_ROTATE` → `FN_CHECK_PROJECT_ACCESS`)
+Function을 먼저 만든다.
+
+```bash
+mysql -u root -p coupon_platform < database/functions/all_functions.sql
+```
+
+## 3.4 Stored Procedure 생성
 
 ```bash
 mysql -u root -p coupon_platform < database/procedures/all_procedures.sql
@@ -62,10 +71,10 @@ mysql -u root -p coupon_platform < database/procedures/all_procedures.sql
 | user    | 4   | `op`            | Operator                                | pw=`1234`, company=2, project=2, role=OPERATOR(40)    |
 
 `project.api_secret` 시드값은 개발용 플레이스홀더라 실제 `ENCRYPTION_KEY`로 복호화되지 않는다 —
-project 도메인(Secret 발급/재발급 API) 구현 이후 재발급받아야 실제 HMAC 서명 검증까지 테스트할 수
-있다(`project.sql` 헤더 주석 참고).
+`POST /projects/{id}/api-secret/rotate`로 재발급받아야 실제 HMAC 서명 검증까지 테스트할 수 있다
+(`project.sql` 헤더 주석 참고).
 
-## 3.4 로그 DB 생성
+## 3.5 로그 DB 생성
 
 ```sql
 CREATE DATABASE coupon_platform_log
@@ -73,7 +82,7 @@ CREATE DATABASE coupon_platform_log
   COLLATE utf8mb4_0900_ai_ci;
 ```
 
-## 3.5 로그 테이블 생성
+## 3.6 로그 테이블 생성
 
 ```bash
 mysql -u root -p coupon_platform_log < database/tables_log/all_log_tables.sql

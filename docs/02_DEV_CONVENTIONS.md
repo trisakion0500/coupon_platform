@@ -43,6 +43,7 @@ FN_CHECK_ROLE_LEVEL
 - 도메인은 테이블/기능 단위(`CAMPAIGN`, `COUPON`, `USER` 등)
 - 동작은 동사 위주로 짧게(`CREATE`/`UPDATE`/`APPROVE`/`RESERVE` 등)
 - Function은 여러 도메인의 SP에서 공용으로 호출되는 경우가 많아 특정 도메인에 묶이지 않는 서술적 이름(`FN_설명`)을 쓴다
+- 접두어뿐 아니라 저장 위치도 분리한다 — Procedure는 `database/procedures/`(개별 파일 + `all_procedures.sql` 통합본), Function은 `database/functions/`(개별 파일 + `all_functions.sql` 통합본)에 둔다(2026-07-19 폴더 분리). 동기화 원칙은 동일 — 개별 파일을 고치면 해당 통합 파일도 반드시 함께 갱신한다
 
 ## 3.2 권한 체크는 재사용 가능한 Function으로 분리
 
@@ -162,7 +163,7 @@ DELIMITER ;
 - 클래스 상단에는 그 클래스의 책임과, 관련 설계 문서(예: `07_AUTH_SECURITY.md` 2.4)를 함께 적어 어떤 스펙을 구현한 코드인지 바로 추적할 수 있게 한다
 - 인터페이스/타입 선언도 필드의 의미가 이름만으로 분명하지 않으면 JSDoc으로 보충한다
 - 파일마다 최상단 JSDoc(클래스가 있으면 클래스 doc, 없으면 파일의 대표 export)에 `@author trisakion` 태그를 남긴다
-- SQL(SP/Function)은 JSDoc 문법 자체가 없으므로 이 규칙의 대상이 아니다 — SQL 주석은 3.3(SP/Function 컨벤션의 주석 규칙)을 따르고, 개별 파일과 통합 파일(`all_procedures.sql`) 양쪽에 동일한 주석을 빠짐없이 유지한다(`all_tables.sql`이 개별 테이블 파일의 헤더 주석을 그대로 유지하는 것과 동일한 원칙)
+- SQL(SP/Function)은 JSDoc 문법 자체가 없으므로 이 규칙의 대상이 아니다 — SQL 주석은 3.3(SP/Function 컨벤션의 주석 규칙)을 따르고, 개별 파일과 통합 파일(Procedure는 `all_procedures.sql`, Function은 `all_functions.sql`) 양쪽에 동일한 주석을 빠짐없이 유지한다(`all_tables.sql`이 개별 테이블 파일의 헤더 주석을 그대로 유지하는 것과 동일한 원칙)
 
 # 7. TypeScript 에러 처리 — ERROR_MAP + BusinessException
 

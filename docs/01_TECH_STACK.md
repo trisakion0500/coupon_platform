@@ -74,13 +74,13 @@
 | `JWT_ACCESS_EXPIRES_IN`  | `15m`  | Access Token 만료시간 |
 | `JWT_REFRESH_EXPIRES_IN` | `7d`   | Refresh Token(opaque UUID) 만료시간 — 로그인 시 `user_session.expired_at`에 이 값만큼 더한 절대시각으로 저장해, 세션 정리 배치가 이 값 자체를 몰라도 `NOW()` 비교만으로 동작한다(`08_API_COMMON.md` 5.4) |
 
-`07_AUTH_SECURITY.md` 1장 — Access Token은 stateless 검증(서명+만료), Refresh Token은 `user_session.refresh_token_hash`와 대조하는 stateful 검증이라 역할이 다르다. 현재는 값 검증까지만 구현되어 있고, 실제 로그인/재발급 API는 `09_AUTH_API.md` 슬라이스에서 구현 예정.
+`07_AUTH_SECURITY.md` 1장 — Access Token은 stateless 검증(서명+만료), Refresh Token은 `user_session.refresh_token_hash`와 대조하는 stateful 검증이라 역할이 다르다. `09_AUTH_API.md` 6개 엔드포인트(회원가입/로그인/로그아웃/재발급/내정보/비번변경) 전부 구현 완료.
 
 ### 암호화 (AES-256-CBC)
 
 | 변수             | 기본값 | 용도 |
 | ---------------- | ------ | ---- |
-| `ENCRYPTION_KEY` | (필수, 64자 hex = 32바이트) | `user.phone_number`와 `project.api_secret` 양쪽이 공유하는 AES-256-CBC 키. `CryptoService`(`backend/src/common/crypto/crypto.service.ts`)가 암/복호화에 사용한다. `openssl rand -hex 32`로 생성 |
+| `ENCRYPTION_KEY` | (필수, 64자 hex = 32바이트) | `user.phone_number`와 `project.api_secret` 양쪽이 공유하는 AES-256-CBC 키. `CryptoService`(`backend/src/common/crypto/crypto.service.ts`)가 암/복호화에 사용한다. `npm run keygen`으로 생성 |
 
 전용 키를 따로 두지 않고 두 용도(휴대폰번호/서버간 Secret)에 재사용하는 이유는 `07_AUTH_SECURITY.md` 2.1 참고 — 이미 있는 가역 암호화 인프라를 재사용하는 것이 별도 키 관리 비용을 늘릴 만큼 위협 모델이 다르지 않다고 판단했기 때문이다.
 
@@ -93,7 +93,7 @@
 | `S2S_TIMESTAMP_TOLERANCE_SEC` | `300`            | `X-API-Timestamp` 허용 오차(초). 서버 시각 기준 과거/미래 양방향으로 이 범위를 벗어나면 거부(`07_AUTH_SECURITY.md` 2.4, result `10013`). `S2sAuthGuard`가 실제로 이 값을 읽어 검증한다 |
 | `S2S_NONCE_CLEANUP_CRON`      | `*/10 * * * *`   | `project_api_nonce` 정리 배치 주기(10분 간격) — reserve/confirm 트래픽마다 1행씩 쌓여 다른 배치보다 훨씬 잦다(`07_AUTH_SECURITY.md` 2.5) |
 
-`API_SECRET_CLEANUP_CRON`/`S2S_NONCE_CLEANUP_CRON`은 현재 값 검증까지만 구현되어 있고, 실제 크론 등록(`node-cron`)은 아직 없다 — 해당 배치는 프로젝트/S2S 도메인 구현 시점에 추가 예정. `S2S_TIMESTAMP_TOLERANCE_SEC`만 `S2sAuthGuard`에서 이미 실제로 소비 중이다.
+`API_SECRET_CLEANUP_CRON`은 `ApiSecretCleanupService`가 실제로 `node-cron` 등록까지 마쳤다(project 도메인 구현 시점, `SP_PROJECT_API_SECRET_CLEANUP` 호출). `S2S_NONCE_CLEANUP_CRON`은 아직 값 검증까지만 구현되어 있고 실제 크론 등록은 없다 — 해당 배치는 S2S 도메인(캠페인/코드/사용) 구현 시점에 추가 예정. `S2S_TIMESTAMP_TOLERANCE_SEC`은 `S2sAuthGuard`에서 이미 실제로 소비 중이다.
 
 ### CORS / 보안 헤더
 
@@ -113,8 +113,8 @@
 | 변수                          | 기본값   | 용도 |
 | ----------------------------- | -------- | ---- |
 | `API_EXECUTION_TIMEOUT_MS`    | `30000`  | API 요청 처리 타임아웃(ms). 현재 값 검증까지만 구현, 실제 타임아웃 미들웨어는 미구현 |
-| `LOGIN_RATE_LIMIT_WINDOW_MS`  | `900000` | 로그인/회원가입 API의 IP 기준 rate limit 윈도우(15분, `07_AUTH_SECURITY.md` 1.4) |
-| `LOGIN_RATE_LIMIT_MAX`        | `10`     | 위 윈도우 동안 허용하는 최대 요청 횟수 |
-| `SESSION_CLEANUP_CRON`        | `0 4 * * *` | 만료된 `user_session` 행을 물리 삭제하는 배치 주기(매일 새벽 4시, `08_API_COMMON.md` 5.4) |
+| `LOGIN_RATE_LIMIT_WINDOW_MS`  | `900000` | 로그인/회원가입 API의 IP 기준 rate limit 윈도우(15분, `07_AUTH_SECURITY.md` 1.4). `AuthRateLimitMiddleware`가 실제로 이 값을 읽어 적용한다 |
+| `LOGIN_RATE_LIMIT_MAX`        | `10`     | 위 윈도우 동안 허용하는 최대 요청 횟수. `AuthRateLimitMiddleware`가 실제로 소비 중 |
+| `SESSION_CLEANUP_CRON`        | `0 4 * * *` | 만료된 `user_session` 행을 물리 삭제하는 배치 주기(매일 새벽 4시, `08_API_COMMON.md` 5.4). `SessionCleanupService`가 실제로 `node-cron` 등록까지 마쳤다 |
 
-이 4개는 로그인/세션 도메인(`09_AUTH_API.md`)이 아직 구현되지 않아 값 검증까지만 되어 있고 실제 rate limiter/크론은 미구현이다.
+`API_EXECUTION_TIMEOUT_MS`만 아직 값 검증까지만 구현되어 있고, 실제 타임아웃 미들웨어는 없다 — 나머지 3개(`LOGIN_RATE_LIMIT_*`/`SESSION_CLEANUP_CRON`)는 `auth`/공통 인프라 도메인 구현 시점에 실제로 소비하도록 이미 반영됐다.
