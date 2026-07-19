@@ -9,6 +9,7 @@ import { LogDatabaseModule } from './common/database/log-database.module';
 import { SessionCleanupModule } from './common/session-cleanup/session-cleanup.module';
 import { HealthModule } from './health/health.module';
 import { ProjectModule } from './project/project.module';
+import { UserModule } from './user/user.module';
 import { UserRoleModule } from './user-role/user-role.module';
 
 /**
@@ -31,6 +32,7 @@ import { UserRoleModule } from './user-role/user-role.module';
     AuthModule,
     CompanyModule,
     ProjectModule,
+    UserModule,
     UserRoleModule,
   ],
 })

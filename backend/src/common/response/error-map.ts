@@ -133,6 +133,10 @@ export const ERROR_MAP: Record<ResultCode, ErrorEntry> = {
     message: '소모 기록이 없습니다.',
     httpStatus: 404,
   },
+  [ResultCode.USER_ROLE_NOT_FOUND]: {
+    message: '사용자 권한 배정이 없습니다.',
+    httpStatus: 404,
+  },
 
   // 32000 — Validation (중복)
   [ResultCode.DUPLICATE_DATA]: {

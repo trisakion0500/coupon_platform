@@ -1,4 +1,5 @@
 import { SpExecutorService } from '../common/database/sp-executor.service';
+import { ResultCode } from '../common/response/result-code.enum';
 import { RoleCode } from '../common/roles/role-code.enum';
 import { UserRoleService } from './user-role.service';
 
@@ -39,5 +40,106 @@ describe('UserRoleService', () => {
     const result = await service.getMyRoleForProject(2, RoleCode.DEVELOPER, 10);
 
     expect(result).toEqual({ project_id: 10, role_code: null });
+  });
+
+  describe('create', () => {
+    const dto = { user_id: 100, project_id: 10, role_code: 40 };
+
+    it('returns the created assignment', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({
+        result: 0,
+        data: [{ ...dto, status: 1, created_at: 't', updated_at: 't' }],
+      });
+
+      await expect(service.create(dto)).resolves.toMatchObject(dto);
+    });
+
+    it('throws USER_NOT_FOUND on 31003', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 31003 });
+      await expect(service.create(dto)).rejects.toMatchObject({
+        resultCode: ResultCode.USER_NOT_FOUND,
+      });
+    });
+
+    it('throws PROJECT_NOT_FOUND on 31002', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 31002 });
+      await expect(service.create(dto)).rejects.toMatchObject({
+        resultCode: ResultCode.PROJECT_NOT_FOUND,
+      });
+    });
+
+    it('throws DISALLOWED_VALUE on 30003 (company mismatch)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 30003 });
+      await expect(service.create(dto)).rejects.toMatchObject({
+        resultCode: ResultCode.DISALLOWED_VALUE,
+      });
+    });
+
+    it('throws DUPLICATE_DATA on 32001', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 32001 });
+      await expect(service.create(dto)).rejects.toMatchObject({
+        resultCode: ResultCode.DUPLICATE_DATA,
+      });
+    });
+  });
+
+  describe('list', () => {
+    it('strips total_count and builds a paginated result', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({
+        result: 0,
+        data: [
+          {
+            user_id: 100,
+            project_id: 10,
+            role_code: 40,
+            status: 1,
+            created_at: 't',
+            updated_at: 't',
+            total_count: 1,
+          },
+        ],
+      });
+
+      const result = await service.list({ page: 1, page_size: 20 });
+
+      expect(result.total_count).toBe(1);
+      expect(result.items[0]).not.toHaveProperty('total_count');
+    });
+  });
+
+  describe('update', () => {
+    it('returns the updated assignment', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({
+        result: 0,
+        data: [
+          {
+            user_id: 100,
+            project_id: 10,
+            role_code: 30,
+            status: 1,
+            created_at: 't',
+            updated_at: 't',
+          },
+        ],
+      });
+
+      await expect(
+        service.update(100, 10, { role_code: 30 }),
+      ).resolves.toMatchObject({ role_code: 30 });
+    });
+
+    it('throws DISALLOWED_VALUE on 30003 (role_code=10 attempt)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 30003 });
+      await expect(
+        service.update(100, 10, { role_code: 10 }),
+      ).rejects.toMatchObject({ resultCode: ResultCode.DISALLOWED_VALUE });
+    });
+
+    it('throws USER_ROLE_NOT_FOUND on 31007', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 31007 });
+      await expect(
+        service.update(999, 999, { status: 0 }),
+      ).rejects.toMatchObject({ resultCode: ResultCode.USER_ROLE_NOT_FOUND });
+    });
   });
 });

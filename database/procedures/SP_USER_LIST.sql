@@ -1,0 +1,44 @@
+DROP PROCEDURE IF EXISTS `SP_USER_LIST`;
+DELIMITER $$
+CREATE PROCEDURE `SP_USER_LIST` (
+    IN i_company_id BIGINT UNSIGNED,  -- 회사 ID 필터 (NULL이면 전체 - SUPER_ADMIN 전용, DEVELOPER는 서비스가 항상 자기 회사로 고정)
+    IN i_status     TINYINT UNSIGNED, -- 상태 필터 (NULL이면 전체)
+    IN i_limit      INT,              -- 페이지당 행 수
+    IN i_offset     INT               -- 시작 오프셋
+) COMMENT '사용자 목록 조회 - status ASC 정렬 (12_USER_API.md 1.1/1.2)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_USER_LIST
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : company_id/status 조건부 필터 + 페이지네이션. company.sql/project.sql과 동일하게
+    --        COUNT(*) OVER()로 total_count를 각 행에 실어 RESULT+data 2-result-set 규약을 유지한다.
+    --        다른 테이블은 status DESC가 기본이지만 user는 "가입승인대기(0)"가 가장 먼저 보여야
+    --        하는 화면 요구사항이 있어 status ASC로 정렬한다(12_USER_API.md 1.1 Sorting, 다른
+    --        도메인과 다른 정렬 방향이라는 점을 주석으로 명시).
+    --        password_hash는 반환 컬럼에서 제외한다 — 목록/상세 어디서도 앱으로 내보낼 이유가 없다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    SELECT 0 AS RESULT;
+    SELECT
+        `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
+        `phone_number`, `department`, `position`, `status`, `last_login_at`,
+        `created_at`, `updated_at`,
+        COUNT(*) OVER() AS total_count
+    FROM `user`
+    WHERE (i_company_id IS NULL OR `company_id` = i_company_id)
+      AND (i_status IS NULL OR `status` = i_status)
+    ORDER BY `status` ASC, `user_name` ASC
+    LIMIT i_limit OFFSET i_offset;
+END$$
+
+DELIMITER ;

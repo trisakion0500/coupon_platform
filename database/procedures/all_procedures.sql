@@ -827,6 +827,61 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
+-- SP_USER_APPROVE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_USER_APPROVE`;
+DELIMITER $$
+CREATE PROCEDURE `SP_USER_APPROVE` (
+    IN i_user_id BIGINT UNSIGNED  -- 승인할 사용자 ID
+) COMMENT '가입승인 - status 0(대기) -> 1(승인) 조건부 UPDATE (12_USER_API.md 1.4)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_USER_APPROVE
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : 조건부 UPDATE(WHERE status=0)를 먼저 시도해 체크 후 갱신(check-then-act) 대신
+    --        원자적으로 처리한다(02_DEV_CONVENTIONS.md 4장). 영향받은 행이 0건일 때만 그 이유를
+    --        진단한다 - 사용자 자체가 없으면 31003, 있는데 이미 status=0이 아니면(이미 처리됨)
+    --        30004(상태 전이 불가)로 구분한다. 이렇게 하면 성공 경로(가장 흔한 경우)는 존재
+    --        여부를 별도로 조회하지 않고 UPDATE 한 번으로 끝난다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        UPDATE `user`
+        SET `status` = 1
+        WHERE `user_id` = i_user_id AND `status` = 0;
+
+        IF ROW_COUNT() = 0 THEN
+            IF NOT EXISTS (SELECT 1 FROM `user` WHERE `user_id` = i_user_id) THEN
+                SELECT 31003 AS RESULT;
+            ELSE
+                SELECT 30004 AS RESULT;
+            END IF;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
+            `phone_number`, `department`, `position`, `status`, `last_login_at`,
+            `created_at`, `updated_at`
+        FROM `user`
+        WHERE `user_id` = i_user_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
 -- SP_USER_GET_BY_ID
 -- ============================================================================================================ --
 DROP PROCEDURE IF EXISTS `SP_USER_GET_BY_ID`;
@@ -928,6 +983,54 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
+-- SP_USER_LIST
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_USER_LIST`;
+DELIMITER $$
+CREATE PROCEDURE `SP_USER_LIST` (
+    IN i_company_id BIGINT UNSIGNED,  -- 회사 ID 필터 (NULL이면 전체 - SUPER_ADMIN 전용, DEVELOPER는 서비스가 항상 자기 회사로 고정)
+    IN i_status     TINYINT UNSIGNED, -- 상태 필터 (NULL이면 전체)
+    IN i_limit      INT,              -- 페이지당 행 수
+    IN i_offset     INT               -- 시작 오프셋
+) COMMENT '사용자 목록 조회 - status ASC 정렬 (12_USER_API.md 1.1/1.2)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_USER_LIST
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : company_id/status 조건부 필터 + 페이지네이션. company.sql/project.sql과 동일하게
+    --        COUNT(*) OVER()로 total_count를 각 행에 실어 RESULT+data 2-result-set 규약을 유지한다.
+    --        다른 테이블은 status DESC가 기본이지만 user는 "가입승인대기(0)"가 가장 먼저 보여야
+    --        하는 화면 요구사항이 있어 status ASC로 정렬한다(12_USER_API.md 1.1 Sorting, 다른
+    --        도메인과 다른 정렬 방향이라는 점을 주석으로 명시).
+    --        password_hash는 반환 컬럼에서 제외한다 — 목록/상세 어디서도 앱으로 내보낼 이유가 없다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    SELECT 0 AS RESULT;
+    SELECT
+        `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
+        `phone_number`, `department`, `position`, `status`, `last_login_at`,
+        `created_at`, `updated_at`,
+        COUNT(*) OVER() AS total_count
+    FROM `user`
+    WHERE (i_company_id IS NULL OR `company_id` = i_company_id)
+      AND (i_status IS NULL OR `status` = i_status)
+    ORDER BY `status` ASC, `user_name` ASC
+    LIMIT i_limit OFFSET i_offset;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
 -- SP_USER_PASSWORD_CHANGE
 -- ============================================================================================================ --
 DROP PROCEDURE IF EXISTS `SP_USER_PASSWORD_CHANGE`;
@@ -974,6 +1077,196 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
+-- SP_USER_PASSWORD_RESET
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_USER_PASSWORD_RESET`;
+DELIMITER $$
+CREATE PROCEDURE `SP_USER_PASSWORD_RESET` (
+    IN i_user_id           BIGINT UNSIGNED,  -- 대상 사용자 ID
+    IN i_new_password_hash VARCHAR(255)      -- 새 비밀번호 bcrypt 해시(앱 레이어에서 해시 완료)
+) COMMENT '관리자 비밀번호 강제 초기화 + 전체 활성 세션 종료 (12_USER_API.md 1.7)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_USER_PASSWORD_RESET
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : SP_USER_PASSWORD_CHANGE(09_AUTH_API.md 9장, 본인 비밀번호 변경)와 로직은 거의
+    --        동일하지만, 이쪽은 대상 user_id가 URL 파라미터로 임의 지정되므로(호출자 본인이
+    --        아님) 존재 확인(31003)이 먼저 필요하다는 점이 다르다 - 그래서 SP를 공유하지 않고
+    --        별도로 둔다. 현재 비밀번호 검증 없이 즉시 변경하며(12_USER_API.md 1.7 Description),
+    --        password_hash 갱신과 "모든 활성 세션 종료"를 하나의 트랜잭션으로 묶는다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        ROLLBACK;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (SELECT 1 FROM `user` WHERE `user_id` = i_user_id) THEN
+            SELECT 31003 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        START TRANSACTION;
+
+            UPDATE `user`
+            SET `password_hash` = i_new_password_hash
+            WHERE `user_id` = i_user_id;
+
+            UPDATE `user_session`
+            SET `status` = 0
+            WHERE `user_id` = i_user_id AND `status` = 1;
+
+        COMMIT;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
+            `phone_number`, `department`, `position`, `status`, `last_login_at`,
+            `created_at`, `updated_at`
+        FROM `user`
+        WHERE `user_id` = i_user_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_USER_REJECT
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_USER_REJECT`;
+DELIMITER $$
+CREATE PROCEDURE `SP_USER_REJECT` (
+    IN i_user_id BIGINT UNSIGNED  -- 반려할 사용자 ID
+) COMMENT '가입반려 - status 0(대기) -> 2(반려) 조건부 UPDATE (12_USER_API.md 1.5)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_USER_REJECT
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : SP_USER_APPROVE와 동일한 조건부 UPDATE + 실패 사유 진단 패턴(31003 vs 30004).
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        UPDATE `user`
+        SET `status` = 2
+        WHERE `user_id` = i_user_id AND `status` = 0;
+
+        IF ROW_COUNT() = 0 THEN
+            IF NOT EXISTS (SELECT 1 FROM `user` WHERE `user_id` = i_user_id) THEN
+                SELECT 31003 AS RESULT;
+            ELSE
+                SELECT 30004 AS RESULT;
+            END IF;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
+            `phone_number`, `department`, `position`, `status`, `last_login_at`,
+            `created_at`, `updated_at`
+        FROM `user`
+        WHERE `user_id` = i_user_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_USER_ROLE_CREATE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_USER_ROLE_CREATE`;
+DELIMITER $$
+CREATE PROCEDURE `SP_USER_ROLE_CREATE` (
+    IN i_user_id    BIGINT UNSIGNED,  -- 배정할 사용자 ID
+    IN i_project_id BIGINT UNSIGNED,  -- 배정할 프로젝트 ID
+    IN i_role_code  TINYINT UNSIGNED  -- 권한 코드 (20/30/40 - 10은 앱 레이어 DTO 검증에서 이미 차단)
+) COMMENT 'user_role 배정 생성 - 회사 일치 검증 + 중복 배정 차단 (12_USER_API.md 3.1)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_USER_ROLE_CREATE
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : user 존재(31003) -> project 존재(31002) -> user.company_id와 project.company_id
+    --        일치 여부(다른 회사 소속 프로젝트에는 등록 불가, 12_USER_API.md 3.1 Validation) ->
+    --        (user_id, project_id) 중복 배정(32001) 순으로 검증한다. 회사 불일치는 인가 실패가
+    --        아니라 "이 project_id 값 자체가 이 요청에서는 허용되지 않는다"는 입력값 검증으로
+    --        보아 30003(허용되지 않는 값)을 쓴다 - PERMISSION_DENIED(20001)는 호출자 본인의
+    --        권한 부족에, 30003은 요청 바디 조합 자체의 유효성 문제에 쓴다는 구분을 유지한다.
+    --        복합 PK(user_id, project_id) 유니크 위반(경쟁 상태 백스톱) - mysql_errno 1062.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+
+    DECLARE EXIT HANDLER FOR 1062
+    BEGIN
+        SELECT 32001 AS RESULT;
+    END;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (SELECT 1 FROM `user` WHERE `user_id` = i_user_id) THEN
+            SELECT 31003 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM `project` WHERE `project_id` = i_project_id) THEN
+            SELECT 31002 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1 FROM `user` u
+            JOIN `project` p ON p.`company_id` = u.`company_id`
+            WHERE u.`user_id` = i_user_id AND p.`project_id` = i_project_id
+        ) THEN
+            SELECT 30003 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF EXISTS (
+            SELECT 1 FROM `user_role`
+            WHERE `user_id` = i_user_id AND `project_id` = i_project_id
+        ) THEN
+            SELECT 32001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        INSERT INTO `user_role` (`user_id`, `project_id`, `role_code`)
+        VALUES (i_user_id, i_project_id, i_role_code);
+
+        SELECT 0 AS RESULT;
+        SELECT `user_id`, `project_id`, `role_code`, `status`, `created_at`, `updated_at`
+        FROM `user_role`
+        WHERE `user_id` = i_user_id AND `project_id` = i_project_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
 -- SP_USER_ROLE_GET_BY_PROJECT
 -- ============================================================================================================ --
 DROP PROCEDURE IF EXISTS `SP_USER_ROLE_GET_BY_PROJECT`;
@@ -1007,6 +1300,113 @@ BEGIN
     SELECT `role_code`
     FROM `user_role`
     WHERE `user_id` = i_user_id AND `project_id` = i_project_id AND `status` = 1;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_USER_ROLE_LIST
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_USER_ROLE_LIST`;
+DELIMITER $$
+CREATE PROCEDURE `SP_USER_ROLE_LIST` (
+    IN i_user_id    BIGINT UNSIGNED,  -- 사용자 ID 필터 (NULL이면 전체)
+    IN i_project_id BIGINT UNSIGNED,  -- 프로젝트 ID 필터 (NULL이면 전체)
+    IN i_role_code  TINYINT UNSIGNED, -- 권한 코드 필터 (NULL이면 전체)
+    IN i_status     TINYINT UNSIGNED, -- 상태 필터 (NULL이면 전체)
+    IN i_limit      INT,              -- 페이지당 행 수
+    IN i_offset     INT               -- 시작 오프셋
+) COMMENT 'user_role 목록 조회 (12_USER_API.md 3.2)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_USER_ROLE_LIST
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : user_id/project_id/role_code/status 조건부 필터 + 페이지네이션. 다른 목록 SP와
+    --        동일하게 COUNT(*) OVER()로 total_count를 각 행에 실어 반환한다. 정렬은
+    --        12_USER_API.md 3.2 Sorting 그대로(status DESC, role_code ASC, user_id ASC).
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    SELECT 0 AS RESULT;
+    SELECT
+        `user_id`, `project_id`, `role_code`, `status`, `created_at`, `updated_at`,
+        COUNT(*) OVER() AS total_count
+    FROM `user_role`
+    WHERE (i_user_id IS NULL OR `user_id` = i_user_id)
+      AND (i_project_id IS NULL OR `project_id` = i_project_id)
+      AND (i_role_code IS NULL OR `role_code` = i_role_code)
+      AND (i_status IS NULL OR `status` = i_status)
+    ORDER BY `status` DESC, `role_code` ASC, `user_id` ASC
+    LIMIT i_limit OFFSET i_offset;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_USER_ROLE_UPDATE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_USER_ROLE_UPDATE`;
+DELIMITER $$
+CREATE PROCEDURE `SP_USER_ROLE_UPDATE` (
+    IN i_user_id    BIGINT UNSIGNED,  -- 복합 PK - 사용자 ID
+    IN i_project_id BIGINT UNSIGNED,  -- 복합 PK - 프로젝트 ID
+    IN i_role_code  TINYINT UNSIGNED, -- 새 권한 코드 (NULL이면 미변경, 10은 불가)
+    IN i_status     TINYINT UNSIGNED  -- 새 상태 (NULL이면 미변경)
+) COMMENT 'user_role 수정 - 조건부 UPDATE, role_code=10 전환 차단 (12_USER_API.md 3.3)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_USER_ROLE_UPDATE
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : user_id/project_id는 복합 PK라 이 SP에서 변경 대상이 아니다(Non-Updatable Fields,
+    --        12_USER_API.md 3.3). role_code=10(SUPER_ADMIN)으로의 변경은 명시적으로 30003을
+    --        반환한다(3.3 Business Rules) - DTO 레이어에서 20/30/40으로 막지 않고 여기서 막는
+    --        이유는 문서가 이 케이스를 SP/서비스 레벨의 명시적 오류 코드로 지정했기 때문이다.
+    --        물리 삭제 없음 원칙에 따라 권한 중지는 status=0 조건부 UPDATE로만 처리한다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF i_role_code = 10 THEN
+            SELECT 30003 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1 FROM `user_role` WHERE `user_id` = i_user_id AND `project_id` = i_project_id
+        ) THEN
+            SELECT 31007 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        UPDATE `user_role`
+        SET
+            `role_code` = COALESCE(i_role_code, `role_code`),
+            `status`    = COALESCE(i_status, `status`)
+        WHERE `user_id` = i_user_id AND `project_id` = i_project_id;
+
+        SELECT 0 AS RESULT;
+        SELECT `user_id`, `project_id`, `role_code`, `status`, `created_at`, `updated_at`
+        FROM `user_role`
+        WHERE `user_id` = i_user_id AND `project_id` = i_project_id;
+    END proc_block;
 END$$
 
 DELIMITER ;
@@ -1325,6 +1725,98 @@ BEGIN
             `last_login_at`, `created_at`, `updated_at`
         FROM `user`
         WHERE `user_id` = v_user_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_USER_UPDATE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_USER_UPDATE`;
+DELIMITER $$
+CREATE PROCEDURE `SP_USER_UPDATE` (
+    IN i_user_id          BIGINT UNSIGNED,  -- 수정할 사용자 ID
+    IN i_user_name        VARCHAR(100),     -- 새 사용자명 (NULL이면 미변경)
+    IN i_email            VARCHAR(200),     -- 새 이메일 (NULL이면 미변경)
+    IN i_phone_number_enc VARCHAR(255),     -- 새 휴대폰번호 AES-256-CBC 암호화값 (NULL이면 미변경)
+    IN i_department       VARCHAR(100),     -- 새 부서 (NULL이면 미변경)
+    IN i_position         VARCHAR(100),     -- 새 직급 (NULL이면 미변경)
+    IN i_status           TINYINT UNSIGNED  -- 새 상태 (NULL이면 미변경)
+) COMMENT '사용자 정보 수정 - 조건부 UPDATE + status=3 전환 시 전체 세션 종료 (12_USER_API.md 1.6)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_USER_UPDATE
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : company_id/requested_project_id/login_id는 이 SP의 파라미터에 아예 없다 - 수정 불가
+    --        필드라 애초에 받지 않는다(12_USER_API.md 1.6 Non-Updatable Fields). 존재 확인(31003)
+    --        -> email 변경 시 중복 확인(자기 자신 제외, 32001) -> COALESCE 기반 조건부 UPDATE
+    --        (02_DEV_CONVENTIONS.md 4장). email 유니크 제약 위반(1062) 백스톱도 CREATE/UPDATE류
+    --        SP와 동일한 이유로 둔다.
+    --        i_status=3(사용중지)으로 전환하는 경우에만 해당 사용자의 활성 세션을 전부 종료한다
+    --        (12_USER_API.md 1.6 Business Rules, 07_AUTH_SECURITY.md 1.3) - 이미 3이었거나 다른
+    --        값으로 바뀌는 경우는 세션에 영향을 주지 않는다. UPDATE 규약(3.4)은 status 값 전이
+    --        자체를 검증하지 않는다고 명시하므로(화면 버튼 기준일 뿐) 여기서도 임의의 status 값
+    --        전달을 그대로 허용한다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+
+    -- email 유니크 제약 위반(경쟁 상태로 사전 체크를 통과한 경우의 백스톱) — mysql_errno 1062
+    DECLARE EXIT HANDLER FOR 1062
+    BEGIN
+        SELECT 32001 AS RESULT;
+    END;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        ROLLBACK;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (SELECT 1 FROM `user` WHERE `user_id` = i_user_id) THEN
+            SELECT 31003 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF i_email IS NOT NULL AND EXISTS (
+            SELECT 1 FROM `user` WHERE `email` = i_email AND `user_id` <> i_user_id
+        ) THEN
+            SELECT 32001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        START TRANSACTION;
+
+            UPDATE `user`
+            SET
+                `user_name`    = COALESCE(i_user_name, `user_name`),
+                `email`        = COALESCE(i_email, `email`),
+                `phone_number` = COALESCE(i_phone_number_enc, `phone_number`),
+                `department`   = COALESCE(i_department, `department`),
+                `position`     = COALESCE(i_position, `position`),
+                `status`       = COALESCE(i_status, `status`)
+            WHERE `user_id` = i_user_id;
+
+            IF i_status = 3 THEN
+                UPDATE `user_session`
+                SET `status` = 0
+                WHERE `user_id` = i_user_id AND `status` = 1;
+            END IF;
+
+        COMMIT;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
+            `phone_number`, `department`, `position`, `status`, `last_login_at`,
+            `created_at`, `updated_at`
+        FROM `user`
+        WHERE `user_id` = i_user_id;
     END proc_block;
 END$$
 

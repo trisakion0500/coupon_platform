@@ -51,10 +51,11 @@ SP마다 반복되는 권한/스코핑 체크(예: "SUPER_ADMIN은 전체, 그 �
 
 ```text
 FN_CHECK_PROJECT_ACCESS(user_id, project_id) RETURNS BOOLEAN
-FN_CHECK_ROLE_LEVEL(user_id, min_role_code) RETURNS BOOLEAN
+FN_GET_PROJECT_ROLE_CODE(user_id, project_id) RETURNS TINYINT UNSIGNED  -- 배정 없으면 NULL
 ```
 
 - 권한 판단 로직이 바뀌면 이 Function들만 수정하면 되고, SP마다 흩어진 동일 로직을 일일이 찾아 고치지 않아도 된다
+- `FN_CHECK_PROJECT_ACCESS`는 "배정되어 있는가"만 boolean으로 답한다(11_PROJECT_API.md 2.5 Secret 재발급처럼 배정 여부만 확인하면 되는 경우). `FN_GET_PROJECT_ROLE_CODE`는 실제 role_code 값을 반환한다 — role_code의 **값에 따라 처리가 갈리는**(예: MANAGER 이하는 즉시 처리, OPERATOR는 승인대기로 전환, [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md)) SP를 위한 것으로, `FN_CHECK_PROJECT_ACCESS(u,p)`는 `FN_GET_PROJECT_ROLE_CODE(u,p) IS NOT NULL`과 동치다. 두 Function 모두 SUPER_ADMIN 우회는 책임지지 않는다 — 호출하는 SP가 role_code=10이면 Function 자체를 호출하지 않고 먼저 통과시킨다(SUPER_ADMIN은 특정 프로젝트에 매인 값이 아니다).
 - 캠페인/코드/사용이력 API([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 1.2 참고)처럼 여러 엔드포인트가 동일한 스코핑 규칙을 공유하는 경우 특히 중요하다
 
 ## 3.3 주석은 철저히
