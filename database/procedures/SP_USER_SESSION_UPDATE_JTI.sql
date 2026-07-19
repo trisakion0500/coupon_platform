@@ -1,15 +1,12 @@
-DROP PROCEDURE IF EXISTS `USP_USER_SESSION_UPDATE_JTI`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_SESSION_UPDATE_JTI`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_SESSION_UPDATE_JTI` (
+CREATE PROCEDURE `SP_USER_SESSION_UPDATE_JTI` (
     IN i_session_id       BIGINT UNSIGNED,  -- 세션 ID
     IN i_access_token_jti VARCHAR(100)       -- 새로 발급한 Access Token JTI
-)
-COMMENT 'Access Token 재발급 시 세션의 JTI/last_access_at 갱신 (09_AUTH_API.md 7장)'
+) COMMENT 'Access Token 재발급 시 세션의 JTI/last_access_at 갱신 (09_AUTH_API.md 7장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_SESSION_UPDATE_JTI
+    -- 명칭 : SP_USER_SESSION_UPDATE_JTI
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : POST /auth/refresh 처리 후 세션의 access_token_jti를 새 값으로 갱신한다.
     --        refresh_token은 재발급하지 않으므로(최초 로그인 시 1회만 저장) 여기서 건드리지 않는다.

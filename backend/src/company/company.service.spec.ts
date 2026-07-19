@@ -180,7 +180,7 @@ describe('CompanyService', () => {
       await service.getActiveHeaderData(5, 40, 2);
 
       expect(spExecutor.callProcedure).toHaveBeenCalledWith(
-        'USP_COMPANY_GET_ACTIVE_HEADER_DATA',
+        'SP_COMPANY_GET_ACTIVE_HEADER_DATA',
         [5, 40, 2],
       );
     });

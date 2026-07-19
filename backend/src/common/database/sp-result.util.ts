@@ -33,7 +33,7 @@ export interface SpCallResult<TData = unknown> {
  *
  * @param pool - 호출에 사용할 mysql2 커넥션 풀(메인/로그 DB 중 하나)
  * @param logger - 50001 진단 정보를 남길 로거
- * @param spName - 호출할 Stored Procedure 이름(`USP_도메인_동작`)
+ * @param spName - 호출할 Stored Procedure 이름(`SP_도메인_동작`)
  * @param params - `CALL`의 IN 파라미터 목록(선언 순서대로)
  * @returns 파싱된 RESULT/data(RESULT는 0 또는 SP가 정의한 특정 비즈니스 코드)
  * @throws {Error} 첫 result set에 RESULT 컬럼이 없는 경우(SP가 규약을 위반한 버그 상황)

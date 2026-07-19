@@ -1,14 +1,11 @@
-DROP PROCEDURE IF EXISTS `USP_USER_GET_BY_LOGIN_ID`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_GET_BY_LOGIN_ID`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_GET_BY_LOGIN_ID` (
+CREATE PROCEDURE `SP_USER_GET_BY_LOGIN_ID` (
     IN i_login_id VARCHAR(100)  -- 로그인 ID
-)
-COMMENT '로그인 처리 전용 - login_id로 user 조회, role_code(MIN, 미배정시 40)까지 함께 계산'
+) COMMENT '로그인 처리 전용 - login_id로 user 조회, role_code(MIN, 미배정시 40)까지 함께 계산'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_GET_BY_LOGIN_ID
+    -- 명칭 : SP_USER_GET_BY_LOGIN_ID
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 로그인(POST /auth/login) 처리용 사용자 조회. password_hash를 포함해 반환하므로
     --        앱 레이어가 bcrypt로 비교한다(SP는 비밀번호 검증 로직을 모른다).

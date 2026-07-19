@@ -1,14 +1,11 @@
-DROP PROCEDURE IF EXISTS `USP_USER_SESSION_VALIDATE_BY_JTI`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_SESSION_VALIDATE_BY_JTI`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_SESSION_VALIDATE_BY_JTI` (
+CREATE PROCEDURE `SP_USER_SESSION_VALIDATE_BY_JTI` (
     IN i_access_token_jti VARCHAR(100)  -- 검증할 Access Token의 JTI
-)
-COMMENT 'JwtAuthGuard 전용 - 세션/사용자 상태 검증 (07_AUTH_SECURITY.md 1.5 3~4번)'
+) COMMENT 'JwtAuthGuard 전용 - 세션/사용자 상태 검증 (07_AUTH_SECURITY.md 1.5 3~4번)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_SESSION_VALIDATE_BY_JTI
+    -- 명칭 : SP_USER_SESSION_VALIDATE_BY_JTI
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 보호된 API 요청마다 JwtAuthGuard가 호출하는 세션/사용자 상태 검증
     --        (07_AUTH_SECURITY.md 1.5 "3. Session 확인 / 4. User 상태 확인").
@@ -18,7 +15,7 @@ BEGIN
     --        세션이 없거나 로그아웃(status!=1)되었거나 만료(expired_at<=NOW())된 경우
     --        10009(유효하지 않은 Session)를 반환한다 — expired_at 체크가 없으면 세션 만료 이후에도
     --        그 직전에 발급된 Access Token이 자기 수명(15분)이 남아있는 동안 계속 통과해버리는
-    --        구멍이 생긴다(2026-07-19 리뷰에서 발견, USP_USER_SESSION_GET_BY_REFRESH_HASH와
+    --        구멍이 생긴다(2026-07-19 리뷰에서 발견, SP_USER_SESSION_GET_BY_REFRESH_HASH와
     --        동일하게 맞춤).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';

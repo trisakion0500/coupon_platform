@@ -40,7 +40,7 @@ describe('SpExecutorService', () => {
   it('returns the second result set as data when RESULT=0', async () => {
     queryMock.mockResolvedValueOnce([[[{ RESULT: 0 }], [{ project_id: 1 }]]]);
 
-    const result = await service.callProcedure('USP_TEST', []);
+    const result = await service.callProcedure('SP_TEST', []);
 
     expect(result).toEqual({ result: 0, data: [{ project_id: 1 }] });
   });
@@ -48,7 +48,7 @@ describe('SpExecutorService', () => {
   it('does not read a second result set on business failure (RESULT != 0)', async () => {
     queryMock.mockResolvedValueOnce([[[{ RESULT: 31002 }]]]);
 
-    const result = await service.callProcedure('USP_TEST', []);
+    const result = await service.callProcedure('SP_TEST', []);
 
     expect(result).toEqual({ result: 31002 });
   });
@@ -67,7 +67,7 @@ describe('SpExecutorService', () => {
       ],
     ]);
 
-    await expect(service.callProcedure('USP_TEST', [])).rejects.toMatchObject({
+    await expect(service.callProcedure('SP_TEST', [])).rejects.toMatchObject({
       resultCode: ResultCode.DATABASE_ERROR,
     });
   });
@@ -75,7 +75,7 @@ describe('SpExecutorService', () => {
   it('throws when the first result set has no RESULT column', async () => {
     queryMock.mockResolvedValueOnce([[[{ NOT_RESULT: 1 }]]]);
 
-    await expect(service.callProcedure('USP_TEST', [])).rejects.toThrow(
+    await expect(service.callProcedure('SP_TEST', [])).rejects.toThrow(
       /RESULT SELECT convention violated/,
     );
   });

@@ -1,16 +1,15 @@
-DROP PROCEDURE IF EXISTS `USP_COMPANY_GET_BY_ID`;
-
+DROP PROCEDURE IF EXISTS `SP_COMPANY_GET_BY_CODE`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_COMPANY_GET_BY_ID` (
-    IN i_company_id BIGINT UNSIGNED  -- 조회할 회사 ID
-)
-COMMENT '회사 상세 조회 (10_COMPANY_API.md 2.3)'
+CREATE PROCEDURE `SP_COMPANY_GET_BY_CODE` (
+    IN i_company_code VARCHAR(20)  -- 조회할 회사 코드
+) COMMENT '회사 코드로 조회 - 회원가입 화면 전용 공개 API (10_COMPANY_API.md 2.5)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_COMPANY_GET_BY_ID
+    -- 명칭 : SP_COMPANY_GET_BY_CODE
     -- 작성 : 2026.07.19 trisakion
-    -- 내용 : company_id로 회사 상세를 조회한다. 없으면 31001.
+    -- 내용 : 회원가입 화면(로그인 전, 인증 불필요)에서 company_code로 회사를 찾기 위한 공개 조회.
+    --        status=1(사용)인 회사만 대상으로 하고, company_id/company_name만 반환한다 —
+    --        민감정보(description 등)는 노출하지 않는다. 없거나 비활성이면 31001.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -23,17 +22,17 @@ BEGIN
     END;
 
     proc_block: BEGIN
-        IF NOT EXISTS (SELECT 1 FROM `company` WHERE `company_id` = i_company_id) THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM `company` WHERE `company_code` = i_company_code AND `status` = 1
+        ) THEN
             SELECT 31001 AS RESULT;
             LEAVE proc_block;
         END IF;
 
         SELECT 0 AS RESULT;
-        SELECT
-            `company_id`, `company_code`, `company_name`, `description`,
-            `status`, `created_at`, `updated_at`
+        SELECT `company_id`, `company_name`
         FROM `company`
-        WHERE `company_id` = i_company_id;
+        WHERE `company_code` = i_company_code AND `status` = 1;
     END proc_block;
 END$$
 

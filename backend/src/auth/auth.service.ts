@@ -70,7 +70,7 @@ export class AuthService {
     const phoneNumberEnc = this.crypto.encrypt(dto.phone_number);
 
     const { result, data } = await this.spExecutor.callProcedure<UserRow[]>(
-      'USP_USER_SIGNUP',
+      'SP_USER_SIGNUP',
       [
         dto.company_id,
         dto.requested_project_id,
@@ -107,7 +107,7 @@ export class AuthService {
   async login(dto: LoginDto) {
     const { result, data } = await this.spExecutor.callProcedure<
       UserWithRoleRow[]
-    >('USP_USER_GET_BY_LOGIN_ID', [dto.login_id]);
+    >('SP_USER_GET_BY_LOGIN_ID', [dto.login_id]);
 
     if (result !== 0 || !data?.[0]) {
       throw new BusinessException(ResultCode.LOGIN_FAILED);
@@ -128,7 +128,7 @@ export class AuthService {
   }
 
   async logout(accessTokenJti: string): Promise<void> {
-    await this.spExecutor.callProcedure('USP_USER_SESSION_LOGOUT', [
+    await this.spExecutor.callProcedure('SP_USER_SESSION_LOGOUT', [
       accessTokenJti,
     ]);
   }
@@ -138,7 +138,7 @@ export class AuthService {
 
     const { result, data } = await this.spExecutor.callProcedure<
       SessionByRefreshRow[]
-    >('USP_USER_SESSION_GET_BY_REFRESH_HASH', [refreshTokenHash]);
+    >('SP_USER_SESSION_GET_BY_REFRESH_HASH', [refreshTokenHash]);
 
     if (result !== 0 || !data?.[0]) {
       throw new BusinessException(ResultCode.REFRESH_TOKEN_EXPIRED);
@@ -155,7 +155,7 @@ export class AuthService {
       role_code: session.role_code,
     });
 
-    await this.spExecutor.callProcedure('USP_USER_SESSION_UPDATE_JTI', [
+    await this.spExecutor.callProcedure('SP_USER_SESSION_UPDATE_JTI', [
       session.session_id,
       jti,
     ]);
@@ -184,7 +184,7 @@ export class AuthService {
     }
 
     const newPasswordHash = await bcrypt.hash(dto.new_password, BCRYPT_ROUNDS);
-    await this.spExecutor.callProcedure('USP_USER_PASSWORD_CHANGE', [
+    await this.spExecutor.callProcedure('SP_USER_PASSWORD_CHANGE', [
       userId,
       newPasswordHash,
     ]);
@@ -208,7 +208,7 @@ export class AuthService {
       role_code: roleCode,
     });
 
-    await this.spExecutor.callProcedure('USP_USER_SESSION_CREATE', [
+    await this.spExecutor.callProcedure('SP_USER_SESSION_CREATE', [
       userId,
       jti,
       refreshTokenHash,
@@ -243,7 +243,7 @@ export class AuthService {
 
   private async fetchUserById(userId: number): Promise<UserRow> {
     const { result, data } = await this.spExecutor.callProcedure<UserRow[]>(
-      'USP_USER_GET_BY_ID',
+      'SP_USER_GET_BY_ID',
       [userId],
     );
     if (result !== 0 || !data?.[0]) {

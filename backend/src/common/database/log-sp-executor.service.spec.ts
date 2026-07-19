@@ -40,7 +40,7 @@ describe('LogSpExecutorService', () => {
     it('parses RESULT SELECT convention the same way as the main DB executor', async () => {
       queryMock.mockResolvedValueOnce([[[{ RESULT: 0 }], [{ idx: 1 }]]]);
 
-      const result = await service.callProcedure('USP_LOG_TEST', []);
+      const result = await service.callProcedure('SP_LOG_TEST', []);
 
       expect(result).toEqual({ result: 0, data: [{ idx: 1 }] });
     });
@@ -51,7 +51,7 @@ describe('LogSpExecutorService', () => {
       queryMock.mockResolvedValueOnce([[[{ RESULT: 50001 }]]]);
 
       await expect(
-        service.logCall('USP_LOG_INSERT', []),
+        service.logCall('SP_LOG_INSERT', []),
       ).resolves.toBeUndefined();
     });
 
@@ -59,7 +59,7 @@ describe('LogSpExecutorService', () => {
       queryMock.mockRejectedValueOnce(new Error('connection refused'));
 
       await expect(
-        service.logCall('USP_LOG_INSERT', []),
+        service.logCall('SP_LOG_INSERT', []),
       ).resolves.toBeUndefined();
     });
 
@@ -67,7 +67,7 @@ describe('LogSpExecutorService', () => {
       queryMock.mockResolvedValueOnce([[[{ NOT_RESULT: 1 }]]]);
 
       await expect(
-        service.logCall('USP_LOG_INSERT', []),
+        service.logCall('SP_LOG_INSERT', []),
       ).resolves.toBeUndefined();
     });
   });

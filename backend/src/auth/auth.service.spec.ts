@@ -147,7 +147,7 @@ describe('AuthService', () => {
 
     it('issues tokens on success and creates a session', async () => {
       await mockLoginLookup();
-      spExecutor.callProcedure.mockResolvedValueOnce({ result: 0 }); // USP_USER_SESSION_CREATE
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 0 }); // SP_USER_SESSION_CREATE
 
       const result = await service.login(loginDto);
 
@@ -156,7 +156,7 @@ describe('AuthService', () => {
       expect(result.refresh_token).toEqual(expect.any(String));
       expect(spExecutor.callProcedure).toHaveBeenNthCalledWith(
         2,
-        'USP_USER_SESSION_CREATE',
+        'SP_USER_SESSION_CREATE',
         expect.arrayContaining([1]),
       );
     });
@@ -236,7 +236,7 @@ describe('AuthService', () => {
           },
         ],
       });
-      spExecutor.callProcedure.mockResolvedValueOnce({ result: 0 }); // USP_USER_SESSION_UPDATE_JTI
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 0 }); // SP_USER_SESSION_UPDATE_JTI
 
       const result = await service.refresh({
         refresh_token: 'some-refresh-token',
@@ -246,7 +246,7 @@ describe('AuthService', () => {
       expect(result.access_token).toEqual(expect.any(String));
       expect(spExecutor.callProcedure).toHaveBeenNthCalledWith(
         2,
-        'USP_USER_SESSION_UPDATE_JTI',
+        'SP_USER_SESSION_UPDATE_JTI',
         [5, expect.any(String)],
       );
     });
@@ -325,7 +325,7 @@ describe('AuthService', () => {
         result: 0,
         data: [{ user_id: 1, password_hash: currentHash }],
       });
-      spExecutor.callProcedure.mockResolvedValueOnce({ result: 0 }); // USP_USER_PASSWORD_CHANGE
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 0 }); // SP_USER_PASSWORD_CHANGE
 
       await expect(
         service.changePassword(1, {
@@ -336,7 +336,7 @@ describe('AuthService', () => {
 
       expect(spExecutor.callProcedure).toHaveBeenNthCalledWith(
         2,
-        'USP_USER_PASSWORD_CHANGE',
+        'SP_USER_PASSWORD_CHANGE',
         [1, expect.any(String)],
       );
     });

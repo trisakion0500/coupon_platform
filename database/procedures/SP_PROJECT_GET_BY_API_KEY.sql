@@ -1,14 +1,11 @@
-DROP PROCEDURE IF EXISTS `USP_PROJECT_GET_BY_API_KEY`;
-
+DROP PROCEDURE IF EXISTS `SP_PROJECT_GET_BY_API_KEY`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_PROJECT_GET_BY_API_KEY` (
+CREATE PROCEDURE `SP_PROJECT_GET_BY_API_KEY` (
     IN i_api_key VARCHAR(64)  -- 조회할 API Key (project.api_key)
-)
-COMMENT 'API Key로 project 조회 (S2S 인증 가드 전용, docs/07_AUTH_SECURITY.md 2.4 3~4번)'
+) COMMENT 'API Key로 project 조회 (S2S 인증 가드 전용, docs/07_AUTH_SECURITY.md 2.4 3~4번)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_PROJECT_GET_BY_API_KEY
+    -- 명칭 : SP_PROJECT_GET_BY_API_KEY
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : S2S 인증 가드(docs/07_AUTH_SECURITY.md 2.4 3~4번)가 X-API-Key로 project를 조회할 때 사용.
     --        RESULT SELECT 규약(docs/02_DEV_CONVENTIONS.md 3.4)을 따른다 — 첫 SELECT는 RESULT 단일 행,

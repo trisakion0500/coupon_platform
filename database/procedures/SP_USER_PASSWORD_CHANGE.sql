@@ -1,15 +1,12 @@
-DROP PROCEDURE IF EXISTS `USP_USER_PASSWORD_CHANGE`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_PASSWORD_CHANGE`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_PASSWORD_CHANGE` (
+CREATE PROCEDURE `SP_USER_PASSWORD_CHANGE` (
     IN i_user_id           BIGINT UNSIGNED,  -- 대상 사용자 ID
     IN i_new_password_hash VARCHAR(255)       -- 새 비밀번호 bcrypt 해시(앱 레이어에서 해시 완료)
-)
-COMMENT '비밀번호 변경 + 전체 활성 세션 강제 로그아웃 (09_AUTH_API.md 9장)'
+) COMMENT '비밀번호 변경 + 전체 활성 세션 강제 로그아웃 (09_AUTH_API.md 9장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_PASSWORD_CHANGE
+    -- 명칭 : SP_USER_PASSWORD_CHANGE
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 현재 비밀번호 검증(bcrypt.compare)은 앱 레이어에서 이미 끝난 상태로 호출된다.
     --        password_hash 갱신과 "모든 활성 세션 종료"(07_AUTH_SECURITY.md 1.3)를 하나의

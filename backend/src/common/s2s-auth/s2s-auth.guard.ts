@@ -14,7 +14,7 @@ interface S2sHeaders {
   signature: string;
 }
 
-/** `USP_PROJECT_GET_BY_API_KEY`가 반환하는 project 행(서명 검증에 필요한 컬럼만). */
+/** `SP_PROJECT_GET_BY_API_KEY`가 반환하는 project 행(서명 검증에 필요한 컬럼만). */
 interface ProjectRow {
   project_id: number;
   status: number;
@@ -116,12 +116,12 @@ export class S2sAuthGuard implements CanActivate {
   }
 
   /**
-   * `USP_PROJECT_GET_BY_API_KEY`로 project를 조회한다.
+   * `SP_PROJECT_GET_BY_API_KEY`로 project를 조회한다.
    * @throws {BusinessException} 10010 — API Key에 해당하는 project가 없을 때
    */
   private async lookupProject(apiKey: string): Promise<ProjectRow> {
     const { result, data } = await this.spExecutor.callProcedure<ProjectRow[]>(
-      'USP_PROJECT_GET_BY_API_KEY',
+      'SP_PROJECT_GET_BY_API_KEY',
       [apiKey],
     );
 
@@ -174,13 +174,13 @@ export class S2sAuthGuard implements CanActivate {
   }
 
   /**
-   * `USP_NONCE_INSERT`로 nonce를 원자적으로 등록한다. SP 시스템 오류(50001)는
+   * `SP_NONCE_INSERT`로 nonce를 원자적으로 등록한다. SP 시스템 오류(50001)는
    * `callProcedure`가 이미 `BusinessException(DATABASE_ERROR)`로 던지므로 여기서는
    * 재전송 감지(10015)만 확인하면 된다.
    * @throws {BusinessException} 10015 — 이미 사용된 nonce(재전송 의심)일 때
    */
   private async consumeNonce(projectId: number, nonce: string): Promise<void> {
-    const { result } = await this.spExecutor.callProcedure('USP_NONCE_INSERT', [
+    const { result } = await this.spExecutor.callProcedure('SP_NONCE_INSERT', [
       projectId,
       nonce,
     ]);

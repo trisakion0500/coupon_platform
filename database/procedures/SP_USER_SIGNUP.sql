@@ -1,8 +1,6 @@
-DROP PROCEDURE IF EXISTS `USP_USER_SIGNUP`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_SIGNUP`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_SIGNUP` (
+CREATE PROCEDURE `SP_USER_SIGNUP` (
     IN i_company_id            BIGINT UNSIGNED,  -- 가입 신청 회사 ID
     IN i_requested_project_id  BIGINT UNSIGNED,  -- 가입 신청 프로젝트 ID (영구 보관, 이후 변경 불가)
     IN i_login_id              VARCHAR(100),      -- 로그인 ID
@@ -12,11 +10,10 @@ CREATE PROCEDURE `USP_USER_SIGNUP` (
     IN i_phone_number_enc      VARCHAR(255),      -- 휴대폰번호 AES-256-CBC 암호화값(앱 레이어에서 암호화 완료 후 전달)
     IN i_department            VARCHAR(100),      -- 부서 (선택)
     IN i_position              VARCHAR(100)       -- 직급 (선택)
-)
-COMMENT '회원가입 - status=0(가입승인대기)으로 user INSERT (09_AUTH_API.md 4장)'
+) COMMENT '회원가입 - status=0(가입승인대기)으로 user INSERT (09_AUTH_API.md 4장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_SIGNUP
+    -- 명칭 : SP_USER_SIGNUP
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 회원가입 처리. company_id/requested_project_id 존재 및 소속 관계를 검증하고,
     --        login_id/email 중복을 확인한 뒤 status=0(가입승인대기)으로 user를 생성한다.
@@ -26,7 +23,7 @@ BEGIN
     --        같은 login_id/email로 두 요청이 들어오면 둘 다 통과해버릴 수 있다. 그 드문 경쟁 상황을
     --        대비해 INSERT의 UNIQUE 제약 위반(1062) 전용 핸들러를 추가로 둬서, 사전 체크를 통과한
     --        뒤에도 실제 INSERT에서 걸리면 50001이 아니라 32001로 정확히 응답되게 한다
-    --        (2026-07-19 리뷰에서 발견 — USP_NONCE_INSERT와 같은 원리).
+    --        (2026-07-19 리뷰에서 발견 — SP_NONCE_INSERT와 같은 원리).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;

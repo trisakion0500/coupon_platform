@@ -42,7 +42,7 @@ export class SpExecutorService implements OnModuleDestroy {
   /**
    * SP를 호출하고 RESULT SELECT 규약(02_DEV_CONVENTIONS.md 3.4)을 파싱해 반환한다.
    *
-   * @param spName - 호출할 Stored Procedure 이름(`USP_도메인_동작`)
+   * @param spName - 호출할 Stored Procedure 이름(`SP_도메인_동작`)
    * @param params - `CALL`의 IN 파라미터 목록(선언 순서대로)
    */
   async callProcedure<TData = unknown>(

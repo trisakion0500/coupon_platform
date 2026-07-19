@@ -91,7 +91,7 @@ export class JwtAuthGuard implements CanActivate {
   ): Promise<{ userId: number; companyId: number }> {
     const { result, data } = await this.spExecutor.callProcedure<
       Array<{ user_id: number; company_id: number; user_status: number }>
-    >('USP_USER_SESSION_VALIDATE_BY_JTI', [jti]);
+    >('SP_USER_SESSION_VALIDATE_BY_JTI', [jti]);
 
     if (result !== 0 || !data?.[0]) {
       throw new BusinessException(ResultCode.INVALID_SESSION);

@@ -1,15 +1,12 @@
-DROP PROCEDURE IF EXISTS `USP_NONCE_INSERT`;
-
+DROP PROCEDURE IF EXISTS `SP_NONCE_INSERT`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_NONCE_INSERT` (
+CREATE PROCEDURE `SP_NONCE_INSERT` (
     IN i_project_id BIGINT UNSIGNED,  -- 인증된 project_id (project.project_id)
     IN i_nonce      VARCHAR(64)       -- X-API-Nonce 헤더 원문
-)
-COMMENT 'S2S nonce 원자적 등록 — UNIQUE 위반이면 재전송으로 판단해 10015 반환(docs/07_AUTH_SECURITY.md 2.4 6번)'
+) COMMENT 'S2S nonce 원자적 등록 — UNIQUE 위반이면 재전송으로 판단해 10015 반환(docs/07_AUTH_SECURITY.md 2.4 6번)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_NONCE_INSERT
+    -- 명칭 : SP_NONCE_INSERT
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : S2S 인증 가드(docs/07_AUTH_SECURITY.md 2.4 6번)의 재전송 방지 nonce 등록.
     --        (project_id, nonce) UNIQUE 제약 위반을 "이미 사용된 nonce(재전송 의심)"으로 판단해 10015를

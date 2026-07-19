@@ -32,16 +32,14 @@ export class SessionCleanupService implements OnModuleInit {
   private async cleanup(): Promise<void> {
     try {
       const { result } = await this.spExecutor.callProcedure(
-        'USP_SESSION_CLEANUP',
+        'SP_SESSION_CLEANUP',
         [],
       );
       if (result !== 0) {
-        this.logger.error(`USP_SESSION_CLEANUP returned RESULT=${result}`);
+        this.logger.error(`SP_SESSION_CLEANUP returned RESULT=${result}`);
       }
     } catch (err) {
-      this.logger.error(
-        `USP_SESSION_CLEANUP failed: ${(err as Error).message}`,
-      );
+      this.logger.error(`SP_SESSION_CLEANUP failed: ${(err as Error).message}`);
     }
   }
 }

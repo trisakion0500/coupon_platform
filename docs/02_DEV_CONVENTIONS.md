@@ -27,14 +27,14 @@
 
 ## 3.1 네이밍
 
-형식: `USP_도메인_동작`(Procedure) / `FN_설명`(Function) — **전부 대문자**로 작성해 Procedure/Function을 접두어로 구분한다.
+형식: `SP_도메인_동작`(Procedure) / `FN_설명`(Function) — **전부 대문자**로 작성해 Procedure/Function을 접두어로 구분한다.
 
 ```text
-USP_CAMPAIGN_CREATE
-USP_CAMPAIGN_UPDATE
-USP_CAMPAIGN_APPROVE
-USP_COUPON_RESERVE
-USP_COUPON_CONFIRM
+SP_CAMPAIGN_CREATE
+SP_CAMPAIGN_UPDATE
+SP_CAMPAIGN_APPROVE
+SP_COUPON_RESERVE
+SP_COUPON_CONFIRM
 
 FN_CHECK_PROJECT_ACCESS
 FN_CHECK_ROLE_LEVEL
@@ -72,7 +72,7 @@ SP는 **OUT 파라미터를 쓰지 않는다** — mysql2는 `CALL sp(?, ?)`의 
 - 조건 검증 실패 시 얼리 리턴처럼 빠져나가기 위해 `label: BEGIN ... END;` 블록 + `LEAVE label` 패턴을 쓴다(중첩 IF/ELSE 대신)
 
 ```sql
-CREATE PROCEDURE USP_COUPON_RESERVE(
+CREATE PROCEDURE SP_COUPON_RESERVE(
     IN i_code_value    VARCHAR(50),
     IN i_project_id    BIGINT,
     IN i_game_user_id  VARCHAR(100)
@@ -111,19 +111,18 @@ END
 - 모든 SP는 파라미터 목록 다음에 `COMMENT '...'` 절로 한 줄 요약을 남긴다 — 테이블의 `COMMENT=` 절(`database/tables/*.sql`)과 같은 원칙으로, `SHOW CREATE PROCEDURE`/`information_schema.ROUTINES`만 조회해도 무엇을 하는 SP인지 바로 알 수 있어야 한다.
 - 3.3에서 요구하는 상세 헤더 주석(명칭/작성일/내용/설계 이유)은 `CREATE PROCEDURE` **앞이 아니라 `BEGIN` 바로 다음 줄**에 둔다 — `CREATE PROCEDURE` 앞의 주석은 `.sql` 파일에만 존재하고 실제 저장된 루틴 본문에는 남지 않는다. `BEGIN` 아래에 두면 소스 파일 없이 `SHOW CREATE PROCEDURE`로 조회해도 설계 의도를 그대로 확인할 수 있다.
 - `IN` 파라미터는 각 줄 끝에 무엇을 의미하는지 짧은 인라인 주석을 남긴다.
+- `DROP PROCEDURE IF EXISTS ...;` / `DELIMITER $$` / `CREATE PROCEDURE ...` 세 줄은 빈 줄 없이 붙여쓴다(2026-07-19 스타일 확정).
+- 파라미터 목록을 닫는 `)`와 그 뒤의 `COMMENT '...'`도 한 줄로 붙여쓴다(2026-07-19 스타일 확정).
 
 ```sql
-DROP PROCEDURE IF EXISTS `USP_PROJECT_GET_BY_API_KEY`;
-
+DROP PROCEDURE IF EXISTS `SP_PROJECT_GET_BY_API_KEY`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_PROJECT_GET_BY_API_KEY` (
+CREATE PROCEDURE `SP_PROJECT_GET_BY_API_KEY` (
     IN i_api_key VARCHAR(64)  -- 조회할 API Key (project.api_key)
-)
-COMMENT 'API Key로 project 조회 (S2S 인증 가드 전용, docs/07_AUTH_SECURITY.md 2.4)'
+) COMMENT 'API Key로 project 조회 (S2S 인증 가드 전용, docs/07_AUTH_SECURITY.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_PROJECT_GET_BY_API_KEY
+    -- 명칭 : SP_PROJECT_GET_BY_API_KEY
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : ... (3.3 기준의 상세 설계 이유)
     -- ------------------------------------------------------------------------------------------------------------ --

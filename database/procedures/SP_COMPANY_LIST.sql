@@ -1,16 +1,13 @@
-DROP PROCEDURE IF EXISTS `USP_COMPANY_LIST`;
-
+DROP PROCEDURE IF EXISTS `SP_COMPANY_LIST`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_COMPANY_LIST` (
+CREATE PROCEDURE `SP_COMPANY_LIST` (
     IN i_status    TINYINT UNSIGNED,  -- 상태 필터 (NULL이면 전체)
     IN i_page_size INT,               -- 페이지당 행 수
     IN i_offset    INT                -- 시작 오프셋
-)
-COMMENT '회사 목록 조회 - 페이지네이션 (10_COMPANY_API.md 2.2)'
+) COMMENT '회사 목록 조회 - 페이지네이션 (10_COMPANY_API.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_COMPANY_LIST
+    -- 명칭 : SP_COMPANY_LIST
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 회사 목록을 status DESC, company_name ASC로 정렬해 페이지 단위로 반환한다.
     --        02_DEV_CONVENTIONS.md 3.4의 RESULT SELECT 규약은 RESULT + data 정확히 2개 result set만

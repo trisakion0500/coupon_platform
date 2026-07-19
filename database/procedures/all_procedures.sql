@@ -5,23 +5,20 @@
 -- ------------------------------------------------------------------------------------------------------------ --
 
 -- ============================================================================================================ --
--- USP_COMPANY_CREATE
+-- SP_COMPANY_CREATE
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_COMPANY_CREATE`;
-
+DROP PROCEDURE IF EXISTS `SP_COMPANY_CREATE`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_COMPANY_CREATE` (
+CREATE PROCEDURE `SP_COMPANY_CREATE` (
     IN i_company_code VARCHAR(20),   -- 회사 코드 (전역 UNIQUE)
     IN i_company_name VARCHAR(100),  -- 회사명
     IN i_description  VARCHAR(1000)  -- 설명 (선택)
-)
-COMMENT '회사 생성 - company_code 중복 확인 후 INSERT (10_COMPANY_API.md 2.1)'
+) COMMENT '회사 생성 - company_code 중복 확인 후 INSERT (10_COMPANY_API.md 2.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_COMPANY_CREATE
+    -- 명칭 : SP_COMPANY_CREATE
     -- 작성 : 2026.07.19 trisakion
-    -- 내용 : 회사 생성. company_code 중복을 사전 체크(32001)한 뒤 INSERT한다. USP_USER_SIGNUP과
+    -- 내용 : 회사 생성. company_code 중복을 사전 체크(32001)한 뒤 INSERT한다. SP_USER_SIGNUP과
     --        동일한 이유로 사전 체크는 원자적이지 않으므로(동시에 같은 code로 두 요청이 들어오면
     --        둘 다 통과할 수 있음), INSERT의 UNIQUE 제약 위반(1062) 전용 핸들러를 백스톱으로 둔다.
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -66,21 +63,18 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_COMPANY_GET_ACTIVE_HEADER_DATA
+-- SP_COMPANY_GET_ACTIVE_HEADER_DATA
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_COMPANY_GET_ACTIVE_HEADER_DATA`;
-
+DROP PROCEDURE IF EXISTS `SP_COMPANY_GET_ACTIVE_HEADER_DATA`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_COMPANY_GET_ACTIVE_HEADER_DATA` (
+CREATE PROCEDURE `SP_COMPANY_GET_ACTIVE_HEADER_DATA` (
     IN i_user_id    BIGINT UNSIGNED,  -- 요청자 user_id (JWT 페이로드 값 그대로 신뢰)
     IN i_role_code  TINYINT UNSIGNED, -- 요청자 role_code (JWT 페이로드 값 그대로 신뢰)
     IN i_company_id BIGINT UNSIGNED   -- 요청자 소속 company_id (JWT 페이로드 값 그대로 신뢰)
-)
-COMMENT '헤더 콤보박스용 활성 회사/프로젝트 조회 (10_COMPANY_API.md 3.1)'
+) COMMENT '헤더 콤보박스용 활성 회사/프로젝트 조회 (10_COMPANY_API.md 3.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_COMPANY_GET_ACTIVE_HEADER_DATA
+    -- 명칭 : SP_COMPANY_GET_ACTIVE_HEADER_DATA
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 로그인 직후 헤더 콤보박스가 1회 로드하는 활성 회사·프로젝트 목록.
     --        role_code=10(SUPER_ADMIN)이면 전체 활성 회사+프로젝트, 그 외에는 본인 소속 회사 1건과
@@ -128,19 +122,16 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_COMPANY_GET_BY_CODE
+-- SP_COMPANY_GET_BY_CODE
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_COMPANY_GET_BY_CODE`;
-
+DROP PROCEDURE IF EXISTS `SP_COMPANY_GET_BY_CODE`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_COMPANY_GET_BY_CODE` (
+CREATE PROCEDURE `SP_COMPANY_GET_BY_CODE` (
     IN i_company_code VARCHAR(20)  -- 조회할 회사 코드
-)
-COMMENT '회사 코드로 조회 - 회원가입 화면 전용 공개 API (10_COMPANY_API.md 2.5)'
+) COMMENT '회사 코드로 조회 - 회원가입 화면 전용 공개 API (10_COMPANY_API.md 2.5)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_COMPANY_GET_BY_CODE
+    -- 명칭 : SP_COMPANY_GET_BY_CODE
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 회원가입 화면(로그인 전, 인증 불필요)에서 company_code로 회사를 찾기 위한 공개 조회.
     --        status=1(사용)인 회사만 대상으로 하고, company_id/company_name만 반환한다 —
@@ -174,19 +165,16 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_COMPANY_GET_BY_ID
+-- SP_COMPANY_GET_BY_ID
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_COMPANY_GET_BY_ID`;
-
+DROP PROCEDURE IF EXISTS `SP_COMPANY_GET_BY_ID`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_COMPANY_GET_BY_ID` (
+CREATE PROCEDURE `SP_COMPANY_GET_BY_ID` (
     IN i_company_id BIGINT UNSIGNED  -- 조회할 회사 ID
-)
-COMMENT '회사 상세 조회 (10_COMPANY_API.md 2.3)'
+) COMMENT '회사 상세 조회 (10_COMPANY_API.md 2.3)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_COMPANY_GET_BY_ID
+    -- 명칭 : SP_COMPANY_GET_BY_ID
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : company_id로 회사 상세를 조회한다. 없으면 31001.
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -218,21 +206,18 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_COMPANY_LIST
+-- SP_COMPANY_LIST
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_COMPANY_LIST`;
-
+DROP PROCEDURE IF EXISTS `SP_COMPANY_LIST`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_COMPANY_LIST` (
+CREATE PROCEDURE `SP_COMPANY_LIST` (
     IN i_status    TINYINT UNSIGNED,  -- 상태 필터 (NULL이면 전체)
     IN i_page_size INT,               -- 페이지당 행 수
     IN i_offset    INT                -- 시작 오프셋
-)
-COMMENT '회사 목록 조회 - 페이지네이션 (10_COMPANY_API.md 2.2)'
+) COMMENT '회사 목록 조회 - 페이지네이션 (10_COMPANY_API.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_COMPANY_LIST
+    -- 명칭 : SP_COMPANY_LIST
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 회사 목록을 status DESC, company_name ASC로 정렬해 페이지 단위로 반환한다.
     --        02_DEV_CONVENTIONS.md 3.4의 RESULT SELECT 규약은 RESULT + data 정확히 2개 result set만
@@ -264,30 +249,27 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_COMPANY_UPDATE
+-- SP_COMPANY_UPDATE
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_COMPANY_UPDATE`;
-
+DROP PROCEDURE IF EXISTS `SP_COMPANY_UPDATE`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_COMPANY_UPDATE` (
+CREATE PROCEDURE `SP_COMPANY_UPDATE` (
     IN i_company_id   BIGINT UNSIGNED,  -- 수정할 회사 ID
     IN i_company_code VARCHAR(20),      -- 새 회사 코드 (NULL이면 미변경)
     IN i_company_name VARCHAR(100),     -- 새 회사명 (NULL이면 미변경)
     IN i_description  VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
     IN i_status       TINYINT UNSIGNED  -- 새 상태 (NULL이면 미변경)
-)
-COMMENT '회사 수정 - 조건부 UPDATE (10_COMPANY_API.md 2.4)'
+) COMMENT '회사 수정 - 조건부 UPDATE (10_COMPANY_API.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_COMPANY_UPDATE
+    -- 명칭 : SP_COMPANY_UPDATE
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 회사 정보 수정. 존재 확인(31001) -> company_code 변경 시 중복 확인(자기 자신 제외, 32001)
     --        -> COALESCE 기반 조건부 UPDATE(02_DEV_CONVENTIONS.md 4장)로 NULL로 넘어온 필드는 기존
     --        값을 유지한다. 관리자 폼이 매번 전체 필드를 채워 보내는 단순 CRUD라 "필드를 명시적으로
     --        NULL로 비우는" 시나리오까지는 다루지 않는다(description을 지우고 싶으면 빈 문자열을
     --        보내는 것으로 충분 — 실제 NULL 저장이 필요해지면 그때 별도 플래그를 추가한다).
-    --        USP_COMPANY_CREATE와 동일한 이유로, 사전 중복확인 -> UPDATE 사이에 다른 트랜잭션이
+    --        SP_COMPANY_CREATE와 동일한 이유로, 사전 중복확인 -> UPDATE 사이에 다른 트랜잭션이
     --        같은 company_code로 끼어드는 경쟁 상태에 대비해 UNIQUE 제약 위반(1062) 백스톱
     --        핸들러를 둔다(2026-07-19 리뷰에서 CREATE에만 있고 UPDATE에는 없던 것을 발견).
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -342,20 +324,17 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_NONCE_INSERT
+-- SP_NONCE_INSERT
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_NONCE_INSERT`;
-
+DROP PROCEDURE IF EXISTS `SP_NONCE_INSERT`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_NONCE_INSERT` (
+CREATE PROCEDURE `SP_NONCE_INSERT` (
     IN i_project_id BIGINT UNSIGNED,  -- 인증된 project_id (project.project_id)
     IN i_nonce      VARCHAR(64)       -- X-API-Nonce 헤더 원문
-)
-COMMENT 'S2S nonce 원자적 등록 — UNIQUE 위반이면 재전송으로 판단해 10015 반환(docs/07_AUTH_SECURITY.md 2.4 6번)'
+) COMMENT 'S2S nonce 원자적 등록 — UNIQUE 위반이면 재전송으로 판단해 10015 반환(docs/07_AUTH_SECURITY.md 2.4 6번)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_NONCE_INSERT
+    -- 명칭 : SP_NONCE_INSERT
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : S2S 인증 가드(docs/07_AUTH_SECURITY.md 2.4 6번)의 재전송 방지 nonce 등록.
     --        (project_id, nonce) UNIQUE 제약 위반을 "이미 사용된 nonce(재전송 의심)"으로 판단해 10015를
@@ -394,19 +373,16 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_PROJECT_GET_BY_API_KEY
+-- SP_PROJECT_GET_BY_API_KEY
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_PROJECT_GET_BY_API_KEY`;
-
+DROP PROCEDURE IF EXISTS `SP_PROJECT_GET_BY_API_KEY`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_PROJECT_GET_BY_API_KEY` (
+CREATE PROCEDURE `SP_PROJECT_GET_BY_API_KEY` (
     IN i_api_key VARCHAR(64)  -- 조회할 API Key (project.api_key)
-)
-COMMENT 'API Key로 project 조회 (S2S 인증 가드 전용, docs/07_AUTH_SECURITY.md 2.4 3~4번)'
+) COMMENT 'API Key로 project 조회 (S2S 인증 가드 전용, docs/07_AUTH_SECURITY.md 2.4 3~4번)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_PROJECT_GET_BY_API_KEY
+    -- 명칭 : SP_PROJECT_GET_BY_API_KEY
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : S2S 인증 가드(docs/07_AUTH_SECURITY.md 2.4 3~4번)가 X-API-Key로 project를 조회할 때 사용.
     --        RESULT SELECT 규약(docs/02_DEV_CONVENTIONS.md 3.4)을 따른다 — 첫 SELECT는 RESULT 단일 행,
@@ -447,21 +423,18 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_SESSION_CLEANUP
+-- SP_SESSION_CLEANUP
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_SESSION_CLEANUP`;
-
+DROP PROCEDURE IF EXISTS `SP_SESSION_CLEANUP`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_SESSION_CLEANUP` ()
-COMMENT '만료 세션 물리 삭제 배치 (08_API_COMMON.md 5.4, SESSION_CLEANUP_CRON)'
+CREATE PROCEDURE `SP_SESSION_CLEANUP` () COMMENT '만료 세션 물리 삭제 배치 (08_API_COMMON.md 5.4, SESSION_CLEANUP_CRON)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_SESSION_CLEANUP
+    -- 명칭 : SP_SESSION_CLEANUP
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : expired_at이 현재 시각보다 과거인 세션을 status와 무관하게 물리 삭제한다.
     --        만료 기간 값(JWT_REFRESH_EXPIRES_IN) 자체를 몰라도 되도록 expired_at은 로그인 시점에
-    --        이미 절대시각으로 저장돼 있어(USP_USER_SESSION_CREATE), NOW()와 비교만 하면 된다.
+    --        이미 절대시각으로 저장돼 있어(SP_USER_SESSION_CREATE), NOW()와 비교만 하면 된다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -482,19 +455,16 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_USER_GET_BY_ID
+-- SP_USER_GET_BY_ID
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_USER_GET_BY_ID`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_GET_BY_ID`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_GET_BY_ID` (
+CREATE PROCEDURE `SP_USER_GET_BY_ID` (
     IN i_user_id BIGINT UNSIGNED  -- 조회할 사용자 ID
-)
-COMMENT 'user_id로 전체 컬럼 조회 - GET /auth/me, 비밀번호 변경 시 현재 해시 조회 공용'
+) COMMENT 'user_id로 전체 컬럼 조회 - GET /auth/me, 비밀번호 변경 시 현재 해시 조회 공용'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_GET_BY_ID
+    -- 명칭 : SP_USER_GET_BY_ID
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : GET /auth/me와 PATCH /auth/password(현재 비밀번호 검증용 해시 조회) 양쪽에서
     --        공용으로 쓰는 조회 SP. password_hash를 포함해 전체 컬럼을 그대로 반환하며,
@@ -531,19 +501,16 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_USER_GET_BY_LOGIN_ID
+-- SP_USER_GET_BY_LOGIN_ID
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_USER_GET_BY_LOGIN_ID`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_GET_BY_LOGIN_ID`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_GET_BY_LOGIN_ID` (
+CREATE PROCEDURE `SP_USER_GET_BY_LOGIN_ID` (
     IN i_login_id VARCHAR(100)  -- 로그인 ID
-)
-COMMENT '로그인 처리 전용 - login_id로 user 조회, role_code(MIN, 미배정시 40)까지 함께 계산'
+) COMMENT '로그인 처리 전용 - login_id로 user 조회, role_code(MIN, 미배정시 40)까지 함께 계산'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_GET_BY_LOGIN_ID
+    -- 명칭 : SP_USER_GET_BY_LOGIN_ID
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 로그인(POST /auth/login) 처리용 사용자 조회. password_hash를 포함해 반환하므로
     --        앱 레이어가 bcrypt로 비교한다(SP는 비밀번호 검증 로직을 모른다).
@@ -589,20 +556,17 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_USER_PASSWORD_CHANGE
+-- SP_USER_PASSWORD_CHANGE
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_USER_PASSWORD_CHANGE`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_PASSWORD_CHANGE`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_PASSWORD_CHANGE` (
+CREATE PROCEDURE `SP_USER_PASSWORD_CHANGE` (
     IN i_user_id           BIGINT UNSIGNED,  -- 대상 사용자 ID
     IN i_new_password_hash VARCHAR(255)       -- 새 비밀번호 bcrypt 해시(앱 레이어에서 해시 완료)
-)
-COMMENT '비밀번호 변경 + 전체 활성 세션 강제 로그아웃 (09_AUTH_API.md 9장)'
+) COMMENT '비밀번호 변경 + 전체 활성 세션 강제 로그아웃 (09_AUTH_API.md 9장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_PASSWORD_CHANGE
+    -- 명칭 : SP_USER_PASSWORD_CHANGE
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 현재 비밀번호 검증(bcrypt.compare)은 앱 레이어에서 이미 끝난 상태로 호출된다.
     --        password_hash 갱신과 "모든 활성 세션 종료"(07_AUTH_SECURITY.md 1.3)를 하나의
@@ -638,25 +602,22 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_USER_SESSION_CREATE
+-- SP_USER_SESSION_CREATE
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_USER_SESSION_CREATE`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_SESSION_CREATE`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_SESSION_CREATE` (
+CREATE PROCEDURE `SP_USER_SESSION_CREATE` (
     IN i_user_id             BIGINT UNSIGNED,  -- 로그인한 사용자 ID
     IN i_access_token_jti    VARCHAR(100),      -- 발급한 Access Token의 JTI
     IN i_refresh_token_hash  VARCHAR(255),      -- Refresh Token(UUID v4) SHA-256 해시값
     IN i_expired_at          DATETIME          -- 세션 만료일시(JWT_REFRESH_EXPIRES_IN만큼 더한 절대시각)
-)
-COMMENT '로그인 세션 생성 - last_login_at 갱신 + user_session INSERT (09_AUTH_API.md 5장)'
+) COMMENT '로그인 세션 생성 - last_login_at 갱신 + user_session INSERT (09_AUTH_API.md 5장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_SESSION_CREATE
+    -- 명칭 : SP_USER_SESSION_CREATE
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 로그인 성공 시 user.last_login_at 갱신과 user_session INSERT를 하나의 트랜잭션으로 처리해
-    --        원자성을 보장한다. role_code는 이미 USP_USER_GET_BY_LOGIN_ID에서 계산했으므로 여기서
+    --        원자성을 보장한다. role_code는 이미 SP_USER_GET_BY_LOGIN_ID에서 계산했으므로 여기서
     --        다시 계산하지 않는다(순수 세션 기록 전용).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
@@ -694,23 +655,20 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_USER_SESSION_GET_BY_REFRESH_HASH
+-- SP_USER_SESSION_GET_BY_REFRESH_HASH
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_USER_SESSION_GET_BY_REFRESH_HASH`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_SESSION_GET_BY_REFRESH_HASH`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_SESSION_GET_BY_REFRESH_HASH` (
+CREATE PROCEDURE `SP_USER_SESSION_GET_BY_REFRESH_HASH` (
     IN i_refresh_token_hash VARCHAR(255)  -- Refresh Token SHA-256 해시값
-)
-COMMENT 'Refresh Token 해시로 활성 세션 조회, role_code 재계산 (09_AUTH_API.md 7장)'
+) COMMENT 'Refresh Token 해시로 활성 세션 조회, role_code 재계산 (09_AUTH_API.md 7장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_SESSION_GET_BY_REFRESH_HASH
+    -- 명칭 : SP_USER_SESSION_GET_BY_REFRESH_HASH
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : POST /auth/refresh 처리용 세션 조회. status=1이고 만료되지 않은 세션만 대상으로 하며,
     --        세션이 없거나 만료된 경우를 구분하지 않고 10008(Refresh Token 만료)로 통일한다.
-    --        role_code는 USP_USER_GET_BY_LOGIN_ID와 동일하게 이 시점에 다시 계산한다(저장값을
+    --        role_code는 SP_USER_GET_BY_LOGIN_ID와 동일하게 이 시점에 다시 계산한다(저장값을
     --        그대로 반환하지 않음 — 09_AUTH_API.md 7장 참고).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
@@ -748,19 +706,16 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_USER_SESSION_LOGOUT
+-- SP_USER_SESSION_LOGOUT
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_USER_SESSION_LOGOUT`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_SESSION_LOGOUT`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_SESSION_LOGOUT` (
+CREATE PROCEDURE `SP_USER_SESSION_LOGOUT` (
     IN i_access_token_jti VARCHAR(100)  -- 로그아웃할 현재 Access Token의 JTI
-)
-COMMENT '현재 세션 로그아웃 - status=0 (09_AUTH_API.md 6장)'
+) COMMENT '현재 세션 로그아웃 - status=0 (09_AUTH_API.md 6장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_SESSION_LOGOUT
+    -- 명칭 : SP_USER_SESSION_LOGOUT
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : JwtAuthGuard가 이미 유효성을 확인한 access_token_jti 기준으로 현재 세션만 종료한다.
     --        조건부 UPDATE(status=1인 행만 대상)라 이미 로그아웃된 세션에 다시 호출해도 안전하다
@@ -787,20 +742,17 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_USER_SESSION_UPDATE_JTI
+-- SP_USER_SESSION_UPDATE_JTI
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_USER_SESSION_UPDATE_JTI`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_SESSION_UPDATE_JTI`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_SESSION_UPDATE_JTI` (
+CREATE PROCEDURE `SP_USER_SESSION_UPDATE_JTI` (
     IN i_session_id       BIGINT UNSIGNED,  -- 세션 ID
     IN i_access_token_jti VARCHAR(100)       -- 새로 발급한 Access Token JTI
-)
-COMMENT 'Access Token 재발급 시 세션의 JTI/last_access_at 갱신 (09_AUTH_API.md 7장)'
+) COMMENT 'Access Token 재발급 시 세션의 JTI/last_access_at 갱신 (09_AUTH_API.md 7장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_SESSION_UPDATE_JTI
+    -- 명칭 : SP_USER_SESSION_UPDATE_JTI
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : POST /auth/refresh 처리 후 세션의 access_token_jti를 새 값으로 갱신한다.
     --        refresh_token은 재발급하지 않으므로(최초 로그인 시 1회만 저장) 여기서 건드리지 않는다.
@@ -827,19 +779,16 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_USER_SESSION_VALIDATE_BY_JTI
+-- SP_USER_SESSION_VALIDATE_BY_JTI
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_USER_SESSION_VALIDATE_BY_JTI`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_SESSION_VALIDATE_BY_JTI`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_SESSION_VALIDATE_BY_JTI` (
+CREATE PROCEDURE `SP_USER_SESSION_VALIDATE_BY_JTI` (
     IN i_access_token_jti VARCHAR(100)  -- 검증할 Access Token의 JTI
-)
-COMMENT 'JwtAuthGuard 전용 - 세션/사용자 상태 검증 (07_AUTH_SECURITY.md 1.5 3~4번)'
+) COMMENT 'JwtAuthGuard 전용 - 세션/사용자 상태 검증 (07_AUTH_SECURITY.md 1.5 3~4번)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_SESSION_VALIDATE_BY_JTI
+    -- 명칭 : SP_USER_SESSION_VALIDATE_BY_JTI
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 보호된 API 요청마다 JwtAuthGuard가 호출하는 세션/사용자 상태 검증
     --        (07_AUTH_SECURITY.md 1.5 "3. Session 확인 / 4. User 상태 확인").
@@ -849,7 +798,7 @@ BEGIN
     --        세션이 없거나 로그아웃(status!=1)되었거나 만료(expired_at<=NOW())된 경우
     --        10009(유효하지 않은 Session)를 반환한다 — expired_at 체크가 없으면 세션 만료 이후에도
     --        그 직전에 발급된 Access Token이 자기 수명(15분)이 남아있는 동안 계속 통과해버리는
-    --        구멍이 생긴다(2026-07-19 리뷰에서 발견, USP_USER_SESSION_GET_BY_REFRESH_HASH와
+    --        구멍이 생긴다(2026-07-19 리뷰에서 발견, SP_USER_SESSION_GET_BY_REFRESH_HASH와
     --        동일하게 맞춤).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
@@ -883,13 +832,11 @@ END$$
 DELIMITER ;
 
 -- ============================================================================================================ --
--- USP_USER_SIGNUP
+-- SP_USER_SIGNUP
 -- ============================================================================================================ --
-DROP PROCEDURE IF EXISTS `USP_USER_SIGNUP`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_SIGNUP`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_SIGNUP` (
+CREATE PROCEDURE `SP_USER_SIGNUP` (
     IN i_company_id            BIGINT UNSIGNED,  -- 가입 신청 회사 ID
     IN i_requested_project_id  BIGINT UNSIGNED,  -- 가입 신청 프로젝트 ID (영구 보관, 이후 변경 불가)
     IN i_login_id              VARCHAR(100),      -- 로그인 ID
@@ -899,11 +846,10 @@ CREATE PROCEDURE `USP_USER_SIGNUP` (
     IN i_phone_number_enc      VARCHAR(255),      -- 휴대폰번호 AES-256-CBC 암호화값(앱 레이어에서 암호화 완료 후 전달)
     IN i_department            VARCHAR(100),      -- 부서 (선택)
     IN i_position              VARCHAR(100)       -- 직급 (선택)
-)
-COMMENT '회원가입 - status=0(가입승인대기)으로 user INSERT (09_AUTH_API.md 4장)'
+) COMMENT '회원가입 - status=0(가입승인대기)으로 user INSERT (09_AUTH_API.md 4장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_SIGNUP
+    -- 명칭 : SP_USER_SIGNUP
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 회원가입 처리. company_id/requested_project_id 존재 및 소속 관계를 검증하고,
     --        login_id/email 중복을 확인한 뒤 status=0(가입승인대기)으로 user를 생성한다.
@@ -913,7 +859,7 @@ BEGIN
     --        같은 login_id/email로 두 요청이 들어오면 둘 다 통과해버릴 수 있다. 그 드문 경쟁 상황을
     --        대비해 INSERT의 UNIQUE 제약 위반(1062) 전용 핸들러를 추가로 둬서, 사전 체크를 통과한
     --        뒤에도 실제 INSERT에서 걸리면 50001이 아니라 32001로 정확히 응답되게 한다
-    --        (2026-07-19 리뷰에서 발견 — USP_NONCE_INSERT와 같은 원리).
+    --        (2026-07-19 리뷰에서 발견 — SP_NONCE_INSERT와 같은 원리).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;

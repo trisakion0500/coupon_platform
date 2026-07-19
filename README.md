@@ -60,10 +60,11 @@ docs/               ERD, 스키마, API 명세, 화면/레이아웃 설계 문�
 | 16 | [LAYOUT](docs/16_LAYOUT.md) | 레이아웃, 라우트, 공통 컴포넌트 |
 | 17 | [CAMPAIGN_API](docs/17_CAMPAIGN_API.md) | 캠페인 CRUD, 상태변경, 승인/반려, 코드 발급(RANDOM 비동기/FIXED 동기) |
 | 18 | [COUPON_USAGE_API](docs/18_COUPON_USAGE_API.md) | 쿠폰 사용 reserve/confirm, 미컨슘 조회 |
+| 19 | [DEV_SETUP](docs/19_DEV_SETUP.md) | 로컬 개발 환경 설정 |
 
 ## 현재 진행 상황
 
-DB 설계(테이블 12개)와 관련 문서(01~18)가 모두 완료된 상태입니다. 백엔드 공통 인프라(`backend/`, NestJS + mysql2 SP 실행기 + 공통 응답 포맷 + S2S HMAC 인증 가드 + 헬스체크)를 구현했고, 이후 도메인별(company부터) vertical slice 구현이 남아 있습니다. 프론트엔드 구현은 아직 시작 전입니다.
+DB 설계(테이블 12개)와 관련 문서(01~19)가 모두 완료된 상태입니다. 백엔드 공통 인프라(`backend/`, NestJS + mysql2 SP 실행기 + 공통 응답 포맷 + S2S HMAC 인증 가드 + 헬스체크 + 역할 기반 권한 가드)에 이어 `auth`(회원가입/로그인/세션)·`company`(CRUD/코드조회/헤더데이터) 도메인 구현을 마쳤고, 이후 `project`부터 나머지 도메인의 vertical slice 구현이 남아 있습니다. 로컬 개발 환경 설정은 `docs/19_DEV_SETUP.md` 참고. 프론트엔드 구현은 아직 시작 전입니다.
 
 ### 향후 개선사항 (우선순위 낮음, 별도 검토 필요)
 

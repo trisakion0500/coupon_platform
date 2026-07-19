@@ -1,14 +1,11 @@
-DROP PROCEDURE IF EXISTS `USP_USER_GET_BY_ID`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_GET_BY_ID`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_GET_BY_ID` (
+CREATE PROCEDURE `SP_USER_GET_BY_ID` (
     IN i_user_id BIGINT UNSIGNED  -- 조회할 사용자 ID
-)
-COMMENT 'user_id로 전체 컬럼 조회 - GET /auth/me, 비밀번호 변경 시 현재 해시 조회 공용'
+) COMMENT 'user_id로 전체 컬럼 조회 - GET /auth/me, 비밀번호 변경 시 현재 해시 조회 공용'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_GET_BY_ID
+    -- 명칭 : SP_USER_GET_BY_ID
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : GET /auth/me와 PATCH /auth/password(현재 비밀번호 검증용 해시 조회) 양쪽에서
     --        공용으로 쓰는 조회 SP. password_hash를 포함해 전체 컬럼을 그대로 반환하며,

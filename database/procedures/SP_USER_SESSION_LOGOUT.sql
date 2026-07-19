@@ -1,14 +1,11 @@
-DROP PROCEDURE IF EXISTS `USP_USER_SESSION_LOGOUT`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_SESSION_LOGOUT`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_SESSION_LOGOUT` (
+CREATE PROCEDURE `SP_USER_SESSION_LOGOUT` (
     IN i_access_token_jti VARCHAR(100)  -- 로그아웃할 현재 Access Token의 JTI
-)
-COMMENT '현재 세션 로그아웃 - status=0 (09_AUTH_API.md 6장)'
+) COMMENT '현재 세션 로그아웃 - status=0 (09_AUTH_API.md 6장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_SESSION_LOGOUT
+    -- 명칭 : SP_USER_SESSION_LOGOUT
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : JwtAuthGuard가 이미 유효성을 확인한 access_token_jti 기준으로 현재 세션만 종료한다.
     --        조건부 UPDATE(status=1인 행만 대상)라 이미 로그아웃된 세션에 다시 호출해도 안전하다

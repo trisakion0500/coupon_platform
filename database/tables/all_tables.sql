@@ -130,6 +130,11 @@ CREATE TABLE `user` (
   CONSTRAINT `fk_user_company_id` FOREIGN KEY (`company_id`) REFERENCES `company` (`company_id`),
   CONSTRAINT `fk_user_requested_project` FOREIGN KEY (`requested_project_id`) REFERENCES `project` (`project_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='플랫폼 사용자 계정';
+-- phone_number 시드값은 project.sql의 api_secret과 동일한 개발용 플레이스홀더다(실제 ENCRYPTION_KEY로
+-- 암호화된 값이 아님) — ENCRYPTION_KEY는 환경마다 달라 이 DDL에 특정 키로 암호화한 값을 고정 커밋할 수
+-- 없다. 이 DDL 적용 후 `npm run fix-seed-phone`(backend, 2026-07-19 추가)을 실행하면 로컬 .env의
+-- ENCRYPTION_KEY로 sa/dev/mgr/op phone_number를 실제 복호화 가능한 값으로 갱신한다(GET /auth/me 등
+-- 복호화 경로 테스트 시 필요).
 INSERT INTO `user` (`user_id`, `company_id`, `requested_project_id`, `login_id`, `password_hash`, `user_name`, `email`, `phone_number`, `department`, `position`, `status`, `created_at`, `updated_at`)
 VALUES
 (1, 1, 1, 'sa',  '$2b$12$otGL1k53beXFC4vChLwlVeoMkXovoE4rfuPkEnygv.aiQ8LjRcOuS', 'Super Admin', 'sa@example.com',  'kcdK4Qm09olJSKrCV58sIW4JscfLIAjl09AHrwrR72Y=', NULL, NULL, 1, '1970-01-01 00:00:00', '1970-01-01 00:00:00'),

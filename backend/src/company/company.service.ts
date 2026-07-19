@@ -29,7 +29,7 @@ export interface CompanyLookupRow {
   company_name: string;
 }
 
-/** `USP_COMPANY_GET_ACTIVE_HEADER_DATA`의 단일 result set 행 — row_type으로 회사/프로젝트를 함께 담는다. */
+/** `SP_COMPANY_GET_ACTIVE_HEADER_DATA`의 단일 result set 행 — row_type으로 회사/프로젝트를 함께 담는다. */
 interface HeaderDataRow {
   row_type: 'COMPANY' | 'PROJECT';
   id: number;
@@ -57,7 +57,7 @@ export class CompanyService {
 
   async create(dto: CreateCompanyDto): Promise<CompanyRow> {
     const { result, data } = await this.spExecutor.callProcedure<CompanyRow[]>(
-      'USP_COMPANY_CREATE',
+      'SP_COMPANY_CREATE',
       [dto.company_code, dto.company_name, dto.description ?? null],
     );
 
@@ -75,7 +75,7 @@ export class CompanyService {
     const offset = (query.page - 1) * query.page_size;
     const { result, data } = await this.spExecutor.callProcedure<
       CompanyListRow[]
-    >('USP_COMPANY_LIST', [query.status ?? null, query.page_size, offset]);
+    >('SP_COMPANY_LIST', [query.status ?? null, query.page_size, offset]);
 
     if (result !== 0) {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
@@ -98,7 +98,7 @@ export class CompanyService {
 
   async getById(companyId: number): Promise<CompanyRow> {
     const { result, data } = await this.spExecutor.callProcedure<CompanyRow[]>(
-      'USP_COMPANY_GET_BY_ID',
+      'SP_COMPANY_GET_BY_ID',
       [companyId],
     );
 
@@ -111,7 +111,7 @@ export class CompanyService {
 
   async update(companyId: number, dto: UpdateCompanyDto): Promise<CompanyRow> {
     const { result, data } = await this.spExecutor.callProcedure<CompanyRow[]>(
-      'USP_COMPANY_UPDATE',
+      'SP_COMPANY_UPDATE',
       [
         companyId,
         dto.company_code ?? null,
@@ -142,7 +142,7 @@ export class CompanyService {
   async lookup(companyCode: string): Promise<CompanyLookupRow> {
     const { result, data } = await this.spExecutor.callProcedure<
       CompanyLookupRow[]
-    >('USP_COMPANY_GET_BY_CODE', [companyCode]);
+    >('SP_COMPANY_GET_BY_CODE', [companyCode]);
 
     if (result !== 0 || !data?.[0]) {
       throw new BusinessException(ResultCode.COMPANY_NOT_FOUND);
@@ -163,7 +163,7 @@ export class CompanyService {
   ): Promise<ActiveHeaderData> {
     const { result, data } = await this.spExecutor.callProcedure<
       HeaderDataRow[]
-    >('USP_COMPANY_GET_ACTIVE_HEADER_DATA', [userId, roleCode, companyId]);
+    >('SP_COMPANY_GET_ACTIVE_HEADER_DATA', [userId, roleCode, companyId]);
 
     if (result !== 0) {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);

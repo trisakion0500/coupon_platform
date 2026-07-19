@@ -1,16 +1,13 @@
-DROP PROCEDURE IF EXISTS `USP_COMPANY_GET_ACTIVE_HEADER_DATA`;
-
+DROP PROCEDURE IF EXISTS `SP_COMPANY_GET_ACTIVE_HEADER_DATA`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_COMPANY_GET_ACTIVE_HEADER_DATA` (
+CREATE PROCEDURE `SP_COMPANY_GET_ACTIVE_HEADER_DATA` (
     IN i_user_id    BIGINT UNSIGNED,  -- 요청자 user_id (JWT 페이로드 값 그대로 신뢰)
     IN i_role_code  TINYINT UNSIGNED, -- 요청자 role_code (JWT 페이로드 값 그대로 신뢰)
     IN i_company_id BIGINT UNSIGNED   -- 요청자 소속 company_id (JWT 페이로드 값 그대로 신뢰)
-)
-COMMENT '헤더 콤보박스용 활성 회사/프로젝트 조회 (10_COMPANY_API.md 3.1)'
+) COMMENT '헤더 콤보박스용 활성 회사/프로젝트 조회 (10_COMPANY_API.md 3.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_COMPANY_GET_ACTIVE_HEADER_DATA
+    -- 명칭 : SP_COMPANY_GET_ACTIVE_HEADER_DATA
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 로그인 직후 헤더 콤보박스가 1회 로드하는 활성 회사·프로젝트 목록.
     --        role_code=10(SUPER_ADMIN)이면 전체 활성 회사+프로젝트, 그 외에는 본인 소속 회사 1건과

@@ -1,18 +1,15 @@
-DROP PROCEDURE IF EXISTS `USP_USER_SESSION_GET_BY_REFRESH_HASH`;
-
+DROP PROCEDURE IF EXISTS `SP_USER_SESSION_GET_BY_REFRESH_HASH`;
 DELIMITER $$
-
-CREATE PROCEDURE `USP_USER_SESSION_GET_BY_REFRESH_HASH` (
+CREATE PROCEDURE `SP_USER_SESSION_GET_BY_REFRESH_HASH` (
     IN i_refresh_token_hash VARCHAR(255)  -- Refresh Token SHA-256 해시값
-)
-COMMENT 'Refresh Token 해시로 활성 세션 조회, role_code 재계산 (09_AUTH_API.md 7장)'
+) COMMENT 'Refresh Token 해시로 활성 세션 조회, role_code 재계산 (09_AUTH_API.md 7장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
-    -- 명칭 : USP_USER_SESSION_GET_BY_REFRESH_HASH
+    -- 명칭 : SP_USER_SESSION_GET_BY_REFRESH_HASH
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : POST /auth/refresh 처리용 세션 조회. status=1이고 만료되지 않은 세션만 대상으로 하며,
     --        세션이 없거나 만료된 경우를 구분하지 않고 10008(Refresh Token 만료)로 통일한다.
-    --        role_code는 USP_USER_GET_BY_LOGIN_ID와 동일하게 이 시점에 다시 계산한다(저장값을
+    --        role_code는 SP_USER_GET_BY_LOGIN_ID와 동일하게 이 시점에 다시 계산한다(저장값을
     --        그대로 반환하지 않음 — 09_AUTH_API.md 7장 참고).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
