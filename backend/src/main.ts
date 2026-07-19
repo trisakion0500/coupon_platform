@@ -1,0 +1,66 @@
+import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
+import { AppModule } from './app.module';
+import { Log4jsLogger } from './common/logging/log4js-logger.service';
+import { HttpExceptionFilter } from './common/response/http-exception.filter';
+import { ResponseInterceptor } from './common/response/response.interceptor';
+
+/**
+ * 앱 부트스트랩 — 보안 헤더/CORS/버전 관리/전역 파이프·필터·인터셉터를 여기서 한 번에 구성한다.
+ *
+ * @author trisakion
+ */
+async function bootstrap() {
+  // rawBody: true — S2S HMAC 서명 검증(07_AUTH_SECURITY.md 2.3)이 파싱 후 재직렬화가 아니라
+  // 원문 그대로의 바디를 서명 대상으로 요구하기 때문에, Nest가 body-parser의 verify 콜백으로
+  // request.rawBody를 채워주도록 켠다.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
+
+  app.useLogger(new Log4jsLogger());
+
+  const configService = app.get(ConfigService);
+  const swaggerEnabled = configService.get<boolean>('SWAGGER_ENABLED');
+
+  app.use(
+    helmet({
+      // 08_API_COMMON.md 5.2: Swagger UI(인라인 스크립트/스타일)를 켤 때만 CSP를 비활성화하고
+      // 나머지 보안 헤더(HSTS, X-Frame-Options 등)는 그대로 유지한다.
+      contentSecurityPolicy: swaggerEnabled ? false : undefined,
+    }),
+  );
+
+  const allowedOrigins = configService
+    .get<string>('CORS_ALLOWED_ORIGINS', '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  app.enableCors({ origin: allowedOrigins });
+
+  // 07_AUTH_SECURITY.md 2.7: S2S API만 버전 접두어(/v1)를 붙인다. 관리 콘솔 컨트롤러는
+  // @Version()을 지정하지 않으면 자동으로 version-neutral로 취급되어 영향받지 않는다.
+  app.enableVersioning({ type: VersioningType.URI });
+
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  app.useGlobalFilters(new HttpExceptionFilter(configService));
+  app.useGlobalInterceptors(new ResponseInterceptor());
+
+  if (swaggerEnabled) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Coupon Platform API')
+      .setDescription('관리 콘솔 API + S2S(게임서버) API')
+      .setVersion('1.0')
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('docs', app, document);
+  }
+
+  await app.listen(configService.get<number>('PORT') ?? 3000);
+}
+
+bootstrap().catch((error: unknown) => {
+  console.error('Failed to bootstrap application', error);
+  process.exit(1);
+});

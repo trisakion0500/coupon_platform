@@ -1,0 +1,59 @@
+import * as Joi from 'joi';
+
+/**
+ * 01_TECH_STACK.md 환경변수 관리 항목 전체를 기동 시점에 검증한다.
+ * 아직 구현되지 않은 도메인(로그인 rate limit, 세션/secret 정리 크론 등)의 값도
+ * 미리 검증해두면 해당 슬라이스 구현 시 이 파일을 다시 건드릴 필요가 없다.
+ *
+ * @author trisakion
+ */
+export const envValidationSchema = Joi.object({
+  NODE_ENV: Joi.string()
+    .valid('development', 'production', 'test')
+    .default('development'),
+  PORT: Joi.number().port().default(3000),
+
+  DB_HOST: Joi.string().default('localhost'),
+  DB_PORT: Joi.number().port().default(3306),
+  DB_USER: Joi.string().required(),
+  DB_PASSWORD: Joi.string().allow('').required(),
+  DB_NAME: Joi.string().required(),
+
+  // 로그 전용 DB(coupon_platform_log) — 메인 DB와 물리적으로 분리(02_DEV_CONVENTIONS.md 1장).
+  // 접속 계정이 메인 DB와 같을 수도 다를 수도 있어 별도 변수로 관리한다.
+  LOG_DB_HOST: Joi.string().default('localhost'),
+  LOG_DB_PORT: Joi.number().port().default(3306),
+  LOG_DB_USER: Joi.string().required(),
+  LOG_DB_PASSWORD: Joi.string().allow('').required(),
+  LOG_DB_NAME: Joi.string().required(),
+
+  JWT_SECRET: Joi.string().min(32).required(),
+  JWT_ACCESS_EXPIRES_IN: Joi.string().default('15m'),
+  JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
+
+  // AES-256-CBC 키(user.phone_number/project.api_secret 공용) — 32바이트를 hex(64자)로 표현
+  ENCRYPTION_KEY: Joi.string()
+    .pattern(/^[0-9a-fA-F]{64}$/)
+    .required()
+    .messages({
+      'string.pattern.base':
+        'ENCRYPTION_KEY must be a 64-character hex string (32 bytes, for AES-256)',
+    }),
+
+  API_SECRET_GRACE_PERIOD_DAYS: Joi.number().integer().min(0).default(7),
+  API_SECRET_CLEANUP_CRON: Joi.string().default('0 5 * * *'),
+
+  S2S_TIMESTAMP_TOLERANCE_SEC: Joi.number().integer().min(1).default(300),
+  S2S_NONCE_CLEANUP_CRON: Joi.string().default('*/10 * * * *'),
+
+  CORS_ALLOWED_ORIGINS: Joi.string().allow('').default(''),
+
+  LOG_DEBUG_ERRORS: Joi.boolean().default(false),
+  SWAGGER_ENABLED: Joi.boolean().default(false),
+
+  API_EXECUTION_TIMEOUT_MS: Joi.number().integer().min(1).default(30000),
+
+  LOGIN_RATE_LIMIT_WINDOW_MS: Joi.number().integer().min(1).default(900000),
+  LOGIN_RATE_LIMIT_MAX: Joi.number().integer().min(1).default(10),
+  SESSION_CLEANUP_CRON: Joi.string().default('0 4 * * *'),
+});

@@ -8,11 +8,11 @@
 
 # 1. 로깅 원칙
 
-`log_audit`/`log_coupon_campaign`/`log_coupon_use` 등 로그 테이블은 **실 운영 환경에서 메인 서비스 DB와 물리적으로 별도인 VM/DB(별도 서비스)에 둔다** — "향후 분리될 수도 있다"는 가능성이 아니라 확정된 전제다. `database/tables/all_tables.sql`에 다른 테이블과 함께 묶여 있는 것은 로컬 개발 편의를 위한 것일 뿐, 실제 배포 시 로그 테이블 DDL은 별도 DB 인스턴스에 적용한다. 과거 로그 적재 문제로 DB 전체가 장애를 겪은 경험 때문에, 로그가 안 쌓이는 상황이 오더라도 메인 트랜잭션(쿠폰 발급/사용 등 핵심 기능)은 절대 실패하면 안 된다.
+`log_audit`/`log_coupon_campaign`/`log_coupon_use` 등 로그 테이블은 **메인 서비스 DB와 물리적으로 별도인 DB에 둔다** — "향후 분리될 수도 있다"는 가능성이 아니라 확정된 전제이며, 2026.07.19부터 **로컬 개발 환경에서도** 실제로 분리되어 있다(`coupon_platform`=메인, `coupon_platform_log`=로그 전용 DB). DDL은 `database/tables_log/`(개별 파일 + `all_log_tables.sql` 통합본)에 있고, `database/tables/all_tables.sql`에는 더 이상 포함되지 않는다. 접속 계정은 메인 DB와 같을 수도, 다를 수도 있어(운영 환경에서는 별도 계정일 가능성이 높음) 환경변수를 따로 관리한다(`LOG_DB_HOST`/`LOG_DB_PORT`/`LOG_DB_USER`/`LOG_DB_PASSWORD`/`LOG_DB_NAME`, `01_TECH_STACK.md` 참고). 과거 로그 적재 문제로 DB 전체가 장애를 겪은 경험 때문에, 로그가 안 쌓이는 상황이 오더라도 메인 트랜잭션(쿠폰 발급/사용 등 핵심 기능)은 절대 실패하면 안 된다.
 
 - 로그 테이블에 FK를 걸지 않는다(물리적으로 분리된 DB는 FK로 묶을 수 없음)
 - 로그 조회에 필요한 참조 정보는 조인 없이 볼 수 있도록 스냅샷 컬럼(예: `created_by_name`)으로 미리 비정규화해둔다
-- **로그 기록은 메인 트랜잭션과 같은 DB 커넥션/트랜잭션에 절대 묶이지 않는다** — 물리적으로 다른 DB라 애초에 같은 트랜잭션으로 묶을 수도 없다(분산 트랜잭션/XA 사용 안 함). 메인 SP가 커밋된 뒤 별도 커넥션으로 로그 기록을 시도하고, 그 시도가 실패해도 메인 트랜잭션을 재시도·롤백시키지 않는다(강한 결합 금지)
+- **로그 기록은 메인 트랜잭션과 같은 DB 커넥션/트랜잭션에 절대 묶이지 않는다** — 물리적으로 다른 DB라 애초에 같은 트랜잭션으로 묶을 수도 없다(분산 트랜잭션/XA 사용 안 함). 메인 SP가 커밋된 뒤 별도 커넥션으로 로그 기록을 시도하고, 그 시도가 실패해도 메인 트랜잭션을 재시도·롤백시키지 않는다(강한 결합 금지) — 백엔드에서는 `SpExecutorService`(메인 DB)와 별개인 `LogSpExecutorService`(로그 DB, 별도 커넥션 풀)로 이 원칙을 구조적으로 강제한다
 
 ---
 
@@ -106,6 +106,34 @@ BEGIN
 END
 ```
 
+## 3.5 COMMENT 절 / 파라미터 주석
+
+- 모든 SP는 파라미터 목록 다음에 `COMMENT '...'` 절로 한 줄 요약을 남긴다 — 테이블의 `COMMENT=` 절(`database/tables/*.sql`)과 같은 원칙으로, `SHOW CREATE PROCEDURE`/`information_schema.ROUTINES`만 조회해도 무엇을 하는 SP인지 바로 알 수 있어야 한다.
+- 3.3에서 요구하는 상세 헤더 주석(명칭/작성일/내용/설계 이유)은 `CREATE PROCEDURE` **앞이 아니라 `BEGIN` 바로 다음 줄**에 둔다 — `CREATE PROCEDURE` 앞의 주석은 `.sql` 파일에만 존재하고 실제 저장된 루틴 본문에는 남지 않는다. `BEGIN` 아래에 두면 소스 파일 없이 `SHOW CREATE PROCEDURE`로 조회해도 설계 의도를 그대로 확인할 수 있다.
+- `IN` 파라미터는 각 줄 끝에 무엇을 의미하는지 짧은 인라인 주석을 남긴다.
+
+```sql
+DROP PROCEDURE IF EXISTS `USP_PROJECT_GET_BY_API_KEY`;
+
+DELIMITER $$
+
+CREATE PROCEDURE `USP_PROJECT_GET_BY_API_KEY` (
+    IN i_api_key VARCHAR(64)  -- 조회할 API Key (project.api_key)
+)
+COMMENT 'API Key로 project 조회 (S2S 인증 가드 전용, docs/07_AUTH_SECURITY.md 2.4)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : USP_PROJECT_GET_BY_API_KEY
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : ... (3.3 기준의 상세 설계 이유)
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state CHAR(5) DEFAULT '00000';
+    -- ...
+END$$
+
+DELIMITER ;
+```
+
 ---
 
 # 4. 동시성 처리 원칙
@@ -127,7 +155,50 @@ END
 
 ---
 
-# 6. 관련 문서
+# 6. 소스코드 주석 규칙
+
+**모든 소스코드(TypeScript 백엔드/프론트엔드 전체)는 클래스/메서드/함수에 JSDoc 형식(`/** ... */`) 주석을 작성한다.**
+
+- 무엇을 하는지뿐 아니라, 비자명한 경우 왜 이렇게 처리하는지도 함께 남긴다(3.3의 SP/Function 주석 원칙과 같은 정신을 TypeScript 코드에도 동일하게 적용)
+- 클래스 상단에는 그 클래스의 책임과, 관련 설계 문서(예: `07_AUTH_SECURITY.md` 2.4)를 함께 적어 어떤 스펙을 구현한 코드인지 바로 추적할 수 있게 한다
+- 인터페이스/타입 선언도 필드의 의미가 이름만으로 분명하지 않으면 JSDoc으로 보충한다
+- 파일마다 최상단 JSDoc(클래스가 있으면 클래스 doc, 없으면 파일의 대표 export)에 `@author trisakion` 태그를 남긴다
+- SQL(SP/Function)은 JSDoc 문법 자체가 없으므로 이 규칙의 대상이 아니다 — SQL 주석은 3.3(SP/Function 컨벤션의 주석 규칙)을 따르고, 개별 파일과 통합 파일(`all_procedures.sql`) 양쪽에 동일한 주석을 빠짐없이 유지한다(`all_tables.sql`이 개별 테이블 파일의 헤더 주석을 그대로 유지하는 것과 동일한 원칙)
+
+# 7. TypeScript 에러 처리 — ERROR_MAP + BusinessException
+
+**모든 예측 가능한 비즈니스 실패는 result 코드, 사용자 메시지, HTTP status를 한 곳(`common/response/error-map.ts`)에서만 관리하고, 커스텀 예외(`BusinessException`) 하나로 던진다.** 코드/메시지/상태코드가 파일마다 흩어져 따로 관리되는 걸 막기 위함이다 — 새 오류를 추가하거나 메시지를 바꿀 때 `error-map.ts` 한 파일만 고치면 된다.
+
+```ts
+// error-map.ts — ResultCode 하나당 {message, httpStatus} 한 쌍
+export const ERROR_MAP: Record<ResultCode, ErrorEntry> = {
+  [ResultCode.PROJECT_NOT_FOUND]: { message: '존재하지 않는 프로젝트입니다.', httpStatus: 404 },
+  // ...
+};
+
+// business.exception.ts — result 코드만 넘기면 메시지/상태코드가 ERROR_MAP에서 자동으로 채워진다
+throw new BusinessException(ResultCode.PROJECT_NOT_FOUND);
+```
+
+- HTTP status를 새로 정할 때는 08_API_COMMON.md 1.3 매핑 규칙(10000번대→401, 20000번대→403, 31000~31999→404, 그 외 30000번대→400, 40000번대→429, 50000번대→500)을 따른다
+- `HttpExceptionFilter`(전역 예외 필터)가 `BusinessException`은 그대로, NestJS 기본 예외(ValidationPipe 등)와 미분류 예외는 별도 규칙으로 `{result, message}` 형태로 정규화해 응답한다 — 08_API_COMMON.md 1.5 "비즈니스 오류를 HTTP 200으로 반환하지 않는다" 원칙의 실제 구현체
+
+### SP 시스템 오류(RESULT=50001)는 DB 접근 레이어에서 한 번만 처리한다
+
+`SpExecutorService.callProcedure`(→ 내부적으로 `sp-result.util.ts`의 `callStoredProcedure`)가 SP의 RESULT=50001을 감지하면 그 자리에서 즉시 `BusinessException(ResultCode.DATABASE_ERROR)`을 던진다 — 값으로 반환하지 않는다. 이렇게 하면:
+
+- 서비스/가드 코드는 SP가 정의한 **특정 비즈니스 코드만** 신경 쓰면 된다(`if (result !== 0) throw 비즈니스에러` 패턴이 안전해짐 — 50001이 그 분기에 절대 도달하지 않으므로)
+- 호출부마다 "혹시 50001 아닌가"를 따로 확인할 필요가 없어, 그 확인이 누락되어 시스템 오류가 엉뚱한 비즈니스 실패(예: 로그인 실패, 세션 무효)로 잘못 분류되는 사고를 원천 차단한다(2026-07-19 리뷰에서 이 누락 패턴이 여러 곳에서 발견된 뒤 도입)
+- 로그 적재처럼 실패를 절대 밖으로 던지면 안 되는 곳(`LogSpExecutorService.logCall`)은 이 예외를 그냥 try/catch로 잡아 삼키면 되므로 호환에 문제없다
+
+# 8. 의존성 버전 관리
+
+**`package.json`의 모든 의존성(dependencies/devDependencies)은 `^`/`~` 없이 특정 버전으로 고정한다.** 안정성과 모듈간 충돌 방지가 목적이다 — 세만틱 버전 범위(`^11.0.1` 등)는 `npm install` 시점마다 팀원/배포 환경마다 실제 설치되는 버전이 달라질 수 있어, 같은 커밋인데도 재현이 안 되는 문제가 생긴다.
+
+- 새 패키지를 추가할 때는 `npm install <pkg>`로 설치한 뒤, `package-lock.json`에 실제로 resolve된 버전을 확인해 `package.json`에 그 정확한 버전 문자열(`^`/`~` 제거)을 반영한다
+- 버전을 올릴 때도 범위를 넓혀두는 대신, 그 시점에 검증한 정확한 버전으로 다시 고정한다
+
+# 9. 관련 문서
 
 - DB 접근 정책(mysql2, SP 전용): [01_TECH_STACK.md](./01_TECH_STACK.md)
 - 테이블별 특징/공통 정책: [04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md)
