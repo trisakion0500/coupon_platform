@@ -5,6 +5,343 @@
 -- ------------------------------------------------------------------------------------------------------------ --
 
 -- ============================================================================================================ --
+-- USP_COMPANY_CREATE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `USP_COMPANY_CREATE`;
+
+DELIMITER $$
+
+CREATE PROCEDURE `USP_COMPANY_CREATE` (
+    IN i_company_code VARCHAR(20),   -- 회사 코드 (전역 UNIQUE)
+    IN i_company_name VARCHAR(100),  -- 회사명
+    IN i_description  VARCHAR(1000)  -- 설명 (선택)
+)
+COMMENT '회사 생성 - company_code 중복 확인 후 INSERT (10_COMPANY_API.md 2.1)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : USP_COMPANY_CREATE
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : 회사 생성. company_code 중복을 사전 체크(32001)한 뒤 INSERT한다. USP_USER_SIGNUP과
+    --        동일한 이유로 사전 체크는 원자적이지 않으므로(동시에 같은 code로 두 요청이 들어오면
+    --        둘 다 통과할 수 있음), INSERT의 UNIQUE 제약 위반(1062) 전용 핸들러를 백스톱으로 둔다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_company_id  BIGINT       DEFAULT NULL;
+
+    -- company_code 유니크 제약 위반(경쟁 상태로 사전 체크를 통과한 경우의 백스톱) — mysql_errno 1062
+    DECLARE EXIT HANDLER FOR 1062
+    BEGIN
+        SELECT 32001 AS RESULT;
+    END;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF EXISTS (SELECT 1 FROM `company` WHERE `company_code` = i_company_code) THEN
+            SELECT 32001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        INSERT INTO `company` (`company_code`, `company_name`, `description`)
+        VALUES (i_company_code, i_company_name, i_description);
+
+        SET v_company_id = LAST_INSERT_ID();
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `company_id`, `company_code`, `company_name`, `description`,
+            `status`, `created_at`, `updated_at`
+        FROM `company`
+        WHERE `company_id` = v_company_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- USP_COMPANY_GET_ACTIVE_HEADER_DATA
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `USP_COMPANY_GET_ACTIVE_HEADER_DATA`;
+
+DELIMITER $$
+
+CREATE PROCEDURE `USP_COMPANY_GET_ACTIVE_HEADER_DATA` (
+    IN i_user_id    BIGINT UNSIGNED,  -- 요청자 user_id (JWT 페이로드 값 그대로 신뢰)
+    IN i_role_code  TINYINT UNSIGNED, -- 요청자 role_code (JWT 페이로드 값 그대로 신뢰)
+    IN i_company_id BIGINT UNSIGNED   -- 요청자 소속 company_id (JWT 페이로드 값 그대로 신뢰)
+)
+COMMENT '헤더 콤보박스용 활성 회사/프로젝트 조회 (10_COMPANY_API.md 3.1)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : USP_COMPANY_GET_ACTIVE_HEADER_DATA
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : 로그인 직후 헤더 콤보박스가 1회 로드하는 활성 회사·프로젝트 목록.
+    --        role_code=10(SUPER_ADMIN)이면 전체 활성 회사+프로젝트, 그 외에는 본인 소속 회사 1건과
+    --        user_role에 활성 배정(status=1)된 프로젝트만 반환한다 — 같은 회사 소속이어도 role
+    --        미배정 프로젝트는 제외한다(10_COMPANY_API.md 3.1 Business Rules).
+    --        role_code/company_id는 JwtAuthGuard가 검증한 JWT 페이로드 값을 그대로 신뢰하고 DB를
+    --        재조회하지 않는다(jwt-auth.guard.ts와 같은 원칙, 로그인/재발급 시점에만 재계산됨).
+    --        02_DEV_CONVENTIONS.md 3.4의 RESULT SELECT 규약은 RESULT + data 정확히 2개 result set만
+    --        허용하므로, company/project를 각각 별도 result set으로 반환하는 대신 row_type
+    --        판별 컬럼('COMPANY'/'PROJECT')으로 하나의 result set에 함께 담는다 — 서비스 레이어
+    --        (company.service.ts)에서 row_type으로 다시 분리해 {companies, projects} 형태로 조립한다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    SELECT 0 AS RESULT;
+
+    IF i_role_code = 10 THEN
+        SELECT 'COMPANY' AS row_type, `company_id` AS id, `company_id` AS company_id, `company_name` AS name
+        FROM `company`
+        WHERE `status` = 1
+        UNION ALL
+        SELECT 'PROJECT' AS row_type, `project_id` AS id, `company_id` AS company_id, `project_name` AS name
+        FROM `project`
+        WHERE `status` = 1;
+    ELSE
+        SELECT 'COMPANY' AS row_type, `company_id` AS id, `company_id` AS company_id, `company_name` AS name
+        FROM `company`
+        WHERE `company_id` = i_company_id AND `status` = 1
+        UNION ALL
+        SELECT 'PROJECT' AS row_type, p.`project_id` AS id, p.`company_id` AS company_id, p.`project_name` AS name
+        FROM `project` p
+        INNER JOIN `user_role` ur ON ur.`project_id` = p.`project_id`
+        WHERE ur.`user_id` = i_user_id AND ur.`status` = 1 AND p.`status` = 1;
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- USP_COMPANY_GET_BY_CODE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `USP_COMPANY_GET_BY_CODE`;
+
+DELIMITER $$
+
+CREATE PROCEDURE `USP_COMPANY_GET_BY_CODE` (
+    IN i_company_code VARCHAR(20)  -- 조회할 회사 코드
+)
+COMMENT '회사 코드로 조회 - 회원가입 화면 전용 공개 API (10_COMPANY_API.md 2.5)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : USP_COMPANY_GET_BY_CODE
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : 회원가입 화면(로그인 전, 인증 불필요)에서 company_code로 회사를 찾기 위한 공개 조회.
+    --        status=1(사용)인 회사만 대상으로 하고, company_id/company_name만 반환한다 —
+    --        민감정보(description 등)는 노출하지 않는다. 없거나 비활성이면 31001.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM `company` WHERE `company_code` = i_company_code AND `status` = 1
+        ) THEN
+            SELECT 31001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT `company_id`, `company_name`
+        FROM `company`
+        WHERE `company_code` = i_company_code AND `status` = 1;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- USP_COMPANY_GET_BY_ID
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `USP_COMPANY_GET_BY_ID`;
+
+DELIMITER $$
+
+CREATE PROCEDURE `USP_COMPANY_GET_BY_ID` (
+    IN i_company_id BIGINT UNSIGNED  -- 조회할 회사 ID
+)
+COMMENT '회사 상세 조회 (10_COMPANY_API.md 2.3)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : USP_COMPANY_GET_BY_ID
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : company_id로 회사 상세를 조회한다. 없으면 31001.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (SELECT 1 FROM `company` WHERE `company_id` = i_company_id) THEN
+            SELECT 31001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `company_id`, `company_code`, `company_name`, `description`,
+            `status`, `created_at`, `updated_at`
+        FROM `company`
+        WHERE `company_id` = i_company_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- USP_COMPANY_LIST
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `USP_COMPANY_LIST`;
+
+DELIMITER $$
+
+CREATE PROCEDURE `USP_COMPANY_LIST` (
+    IN i_status    TINYINT UNSIGNED,  -- 상태 필터 (NULL이면 전체)
+    IN i_page_size INT,               -- 페이지당 행 수
+    IN i_offset    INT                -- 시작 오프셋
+)
+COMMENT '회사 목록 조회 - 페이지네이션 (10_COMPANY_API.md 2.2)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : USP_COMPANY_LIST
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : 회사 목록을 status DESC, company_name ASC로 정렬해 페이지 단위로 반환한다.
+    --        02_DEV_CONVENTIONS.md 3.4의 RESULT SELECT 규약은 RESULT + data 정확히 2개 result set만
+    --        허용하므로, 별도의 COUNT(*) 쿼리를 셋째 result set으로 추가하는 대신 COUNT(*) OVER()
+    --        윈도우 함수로 총 개수를 data의 각 행에 함께 실어보낸다 — 페이지네이션이 필요한 다른
+    --        목록 SP(project/user 등)도 이 패턴을 그대로 재사용한다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    SELECT 0 AS RESULT;
+    SELECT
+        `company_id`, `company_code`, `company_name`, `description`,
+        `status`, `created_at`, `updated_at`,
+        COUNT(*) OVER() AS total_count
+    FROM `company`
+    WHERE i_status IS NULL OR `status` = i_status
+    ORDER BY `status` DESC, `company_name` ASC
+    LIMIT i_page_size OFFSET i_offset;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- USP_COMPANY_UPDATE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `USP_COMPANY_UPDATE`;
+
+DELIMITER $$
+
+CREATE PROCEDURE `USP_COMPANY_UPDATE` (
+    IN i_company_id   BIGINT UNSIGNED,  -- 수정할 회사 ID
+    IN i_company_code VARCHAR(20),      -- 새 회사 코드 (NULL이면 미변경)
+    IN i_company_name VARCHAR(100),     -- 새 회사명 (NULL이면 미변경)
+    IN i_description  VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
+    IN i_status       TINYINT UNSIGNED  -- 새 상태 (NULL이면 미변경)
+)
+COMMENT '회사 수정 - 조건부 UPDATE (10_COMPANY_API.md 2.4)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : USP_COMPANY_UPDATE
+    -- 작성 : 2026.07.19 trisakion
+    -- 내용 : 회사 정보 수정. 존재 확인(31001) -> company_code 변경 시 중복 확인(자기 자신 제외, 32001)
+    --        -> COALESCE 기반 조건부 UPDATE(02_DEV_CONVENTIONS.md 4장)로 NULL로 넘어온 필드는 기존
+    --        값을 유지한다. 관리자 폼이 매번 전체 필드를 채워 보내는 단순 CRUD라 "필드를 명시적으로
+    --        NULL로 비우는" 시나리오까지는 다루지 않는다(description을 지우고 싶으면 빈 문자열을
+    --        보내는 것으로 충분 — 실제 NULL 저장이 필요해지면 그때 별도 플래그를 추가한다).
+    --        USP_COMPANY_CREATE와 동일한 이유로, 사전 중복확인 -> UPDATE 사이에 다른 트랜잭션이
+    --        같은 company_code로 끼어드는 경쟁 상태에 대비해 UNIQUE 제약 위반(1062) 백스톱
+    --        핸들러를 둔다(2026-07-19 리뷰에서 CREATE에만 있고 UPDATE에는 없던 것을 발견).
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+
+    -- company_code 유니크 제약 위반(경쟁 상태로 사전 체크를 통과한 경우의 백스톱) — mysql_errno 1062
+    DECLARE EXIT HANDLER FOR 1062
+    BEGIN
+        SELECT 32001 AS RESULT;
+    END;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (SELECT 1 FROM `company` WHERE `company_id` = i_company_id) THEN
+            SELECT 31001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF i_company_code IS NOT NULL AND EXISTS (
+            SELECT 1 FROM `company`
+            WHERE `company_code` = i_company_code AND `company_id` <> i_company_id
+        ) THEN
+            SELECT 32001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        UPDATE `company`
+        SET
+            `company_code` = COALESCE(i_company_code, `company_code`),
+            `company_name` = COALESCE(i_company_name, `company_name`),
+            `description`  = COALESCE(i_description, `description`),
+            `status`       = COALESCE(i_status, `status`)
+        WHERE `company_id` = i_company_id;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `company_id`, `company_code`, `company_name`, `description`,
+            `status`, `created_at`, `updated_at`
+        FROM `company`
+        WHERE `company_id` = i_company_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
 -- USP_NONCE_INSERT
 -- ============================================================================================================ --
 DROP PROCEDURE IF EXISTS `USP_NONCE_INSERT`;

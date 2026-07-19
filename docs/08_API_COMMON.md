@@ -153,8 +153,8 @@ Coupon Platform API는 HTTP Status Code와 Result Code를 함께 사용한다. �
 
 | Name      | Required | Description                   |
 | --------- | -------- | ------------------------------ |
-| page      | Y        | 페이지 번호 (1부터 시작)       |
-| page_size | Y        | 20/30/50/100 중 선택. 기본 20  |
+| page      | N        | 페이지 번호 (1부터 시작). 기본 1 |
+| page_size | N        | 20/30/50/100 중 선택. 기본 20  |
 
 ## 2.4 응답 형식
 
