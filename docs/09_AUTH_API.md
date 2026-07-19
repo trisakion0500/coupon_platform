@@ -78,7 +78,7 @@ IP당 요청 제한이 적용된다([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md)
 
 #### Response
 
-생성된 User 전체 정보 반환
+생성된 User 정보 반환(`password_hash`는 제외 — 어떤 조회 API도 비밀번호 해시를 반환하지 않는다)
 
 ---
 
@@ -109,7 +109,7 @@ IP당 요청 제한이 적용된다([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md)
 }
 ```
 
-`role_code`는 사용자가 활성 상태(`user_role.status=1`)로 배정된 모든 프로젝트 중 최고 권한(`MIN(role_code)`, 미배정 시 40)이다. JWT 페이로드에도 동일 값이 포함되며 세션 내내 고정된다([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 1.6 참고).
+`role_code`는 사용자가 활성 상태(`user_role.status=1`)로 배정된 모든 프로젝트 중 최고 권한(`MIN(role_code)`, 미배정 시 40)이다. JWT 페이로드에도 동일 값이 포함된다([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 1.6 참고). 이 값은 `user_session`에 저장하지 않고 로그인/재발급 시점마다 매번 다시 계산한다(7장 참고) — 보통은 재발급해도 같은 값이 나오지만, 그 사이 관리자가 권한 배정을 바꿨다면 다음 재발급 때 바로 반영된다.
 
 IP당 요청 제한이 적용된다([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 1.4 참고).
 
@@ -163,7 +163,7 @@ user_session.status = 0
 }
 ```
 
-`role_code`는 로그인 시점에 계산되어 `user_session`에 저장된 값을 그대로 반환한다. 재발급 시 재계산하지 않는다.
+`role_code`는 `user_session`에 저장된 값이 아니라, 로그인 때와 동일하게 `user_role`을 다시 조회해 매번 새로 계산한다(`MIN(role_code)`, 미배정 시 40). 클라이언트 입장에서는 별도 API를 추가로 호출할 필요 없이 이 응답에서 바로 받는다는 의미이지, 서버가 값을 캐싱해 그대로 돌려준다는 뜻은 아니다 — 그 사이 관리자가 권한 배정을 변경했다면 재발급 시점에 바로 반영된다.
 
 #### 처리 정책
 
