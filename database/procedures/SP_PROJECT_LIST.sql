@@ -21,7 +21,9 @@ BEGIN
     --        FN_IS_SUPER_ADMIN(i_requester_user_id)로 SP가 직접 DB에서 재확인한다 - 앱이
     --        role_code 값을 함께 넘겨 그 값을 그대로 믿는 방식은 쓰지 않는다(앱 레이어가 잘못된
     --        role_code를 실어 보내는 버그가 있어도 이 SP는 영향받지 않는다).
-    --        total_count는 SP_COMPANY_LIST와 동일하게 COUNT(*) OVER()로 함께 반환한다.
+    --        total_count는 SP_COMPANY_LIST와 동일한 이유로 COUNT(*) OVER()가 아니라 별도 서브쿼리
+    --        + LEFT JOIN ... ON TRUE 패턴으로 반환한다(offset이 범위를 벗어나 0행이 반환돼도
+    --        total_count가 0으로 사라지지 않도록, 2026-07-19 감사에서 발견된 버그 수정).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -42,16 +44,28 @@ BEGIN
 
         SELECT 0 AS RESULT;
         SELECT
-            p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
-            p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
-            p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`,
-            COUNT(*) OVER() AS total_count
-        FROM `project` p
-        JOIN `company` c ON c.`company_id` = p.`company_id`
-        WHERE (i_company_id IS NULL OR p.`company_id` = i_company_id)
-          AND (i_status IS NULL OR p.`status` = i_status)
-        ORDER BY p.`status` DESC, p.`project_name` ASC
-        LIMIT i_page_size OFFSET i_offset;
+            pg.`project_id`, pg.`company_id`, pg.`company_code`, pg.`company_name`,
+            pg.`project_code`, pg.`project_name`, pg.`api_key`, pg.`description`,
+            pg.`status`, pg.`secret_rotated_at`, pg.`created_at`, pg.`updated_at`,
+            cnt.`total_count`
+        FROM (
+            SELECT COUNT(*) AS total_count
+            FROM `project` p
+            WHERE (i_company_id IS NULL OR p.`company_id` = i_company_id)
+              AND (i_status IS NULL OR p.`status` = i_status)
+        ) cnt
+        LEFT JOIN (
+            SELECT
+                p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
+                p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
+                p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`
+            FROM `project` p
+            JOIN `company` c ON c.`company_id` = p.`company_id`
+            WHERE (i_company_id IS NULL OR p.`company_id` = i_company_id)
+              AND (i_status IS NULL OR p.`status` = i_status)
+            ORDER BY p.`status` DESC, p.`project_name` ASC
+            LIMIT i_page_size OFFSET i_offset
+        ) pg ON TRUE;
     END proc_block;
 END$$
 

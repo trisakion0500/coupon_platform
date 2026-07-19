@@ -14,7 +14,9 @@ BEGIN
     -- 명칭 : SP_USER_ROLE_LIST
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : user_id/project_id/role_code/status 조건부 필터 + 페이지네이션. 다른 목록 SP와
-    --        동일하게 COUNT(*) OVER()로 total_count를 각 행에 실어 반환한다. 정렬은
+    --        동일하게 별도 COUNT 서브쿼리 + LEFT JOIN ... ON TRUE로 total_count를 반환한다
+    --        (COUNT(*) OVER()는 offset이 범위를 벗어나 0행이 반환되면 total_count도 0으로
+    --        사라지는 버그가 있어 2026-07-19 이 패턴으로 교체). 정렬은
     --        12_USER_API.md 3.2 Sorting 그대로(status DESC, role_code ASC, user_id ASC).
     --        이 SP는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, FN_IS_SUPER_ADMIN으로
     --        재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
@@ -38,15 +40,26 @@ BEGIN
 
         SELECT 0 AS RESULT;
         SELECT
-            `user_id`, `project_id`, `role_code`, `status`, `created_at`, `updated_at`,
-            COUNT(*) OVER() AS total_count
-        FROM `user_role`
-        WHERE (i_user_id IS NULL OR `user_id` = i_user_id)
-          AND (i_project_id IS NULL OR `project_id` = i_project_id)
-          AND (i_role_code IS NULL OR `role_code` = i_role_code)
-          AND (i_status IS NULL OR `status` = i_status)
-        ORDER BY `status` DESC, `role_code` ASC, `user_id` ASC
-        LIMIT i_limit OFFSET i_offset;
+            p.`user_id`, p.`project_id`, p.`role_code`, p.`status`, p.`created_at`, p.`updated_at`,
+            cnt.`total_count`
+        FROM (
+            SELECT COUNT(*) AS total_count
+            FROM `user_role`
+            WHERE (i_user_id IS NULL OR `user_id` = i_user_id)
+              AND (i_project_id IS NULL OR `project_id` = i_project_id)
+              AND (i_role_code IS NULL OR `role_code` = i_role_code)
+              AND (i_status IS NULL OR `status` = i_status)
+        ) cnt
+        LEFT JOIN (
+            SELECT `user_id`, `project_id`, `role_code`, `status`, `created_at`, `updated_at`
+            FROM `user_role`
+            WHERE (i_user_id IS NULL OR `user_id` = i_user_id)
+              AND (i_project_id IS NULL OR `project_id` = i_project_id)
+              AND (i_role_code IS NULL OR `role_code` = i_role_code)
+              AND (i_status IS NULL OR `status` = i_status)
+            ORDER BY `status` DESC, `role_code` ASC, `user_id` ASC
+            LIMIT i_limit OFFSET i_offset
+        ) p ON TRUE;
     END proc_block;
 END$$
 

@@ -154,6 +154,41 @@ describe('ProjectService', () => {
         service.list({ page: 1, page_size: 20 }, developer),
       ).rejects.toMatchObject({ resultCode: ResultCode.PERMISSION_DENIED });
     });
+
+    it('reports the real total_count when the requested page is out of range', async () => {
+      // SP_PROJECT_LIST가 offset이 실제 데이터 범위를 벗어나면 project_id 등 데이터 컬럼이
+      // 전부 NULL인 채로 total_count만 채운 행 1개를 반환한다(LEFT JOIN ... ON TRUE) — 그 행은
+      // items에서 제외돼야 하지만 total_count는 실제 값을 반영해야 한다.
+      spExecutor.callProcedure.mockResolvedValueOnce({
+        result: 0,
+        data: [
+          {
+            project_id: null,
+            company_id: null,
+            company_code: null,
+            company_name: null,
+            project_code: null,
+            project_name: null,
+            api_key: null,
+            description: null,
+            status: null,
+            secret_rotated_at: null,
+            created_at: null,
+            updated_at: null,
+            total_count: 3,
+          },
+        ],
+      });
+
+      const result = await service.list({ page: 2, page_size: 20 }, superAdmin);
+
+      expect(result).toEqual({
+        page: 2,
+        page_size: 20,
+        total_count: 3,
+        items: [],
+      });
+    });
   });
 
   describe('getById', () => {

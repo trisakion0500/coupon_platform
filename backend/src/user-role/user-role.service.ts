@@ -25,7 +25,12 @@ export interface UserRoleRow {
   updated_at: string;
 }
 
-interface UserRoleListRow extends UserRoleRow {
+/**
+ * SP_USER_ROLE_LIST 반환 행 — 요청한 page가 데이터 범위를 벗어나면 user_id를 비롯한 모든
+ * 데이터 컬럼이 NULL인 채로 total_count만 채워진 행 1개가 온다(LEFT JOIN ... ON TRUE).
+ */
+interface UserRoleListRow extends Omit<UserRoleRow, 'user_id'> {
+  user_id: number | null;
   total_count: number;
 }
 
@@ -127,14 +132,19 @@ export class UserRoleService {
 
     const rows = data ?? [];
     const totalCount = rows[0]?.total_count ?? 0;
-    const items: UserRoleRow[] = rows.map((row) => ({
-      user_id: row.user_id,
-      project_id: row.project_id,
-      role_code: row.role_code,
-      status: row.status,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    }));
+    const items: UserRoleRow[] = rows
+      .filter(
+        (row): row is UserRoleListRow & { user_id: number } =>
+          row.user_id !== null,
+      )
+      .map((row) => ({
+        user_id: row.user_id,
+        project_id: row.project_id,
+        role_code: row.role_code,
+        status: row.status,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      }));
 
     return buildPaginatedResult(query, totalCount, items);
   }

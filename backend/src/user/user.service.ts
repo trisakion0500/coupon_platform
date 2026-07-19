@@ -31,7 +31,12 @@ interface UserRow {
   updated_at: string;
 }
 
-interface UserListRow extends UserRow {
+/**
+ * SP_USER_LIST 반환 행 — 요청한 page가 데이터 범위를 벗어나면 user_id를 비롯한 모든
+ * 데이터 컬럼이 NULL인 채로 total_count만 채워진 행 1개가 온다(LEFT JOIN ... ON TRUE).
+ */
+interface UserListRow extends Omit<UserRow, 'user_id'> {
+  user_id: number | null;
   total_count: number;
 }
 
@@ -93,7 +98,11 @@ export class UserService {
 
     const rows = data ?? [];
     const totalCount = rows[0]?.total_count ?? 0;
-    const items = rows.map((row) => this.toUserResponse(row));
+    const items = rows
+      .filter(
+        (row): row is UserListRow & { user_id: number } => row.user_id !== null,
+      )
+      .map((row) => this.toUserResponse(row));
 
     return buildPaginatedResult(query, totalCount, items);
   }

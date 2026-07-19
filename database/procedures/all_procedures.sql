@@ -239,8 +239,13 @@ BEGIN
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 회사 목록을 status DESC, company_name ASC로 정렬해 페이지 단위로 반환한다.
     --        02_DEV_CONVENTIONS.md 3.4의 RESULT SELECT 규약은 RESULT + data 정확히 2개 result set만
-    --        허용하므로, 별도의 COUNT(*) 쿼리를 셋째 result set으로 추가하는 대신 COUNT(*) OVER()
-    --        윈도우 함수로 총 개수를 data의 각 행에 함께 실어보낸다 — 페이지네이션이 필요한 다른
+    --        허용하므로, 별도의 COUNT(*) 쿼리를 셋째 result set으로 추가할 수 없다. 다만 total_count를
+    --        페이지네이션 대상 SELECT에 COUNT(*) OVER()로 얹으면, 요청한 offset이 실제 데이터
+    --        범위를 벗어나 0행이 반환되는 경우 total_count도 함께 사라져 0으로 잘못 응답되는
+    --        문제가 있다(2026-07-19 감사에서 발견). 이를 막기 위해 총 개수를 별도 서브쿼리로 항상
+    --        1행 계산해두고, 페이지네이션 서브쿼리를 LEFT JOIN ... ON TRUE로 붙인다 — 페이지네이션
+    --        결과가 0행이어도 총 개수 행은 NULL 데이터 컬럼과 함께 보존된다(앱 레이어는 PK 컬럼이
+    --        NULL인 행을 데이터 없음으로 취급하고 total_count만 읽는다). 페이지네이션이 필요한 다른
     --        목록 SP(project/user 등)도 이 패턴을 그대로 재사용한다.
     --        회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
@@ -263,13 +268,21 @@ BEGIN
 
         SELECT 0 AS RESULT;
         SELECT
-            `company_id`, `company_code`, `company_name`, `description`,
-            `status`, `created_at`, `updated_at`,
-            COUNT(*) OVER() AS total_count
-        FROM `company`
-        WHERE i_status IS NULL OR `status` = i_status
-        ORDER BY `status` DESC, `company_name` ASC
-        LIMIT i_page_size OFFSET i_offset;
+            p.`company_id`, p.`company_code`, p.`company_name`, p.`description`,
+            p.`status`, p.`created_at`, p.`updated_at`,
+            cnt.`total_count`
+        FROM (
+            SELECT COUNT(*) AS total_count
+            FROM `company`
+            WHERE i_status IS NULL OR `status` = i_status
+        ) cnt
+        LEFT JOIN (
+            SELECT `company_id`, `company_code`, `company_name`, `description`, `status`, `created_at`, `updated_at`
+            FROM `company`
+            WHERE i_status IS NULL OR `status` = i_status
+            ORDER BY `status` DESC, `company_name` ASC
+            LIMIT i_page_size OFFSET i_offset
+        ) p ON TRUE;
     END proc_block;
 END$$
 
@@ -455,17 +468,20 @@ DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_API_SECRET_ROTATE` (
     IN i_project_id      BIGINT UNSIGNED,  -- 재발급 대상 프로젝트 ID
     IN i_user_id         BIGINT UNSIGNED,  -- 요청자 user_id (JWT 페이로드 값 그대로 신뢰)
-    IN i_role_code       TINYINT UNSIGNED, -- 요청자 role_code (JWT 페이로드 값 그대로 신뢰)
     IN i_new_api_secret_enc VARCHAR(255)   -- 새 API Secret AES-256-CBC 암호화값 (앱 레이어에서 암호화 완료)
 ) COMMENT 'API Secret 재발급 - Grace Period 방식 (11_PROJECT_API.md 2.5)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_API_SECRET_ROTATE
     -- 작성 : 2026.07.19 trisakion
-    -- 내용 : 존재 확인(31002) 후, role_code=10(SUPER_ADMIN)이 아니면 FN_CHECK_PROJECT_ACCESS로
+    -- 내용 : 존재 확인(31002) 후, FN_IS_SUPER_ADMIN(i_user_id)이 아니면 FN_CHECK_PROJECT_ACCESS로
     --        해당 project_id에 실제 활성 user_role 배정이 있는지 재검증한다(11_PROJECT_API.md 2.5
     --        Business Rules — JWT의 role_code는 여러 프로젝트 중 최고 권한 하나뿐이라 이 project_id
-    --        기준으로는 다시 확인해야 함). 통과하면 기존 api_secret을 api_secret_prev로 옮기고
+    --        기준으로는 다시 확인해야 함). 원래는 앱이 전달한 i_role_code로 SUPER_ADMIN 우회를
+    --        판단했으나, 02_DEV_CONVENTIONS.md 3.2 정책(SP는 호출자의 role_code 값을 앱으로부터
+    --        전달받아 신뢰하지 않는다) 전면 적용 때 이 SP만 누락돼 있던 것을 2026-07-19 감사에서
+    --        발견해 FN_IS_SUPER_ADMIN 재확인으로 교체했다(API Secret 재발급은 보안 민감 기능이라
+    --        다른 SP보다 오히려 더 엄격해야 함). 통과하면 기존 api_secret을 api_secret_prev로 옮기고
     --        신규 값을 api_secret에 저장, secret_rotated_at을 갱신한다(07_AUTH_SECURITY.md 2.6
     --        Grace Period 방식). api_key는 변경하지 않는다. 반환 컬럼에 api_secret(암호문)은
     --        포함하지 않는다 — 평문은 앱 레이어가 자신이 생성한 값을 응답에 직접 얹는다.
@@ -486,7 +502,7 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        IF i_role_code <> 10 AND NOT FN_CHECK_PROJECT_ACCESS(i_user_id, i_project_id) THEN
+        IF NOT FN_IS_SUPER_ADMIN(i_user_id) AND NOT FN_CHECK_PROJECT_ACCESS(i_user_id, i_project_id) THEN
             SELECT 20001 AS RESULT;
             LEAVE proc_block;
         END IF;
@@ -775,7 +791,9 @@ BEGIN
     --        FN_IS_SUPER_ADMIN(i_requester_user_id)로 SP가 직접 DB에서 재확인한다 - 앱이
     --        role_code 값을 함께 넘겨 그 값을 그대로 믿는 방식은 쓰지 않는다(앱 레이어가 잘못된
     --        role_code를 실어 보내는 버그가 있어도 이 SP는 영향받지 않는다).
-    --        total_count는 SP_COMPANY_LIST와 동일하게 COUNT(*) OVER()로 함께 반환한다.
+    --        total_count는 SP_COMPANY_LIST와 동일한 이유로 COUNT(*) OVER()가 아니라 별도 서브쿼리
+    --        + LEFT JOIN ... ON TRUE 패턴으로 반환한다(offset이 범위를 벗어나 0행이 반환돼도
+    --        total_count가 0으로 사라지지 않도록, 2026-07-19 감사에서 발견된 버그 수정).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -796,16 +814,28 @@ BEGIN
 
         SELECT 0 AS RESULT;
         SELECT
-            p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
-            p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
-            p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`,
-            COUNT(*) OVER() AS total_count
-        FROM `project` p
-        JOIN `company` c ON c.`company_id` = p.`company_id`
-        WHERE (i_company_id IS NULL OR p.`company_id` = i_company_id)
-          AND (i_status IS NULL OR p.`status` = i_status)
-        ORDER BY p.`status` DESC, p.`project_name` ASC
-        LIMIT i_page_size OFFSET i_offset;
+            pg.`project_id`, pg.`company_id`, pg.`company_code`, pg.`company_name`,
+            pg.`project_code`, pg.`project_name`, pg.`api_key`, pg.`description`,
+            pg.`status`, pg.`secret_rotated_at`, pg.`created_at`, pg.`updated_at`,
+            cnt.`total_count`
+        FROM (
+            SELECT COUNT(*) AS total_count
+            FROM `project` p
+            WHERE (i_company_id IS NULL OR p.`company_id` = i_company_id)
+              AND (i_status IS NULL OR p.`status` = i_status)
+        ) cnt
+        LEFT JOIN (
+            SELECT
+                p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
+                p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
+                p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`
+            FROM `project` p
+            JOIN `company` c ON c.`company_id` = p.`company_id`
+            WHERE (i_company_id IS NULL OR p.`company_id` = i_company_id)
+              AND (i_status IS NULL OR p.`status` = i_status)
+            ORDER BY p.`status` DESC, p.`project_name` ASC
+            LIMIT i_page_size OFFSET i_offset
+        ) pg ON TRUE;
     END proc_block;
 END$$
 
@@ -1109,7 +1139,9 @@ BEGIN
     -- 명칭 : SP_USER_LIST
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : company_id/status 조건부 필터 + 페이지네이션. company.sql/project.sql과 동일하게
-    --        COUNT(*) OVER()로 total_count를 각 행에 실어 RESULT+data 2-result-set 규약을 유지한다.
+    --        별도 COUNT 서브쿼리 + LEFT JOIN ... ON TRUE로 total_count를 반환해 RESULT+data
+    --        2-result-set 규약을 유지한다(COUNT(*) OVER()는 offset이 범위를 벗어나 0행이 반환되면
+    --        total_count도 0으로 사라지는 버그가 있어 2026-07-19 이 패턴으로 교체).
     --        다른 테이블은 status DESC가 기본이지만 user는 "가입승인대기(0)"가 가장 먼저 보여야
     --        하는 화면 요구사항이 있어 status ASC로 정렬한다(12_USER_API.md 1.1 Sorting, 다른
     --        도메인과 다른 정렬 방향이라는 점을 주석으로 명시).
@@ -1140,15 +1172,27 @@ BEGIN
 
         SELECT 0 AS RESULT;
         SELECT
-            `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
-            `phone_number`, `department`, `position`, `status`, `last_login_at`,
-            `created_at`, `updated_at`,
-            COUNT(*) OVER() AS total_count
-        FROM `user`
-        WHERE (i_company_id IS NULL OR `company_id` = i_company_id)
-          AND (i_status IS NULL OR `status` = i_status)
-        ORDER BY `status` ASC, `user_name` ASC
-        LIMIT i_limit OFFSET i_offset;
+            p.`user_id`, p.`company_id`, p.`requested_project_id`, p.`login_id`, p.`user_name`, p.`email`,
+            p.`phone_number`, p.`department`, p.`position`, p.`status`, p.`last_login_at`,
+            p.`created_at`, p.`updated_at`,
+            cnt.`total_count`
+        FROM (
+            SELECT COUNT(*) AS total_count
+            FROM `user`
+            WHERE (i_company_id IS NULL OR `company_id` = i_company_id)
+              AND (i_status IS NULL OR `status` = i_status)
+        ) cnt
+        LEFT JOIN (
+            SELECT
+                `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
+                `phone_number`, `department`, `position`, `status`, `last_login_at`,
+                `created_at`, `updated_at`
+            FROM `user`
+            WHERE (i_company_id IS NULL OR `company_id` = i_company_id)
+              AND (i_status IS NULL OR `status` = i_status)
+            ORDER BY `status` ASC, `user_name` ASC
+            LIMIT i_limit OFFSET i_offset
+        ) p ON TRUE;
     END proc_block;
 END$$
 
@@ -1471,7 +1515,9 @@ BEGIN
     -- 명칭 : SP_USER_ROLE_LIST
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : user_id/project_id/role_code/status 조건부 필터 + 페이지네이션. 다른 목록 SP와
-    --        동일하게 COUNT(*) OVER()로 total_count를 각 행에 실어 반환한다. 정렬은
+    --        동일하게 별도 COUNT 서브쿼리 + LEFT JOIN ... ON TRUE로 total_count를 반환한다
+    --        (COUNT(*) OVER()는 offset이 범위를 벗어나 0행이 반환되면 total_count도 0으로
+    --        사라지는 버그가 있어 2026-07-19 이 패턴으로 교체). 정렬은
     --        12_USER_API.md 3.2 Sorting 그대로(status DESC, role_code ASC, user_id ASC).
     --        이 SP는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, FN_IS_SUPER_ADMIN으로
     --        재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
@@ -1495,15 +1541,26 @@ BEGIN
 
         SELECT 0 AS RESULT;
         SELECT
-            `user_id`, `project_id`, `role_code`, `status`, `created_at`, `updated_at`,
-            COUNT(*) OVER() AS total_count
-        FROM `user_role`
-        WHERE (i_user_id IS NULL OR `user_id` = i_user_id)
-          AND (i_project_id IS NULL OR `project_id` = i_project_id)
-          AND (i_role_code IS NULL OR `role_code` = i_role_code)
-          AND (i_status IS NULL OR `status` = i_status)
-        ORDER BY `status` DESC, `role_code` ASC, `user_id` ASC
-        LIMIT i_limit OFFSET i_offset;
+            p.`user_id`, p.`project_id`, p.`role_code`, p.`status`, p.`created_at`, p.`updated_at`,
+            cnt.`total_count`
+        FROM (
+            SELECT COUNT(*) AS total_count
+            FROM `user_role`
+            WHERE (i_user_id IS NULL OR `user_id` = i_user_id)
+              AND (i_project_id IS NULL OR `project_id` = i_project_id)
+              AND (i_role_code IS NULL OR `role_code` = i_role_code)
+              AND (i_status IS NULL OR `status` = i_status)
+        ) cnt
+        LEFT JOIN (
+            SELECT `user_id`, `project_id`, `role_code`, `status`, `created_at`, `updated_at`
+            FROM `user_role`
+            WHERE (i_user_id IS NULL OR `user_id` = i_user_id)
+              AND (i_project_id IS NULL OR `project_id` = i_project_id)
+              AND (i_role_code IS NULL OR `role_code` = i_role_code)
+              AND (i_status IS NULL OR `status` = i_status)
+            ORDER BY `status` DESC, `role_code` ASC, `user_id` ASC
+            LIMIT i_limit OFFSET i_offset
+        ) p ON TRUE;
     END proc_block;
 END$$
 

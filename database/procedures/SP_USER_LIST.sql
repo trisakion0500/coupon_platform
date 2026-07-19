@@ -12,7 +12,9 @@ BEGIN
     -- 명칭 : SP_USER_LIST
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : company_id/status 조건부 필터 + 페이지네이션. company.sql/project.sql과 동일하게
-    --        COUNT(*) OVER()로 total_count를 각 행에 실어 RESULT+data 2-result-set 규약을 유지한다.
+    --        별도 COUNT 서브쿼리 + LEFT JOIN ... ON TRUE로 total_count를 반환해 RESULT+data
+    --        2-result-set 규약을 유지한다(COUNT(*) OVER()는 offset이 범위를 벗어나 0행이 반환되면
+    --        total_count도 0으로 사라지는 버그가 있어 2026-07-19 이 패턴으로 교체).
     --        다른 테이블은 status DESC가 기본이지만 user는 "가입승인대기(0)"가 가장 먼저 보여야
     --        하는 화면 요구사항이 있어 status ASC로 정렬한다(12_USER_API.md 1.1 Sorting, 다른
     --        도메인과 다른 정렬 방향이라는 점을 주석으로 명시).
@@ -43,15 +45,27 @@ BEGIN
 
         SELECT 0 AS RESULT;
         SELECT
-            `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
-            `phone_number`, `department`, `position`, `status`, `last_login_at`,
-            `created_at`, `updated_at`,
-            COUNT(*) OVER() AS total_count
-        FROM `user`
-        WHERE (i_company_id IS NULL OR `company_id` = i_company_id)
-          AND (i_status IS NULL OR `status` = i_status)
-        ORDER BY `status` ASC, `user_name` ASC
-        LIMIT i_limit OFFSET i_offset;
+            p.`user_id`, p.`company_id`, p.`requested_project_id`, p.`login_id`, p.`user_name`, p.`email`,
+            p.`phone_number`, p.`department`, p.`position`, p.`status`, p.`last_login_at`,
+            p.`created_at`, p.`updated_at`,
+            cnt.`total_count`
+        FROM (
+            SELECT COUNT(*) AS total_count
+            FROM `user`
+            WHERE (i_company_id IS NULL OR `company_id` = i_company_id)
+              AND (i_status IS NULL OR `status` = i_status)
+        ) cnt
+        LEFT JOIN (
+            SELECT
+                `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
+                `phone_number`, `department`, `position`, `status`, `last_login_at`,
+                `created_at`, `updated_at`
+            FROM `user`
+            WHERE (i_company_id IS NULL OR `company_id` = i_company_id)
+              AND (i_status IS NULL OR `status` = i_status)
+            ORDER BY `status` ASC, `user_name` ASC
+            LIMIT i_limit OFFSET i_offset
+        ) p ON TRUE;
     END proc_block;
 END$$
 

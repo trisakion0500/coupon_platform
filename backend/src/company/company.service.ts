@@ -20,7 +20,12 @@ export interface CompanyRow {
   updated_at: string;
 }
 
-interface CompanyListRow extends CompanyRow {
+/**
+ * SP_COMPANY_LIST 반환 행 — 요청한 page가 데이터 범위를 벗어나면 company_id를 비롯한
+ * 모든 데이터 컬럼이 NULL인 채로 total_count만 채워진 행 1개가 온다(LEFT JOIN ... ON TRUE).
+ */
+interface CompanyListRow extends Omit<CompanyRow, 'company_id'> {
+  company_id: number | null;
   total_count: number;
 }
 
@@ -110,15 +115,22 @@ export class CompanyService {
 
     const rows = data ?? [];
     const totalCount = rows[0]?.total_count ?? 0;
-    const items: CompanyRow[] = rows.map((row) => ({
-      company_id: row.company_id,
-      company_code: row.company_code,
-      company_name: row.company_name,
-      description: row.description,
-      status: row.status,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    }));
+    // 요청한 page가 실제 데이터 범위를 벗어나면 SP가 total_count만 채운 채 company_id가
+    // NULL인 행을 반환한다(SP_COMPANY_LIST 주석 참고) — 그 행은 데이터가 아니므로 제외한다.
+    const items: CompanyRow[] = rows
+      .filter(
+        (row): row is CompanyListRow & { company_id: number } =>
+          row.company_id !== null,
+      )
+      .map((row) => ({
+        company_id: row.company_id,
+        company_code: row.company_code,
+        company_name: row.company_name,
+        description: row.description,
+        status: row.status,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      }));
 
     return buildPaginatedResult(query, totalCount, items);
   }

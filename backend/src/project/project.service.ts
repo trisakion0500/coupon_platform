@@ -28,7 +28,12 @@ export interface ProjectRow {
   updated_at: string;
 }
 
-interface ProjectListRow extends ProjectRow {
+/**
+ * SP_PROJECT_LIST 반환 행 — 요청한 page가 데이터 범위를 벗어나면 project_id를 비롯한
+ * 모든 데이터 컬럼이 NULL인 채로 total_count만 채워진 행 1개가 온다(LEFT JOIN ... ON TRUE).
+ */
+interface ProjectListRow extends Omit<ProjectRow, 'project_id'> {
+  project_id: number | null;
   total_count: number;
 }
 
@@ -146,20 +151,25 @@ export class ProjectService {
 
     const rows = data ?? [];
     const totalCount = rows[0]?.total_count ?? 0;
-    const items: ProjectRow[] = rows.map((row) => ({
-      project_id: row.project_id,
-      company_id: row.company_id,
-      company_code: row.company_code,
-      company_name: row.company_name,
-      project_code: row.project_code,
-      project_name: row.project_name,
-      api_key: row.api_key,
-      description: row.description,
-      status: row.status,
-      secret_rotated_at: row.secret_rotated_at,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    }));
+    const items: ProjectRow[] = rows
+      .filter(
+        (row): row is ProjectListRow & { project_id: number } =>
+          row.project_id !== null,
+      )
+      .map((row) => ({
+        project_id: row.project_id,
+        company_id: row.company_id,
+        company_code: row.company_code,
+        company_name: row.company_name,
+        project_code: row.project_code,
+        project_name: row.project_name,
+        api_key: row.api_key,
+        description: row.description,
+        status: row.status,
+        secret_rotated_at: row.secret_rotated_at,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      }));
 
     return buildPaginatedResult(query, totalCount, items);
   }
@@ -224,8 +234,9 @@ export class ProjectService {
 
   /**
    * 11_PROJECT_API.md 2.5 — SUPER_ADMIN은 무조건 통과, DEVELOPER는 해당 project_id에 실제
-   * 활성 user_role이 있어야 한다(SP_PROJECT_API_SECRET_ROTATE 내부에서 FN_CHECK_PROJECT_ACCESS로
-   * 재검증). 새 평문 Secret은 여기서 생성해 암호화값만 SP에 전달하고, 응답에는 이 평문을 직접 얹는다.
+   * 활성 user_role이 있어야 한다(SP_PROJECT_API_SECRET_ROTATE 내부에서 FN_IS_SUPER_ADMIN +
+   * FN_CHECK_PROJECT_ACCESS로 재검증 — role_code는 넘기지 않고 user_id만 전달한다).
+   * 새 평문 Secret은 여기서 생성해 암호화값만 SP에 전달하고, 응답에는 이 평문을 직접 얹는다.
    */
   async rotateApiSecret(
     projectId: number,
@@ -239,7 +250,6 @@ export class ProjectService {
     >('SP_PROJECT_API_SECRET_ROTATE', [
       projectId,
       requester.userId,
-      requester.roleCode,
       apiSecretEnc,
     ]);
 

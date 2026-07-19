@@ -113,6 +113,35 @@ describe('UserRoleService', () => {
       expect(result.items[0]).not.toHaveProperty('total_count');
     });
 
+    it('reports the real total_count when the requested page is out of range', async () => {
+      // SP_USER_ROLE_LIST가 offset이 실제 데이터 범위를 벗어나면 user_id 등 데이터 컬럼이
+      // 전부 NULL인 채로 total_count만 채운 행 1개를 반환한다(LEFT JOIN ... ON TRUE) — 그 행은
+      // items에서 제외돼야 하지만 total_count는 실제 값을 반영해야 한다.
+      spExecutor.callProcedure.mockResolvedValueOnce({
+        result: 0,
+        data: [
+          {
+            user_id: null,
+            project_id: null,
+            role_code: null,
+            status: null,
+            created_at: null,
+            updated_at: null,
+            total_count: 2,
+          },
+        ],
+      });
+
+      const result = await service.list({ page: 2, page_size: 20 }, 1);
+
+      expect(result).toEqual({
+        page: 2,
+        page_size: 20,
+        total_count: 2,
+        items: [],
+      });
+    });
+
     it('throws PERMISSION_DENIED when the SP rejects (20001)', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
       await expect(
