@@ -11,10 +11,16 @@ BEGIN
     -- 내용 : 현재 비밀번호 검증(bcrypt.compare)은 앱 레이어에서 이미 끝난 상태로 호출된다.
     --        password_hash 갱신과 "모든 활성 세션 종료"(07_AUTH_SECURITY.md 1.3)를 하나의
     --        트랜잭션으로 처리해, 비밀번호는 바뀌었는데 기존 세션이 살아있는 상태가 생기지 않게 한다.
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
+    --        캡처하고, 데이터 result set(before_json/after_json/requester_name)을 신규로 추가했다
+    --        (13_LOG_AUDIT_API.md 2.4 — 본인 비밀번호 변경도 user UPDATE 감사 로그 대상). 본인
+    --        조회라 requester_name도 i_user_id 자신의 user_name이다. password_hash는 '***'로
+    --        마스킹한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_before_json JSON         DEFAULT NULL;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -23,6 +29,16 @@ BEGIN
         ROLLBACK;
         SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
     END;
+
+    SELECT JSON_OBJECT(
+        'user_id', `user_id`, 'company_id', `company_id`,
+        'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+        'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+        'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+        'status', `status`, 'last_login_at', `last_login_at`,
+        'created_at', `created_at`, 'updated_at', `updated_at`
+    ) INTO v_before_json
+    FROM `user` WHERE `user_id` = i_user_id;
 
     START TRANSACTION;
 
@@ -37,6 +53,19 @@ BEGIN
     COMMIT;
 
     SELECT 0 AS RESULT;
+    SELECT
+        v_before_json AS before_json,
+        JSON_OBJECT(
+            'user_id', `user_id`, 'company_id', `company_id`,
+            'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+            'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+            'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+            'status', `status`, 'last_login_at', `last_login_at`,
+            'created_at', `created_at`, 'updated_at', `updated_at`
+        ) AS after_json,
+        `user_name` AS requester_name
+    FROM `user`
+    WHERE `user_id` = i_user_id;
 END$$
 
 DELIMITER ;

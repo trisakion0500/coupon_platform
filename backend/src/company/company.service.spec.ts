@@ -1,3 +1,4 @@
+import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
 import { BusinessException } from '../common/response/business.exception';
 import { ResultCode } from '../common/response/result-code.enum';
@@ -5,6 +6,7 @@ import { CompanyService } from './company.service';
 
 describe('CompanyService', () => {
   let spExecutor: jest.Mocked<Pick<SpExecutorService, 'callProcedure'>>;
+  let auditLog: jest.Mocked<Pick<AuditLogService, 'record'>>;
   let service: CompanyService;
 
   const companyRow = {
@@ -19,7 +21,11 @@ describe('CompanyService', () => {
 
   beforeEach(() => {
     spExecutor = { callProcedure: jest.fn() };
-    service = new CompanyService(spExecutor as unknown as SpExecutorService);
+    auditLog = { record: jest.fn() };
+    service = new CompanyService(
+      spExecutor as unknown as SpExecutorService,
+      auditLog as unknown as AuditLogService,
+    );
   });
 
   describe('create', () => {

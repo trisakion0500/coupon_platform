@@ -1,3 +1,4 @@
+import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
 import { ResultCode } from '../common/response/result-code.enum';
 import { RoleCode } from '../common/roles/role-code.enum';
@@ -5,11 +6,16 @@ import { UserRoleService } from './user-role.service';
 
 describe('UserRoleService', () => {
   let spExecutor: jest.Mocked<Pick<SpExecutorService, 'callProcedure'>>;
+  let auditLog: jest.Mocked<Pick<AuditLogService, 'record'>>;
   let service: UserRoleService;
 
   beforeEach(() => {
     spExecutor = { callProcedure: jest.fn() };
-    service = new UserRoleService(spExecutor as unknown as SpExecutorService);
+    auditLog = { record: jest.fn() };
+    service = new UserRoleService(
+      spExecutor as unknown as SpExecutorService,
+      auditLog as unknown as AuditLogService,
+    );
   });
 
   it('returns role_code=10 for SUPER_ADMIN without calling the SP', async () => {

@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { randomBytes } from 'crypto';
+import { AuditAction } from '../common/audit-log/audit-action.enum';
+import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
 import { BusinessException } from '../common/response/business.exception';
@@ -48,9 +50,21 @@ interface ProjectCreateRow {
   status: number;
   created_at: string;
   updated_at: string;
+  /** 감사로그(log_audit)용 — after_json은 api_secret류가 '***'로 마스킹돼 있다. */
+  after_json: Record<string, unknown>;
+  requester_name: string | null;
 }
 
-export interface ProjectCreateResponse extends ProjectCreateRow {
+export interface ProjectCreateResponse {
+  project_id: number;
+  company_id: number;
+  project_code: string;
+  project_name: string;
+  description: string | null;
+  api_key: string;
+  status: number;
+  created_at: string;
+  updated_at: string;
   /** 이 응답에만 1회 노출되는 평문 Secret(11_PROJECT_API.md 2.1). */
   api_secret: string;
 }
@@ -65,6 +79,24 @@ export interface ApiSecretRotateResponse {
   /** 이 응답에만 1회 노출되는 평문 Secret(11_PROJECT_API.md 2.5). */
   api_secret: string;
   secret_rotated_at: string;
+}
+
+/** SP_PROJECT_UPDATE 반환 행 — 감사로그(log_audit)용 before_json/after_json/requester_name 포함. */
+interface ProjectUpdateRow extends ProjectRow {
+  before_json: Record<string, unknown>;
+  after_json: Record<string, unknown>;
+  requester_name: string | null;
+}
+
+/** SP_PROJECT_API_SECRET_ROTATE 반환 행 — 감사로그(log_audit)용 필드 포함. */
+interface ApiSecretRotateRow {
+  project_id: number;
+  company_id: number;
+  project_name: string;
+  secret_rotated_at: string;
+  before_json: Record<string, unknown>;
+  after_json: Record<string, unknown>;
+  requester_name: string | null;
 }
 
 /** 요청자 컨텍스트 — JwtAuthGuard가 검증한 JWT 페이로드 값(DB 재조회 없이 신뢰). */
@@ -84,6 +116,7 @@ export class ProjectService {
   constructor(
     private readonly spExecutor: SpExecutorService,
     private readonly crypto: CryptoService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   async create(
@@ -119,7 +152,32 @@ export class ProjectService {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
 
-    return { ...data[0], api_secret: apiSecretPlain };
+    const row = data[0];
+    void this.auditLog.record({
+      action: AuditAction.CREATE,
+      companyId: row.company_id,
+      projectId: row.project_id,
+      tableName: 'project',
+      targetId: String(row.project_id),
+      targetName: row.project_name,
+      beforeJson: null,
+      afterJson: row.after_json,
+      createdBy: requesterUserId,
+      createdByName: row.requester_name,
+    });
+
+    return {
+      project_id: row.project_id,
+      company_id: row.company_id,
+      project_code: row.project_code,
+      project_name: row.project_name,
+      description: row.description,
+      api_key: row.api_key,
+      status: row.status,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      api_secret: apiSecretPlain,
+    };
   }
 
   async list(
@@ -208,16 +266,15 @@ export class ProjectService {
     dto: UpdateProjectDto,
     requesterUserId: number,
   ): Promise<ProjectRow> {
-    const { result, data } = await this.spExecutor.callProcedure<ProjectRow[]>(
-      'SP_PROJECT_UPDATE',
-      [
-        projectId,
-        dto.project_name ?? null,
-        dto.description ?? null,
-        dto.status ?? null,
-        requesterUserId,
-      ],
-    );
+    const { result, data } = await this.spExecutor.callProcedure<
+      ProjectUpdateRow[]
+    >('SP_PROJECT_UPDATE', [
+      projectId,
+      dto.project_name ?? null,
+      dto.description ?? null,
+      dto.status ?? null,
+      requesterUserId,
+    ]);
 
     if (result === 20001) {
       throw new BusinessException(ResultCode.PERMISSION_DENIED);
@@ -229,7 +286,34 @@ export class ProjectService {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
 
-    return data[0];
+    const row = data[0];
+    void this.auditLog.record({
+      action: AuditAction.UPDATE,
+      companyId: row.company_id,
+      projectId: row.project_id,
+      tableName: 'project',
+      targetId: String(row.project_id),
+      targetName: row.project_name,
+      beforeJson: row.before_json,
+      afterJson: row.after_json,
+      createdBy: requesterUserId,
+      createdByName: row.requester_name,
+    });
+
+    return {
+      project_id: row.project_id,
+      company_id: row.company_id,
+      company_code: row.company_code,
+      company_name: row.company_name,
+      project_code: row.project_code,
+      project_name: row.project_name,
+      api_key: row.api_key,
+      description: row.description,
+      status: row.status,
+      secret_rotated_at: row.secret_rotated_at,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
   }
 
   /**
@@ -246,7 +330,7 @@ export class ProjectService {
     const apiSecretEnc = this.crypto.encrypt(apiSecretPlain);
 
     const { result, data } = await this.spExecutor.callProcedure<
-      Array<{ project_id: number; secret_rotated_at: string }>
+      ApiSecretRotateRow[]
     >('SP_PROJECT_API_SECRET_ROTATE', [
       projectId,
       requester.userId,
@@ -263,7 +347,25 @@ export class ProjectService {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
 
-    return { ...data[0], api_secret: apiSecretPlain };
+    const row = data[0];
+    void this.auditLog.record({
+      action: AuditAction.UPDATE,
+      companyId: row.company_id,
+      projectId: row.project_id,
+      tableName: 'project',
+      targetId: String(row.project_id),
+      targetName: row.project_name,
+      beforeJson: row.before_json,
+      afterJson: row.after_json,
+      createdBy: requester.userId,
+      createdByName: row.requester_name,
+    });
+
+    return {
+      project_id: row.project_id,
+      secret_rotated_at: row.secret_rotated_at,
+      api_secret: apiSecretPlain,
+    };
   }
 
   async lookup(

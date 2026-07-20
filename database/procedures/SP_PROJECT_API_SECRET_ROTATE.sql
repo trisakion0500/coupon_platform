@@ -20,10 +20,15 @@ BEGIN
     --        신규 값을 api_secret에 저장, secret_rotated_at을 갱신한다(07_AUTH_SECURITY.md 2.6
     --        Grace Period 방식). api_key는 변경하지 않는다. 반환 컬럼에 api_secret(암호문)은
     --        포함하지 않는다 — 평문은 앱 레이어가 자신이 생성한 값을 응답에 직접 얹는다.
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
+    --        캡처하고, 결과 SELECT에 company_id/project_name(스코핑/표시명용)과
+    --        before_json/after_json/requester_name을 추가했다. api_secret/api_secret_prev는
+    --        '***'로 마스킹한다(13_LOG_AUDIT_API.md 2.4).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_before_json JSON         DEFAULT NULL;
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS CONDITION 1
@@ -42,6 +47,17 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
+        SELECT JSON_OBJECT(             -- before_json: UPDATE 직전 스냅샷(api_secret류 마스킹)
+            'project_id', `project_id`, 'company_id', `company_id`,
+            'project_code', `project_code`, 'project_name', `project_name`,
+            'description', `description`, 'api_key', `api_key`,
+            'api_secret', '***',
+            'api_secret_prev', IF(`api_secret_prev` IS NULL, NULL, '***'),
+            'secret_rotated_at', `secret_rotated_at`, 'status', `status`,
+            'created_at', `created_at`, 'updated_at', `updated_at`
+        ) INTO v_before_json
+        FROM `project` WHERE `project_id` = i_project_id;
+
         UPDATE `project`
         SET
             `api_secret_prev`   = `api_secret`,
@@ -50,7 +66,19 @@ BEGIN
         WHERE `project_id` = i_project_id;
 
         SELECT 0 AS RESULT;
-        SELECT `project_id`, `secret_rotated_at`
+        SELECT
+            `project_id`, `company_id`, `project_name`, `secret_rotated_at`,
+            v_before_json AS before_json,
+            JSON_OBJECT(
+                'project_id', `project_id`, 'company_id', `company_id`,
+                'project_code', `project_code`, 'project_name', `project_name`,
+                'description', `description`, 'api_key', `api_key`,
+                'api_secret', '***',
+                'api_secret_prev', IF(`api_secret_prev` IS NULL, NULL, '***'),
+                'secret_rotated_at', `secret_rotated_at`, 'status', `status`,
+                'created_at', `created_at`, 'updated_at', `updated_at`
+            ) AS after_json,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_user_id) AS requester_name
         FROM `project`
         WHERE `project_id` = i_project_id;
     END proc_block;

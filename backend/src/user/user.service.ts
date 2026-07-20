@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { AuditAction } from '../common/audit-log/audit-action.enum';
+import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
 import { BusinessException } from '../common/response/business.exception';
@@ -45,6 +47,16 @@ export interface UserResponse extends Omit<UserRow, 'phone_number'> {
   phone_number: string;
 }
 
+/**
+ * SP_USER_APPROVE/REJECT/UPDATE/PASSWORD_RESET 공통 반환 행 — 감사로그(log_audit)용
+ * before_json/after_json/requester_name이 추가로 온다(password_hash는 SP 내부에서 '***'로 마스킹).
+ */
+interface UserAuditRow extends UserRow {
+  before_json: Record<string, unknown>;
+  after_json: Record<string, unknown>;
+  requester_name: string | null;
+}
+
 /** 요청자 컨텍스트 — JwtAuthGuard가 검증한 JWT 페이로드 값(DB 재조회 없이 신뢰). */
 export interface UserRequester {
   userId: number;
@@ -62,6 +74,7 @@ export class UserService {
   constructor(
     private readonly spExecutor: SpExecutorService,
     private readonly crypto: CryptoService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   /**
@@ -160,19 +173,18 @@ export class UserService {
       ? this.crypto.encrypt(dto.phone_number)
       : null;
 
-    const { result, data } = await this.spExecutor.callProcedure<UserRow[]>(
-      'SP_USER_UPDATE',
-      [
-        userId,
-        dto.user_name ?? null,
-        dto.email ?? null,
-        phoneNumberEnc,
-        dto.department ?? null,
-        dto.position ?? null,
-        dto.status ?? null,
-        requesterUserId,
-      ],
-    );
+    const { result, data } = await this.spExecutor.callProcedure<
+      UserAuditRow[]
+    >('SP_USER_UPDATE', [
+      userId,
+      dto.user_name ?? null,
+      dto.email ?? null,
+      phoneNumberEnc,
+      dto.department ?? null,
+      dto.position ?? null,
+      dto.status ?? null,
+      requesterUserId,
+    ]);
 
     if (result === 20001) {
       throw new BusinessException(ResultCode.PERMISSION_DENIED);
@@ -187,7 +199,21 @@ export class UserService {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
 
-    return this.toUserResponse(data[0]);
+    const row = data[0];
+    void this.auditLog.record({
+      action: AuditAction.UPDATE,
+      companyId: row.company_id,
+      projectId: null,
+      tableName: 'user',
+      targetId: String(row.user_id),
+      targetName: row.user_name,
+      beforeJson: row.before_json,
+      afterJson: row.after_json,
+      createdBy: requesterUserId,
+      createdByName: row.requester_name,
+    });
+
+    return this.toUserResponse(row);
   }
 
   /**
@@ -201,10 +227,9 @@ export class UserService {
   ): Promise<UserResponse> {
     const newPasswordHash = await bcrypt.hash(dto.new_password, BCRYPT_ROUNDS);
 
-    const { result, data } = await this.spExecutor.callProcedure<UserRow[]>(
-      'SP_USER_PASSWORD_RESET',
-      [userId, newPasswordHash, requesterUserId],
-    );
+    const { result, data } = await this.spExecutor.callProcedure<
+      UserAuditRow[]
+    >('SP_USER_PASSWORD_RESET', [userId, newPasswordHash, requesterUserId]);
 
     if (result === 20001) {
       throw new BusinessException(ResultCode.PERMISSION_DENIED);
@@ -216,7 +241,21 @@ export class UserService {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
 
-    return this.toUserResponse(data[0]);
+    const row = data[0];
+    void this.auditLog.record({
+      action: AuditAction.UPDATE,
+      companyId: row.company_id,
+      projectId: null,
+      tableName: 'user',
+      targetId: String(row.user_id),
+      targetName: row.user_name,
+      beforeJson: row.before_json,
+      afterJson: row.after_json,
+      createdBy: requesterUserId,
+      createdByName: row.requester_name,
+    });
+
+    return this.toUserResponse(row);
   }
 
   /** SP_USER_APPROVE/SP_USER_REJECT 공용 — 둘 다 31003/30004로 동일하게 실패를 구분한다. */
@@ -225,10 +264,9 @@ export class UserService {
     userId: number,
     requesterUserId: number,
   ): Promise<UserResponse> {
-    const { result, data } = await this.spExecutor.callProcedure<UserRow[]>(
-      spName,
-      [userId, requesterUserId],
-    );
+    const { result, data } = await this.spExecutor.callProcedure<
+      UserAuditRow[]
+    >(spName, [userId, requesterUserId]);
 
     if (result === 20001) {
       throw new BusinessException(ResultCode.PERMISSION_DENIED);
@@ -243,7 +281,21 @@ export class UserService {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
 
-    return this.toUserResponse(data[0]);
+    const row = data[0];
+    void this.auditLog.record({
+      action: AuditAction.STATUS_CHANGE,
+      companyId: row.company_id,
+      projectId: null,
+      tableName: 'user',
+      targetId: String(row.user_id),
+      targetName: row.user_name,
+      beforeJson: row.before_json,
+      afterJson: row.after_json,
+      createdBy: requesterUserId,
+      createdByName: row.requester_name,
+    });
+
+    return this.toUserResponse(row);
   }
 
   /** password_hash는 SP 응답에 없으므로 별도 제외 처리가 필요 없고, phone_number만 복호화한다. */

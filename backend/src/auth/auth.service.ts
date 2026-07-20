@@ -5,6 +5,8 @@ import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import ms from 'ms';
 import type { StringValue } from 'ms';
+import { AuditAction } from '../common/audit-log/audit-action.enum';
+import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
 import type { JwtPayload } from '../common/jwt-auth/jwt-payload.interface';
@@ -47,6 +49,13 @@ interface SessionByRefreshRow {
   role_code: number;
 }
 
+/** SP_USER_PASSWORD_CHANGE 결과 result set — 감사로그(log_audit)용 필드만 담는다. */
+interface PasswordChangeAuditRow {
+  before_json: Record<string, unknown>;
+  after_json: Record<string, unknown>;
+  requester_name: string | null;
+}
+
 /**
  * 09_AUTH_API.md 6개 엔드포인트(회원가입/로그인/로그아웃/재발급/내정보/비번변경)의 비즈니스 로직.
  * SP가 시스템 오류(RESULT=50001)를 반환하면 `SpExecutorService.callProcedure` 자체가 이미
@@ -63,6 +72,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly crypto: CryptoService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   async signup(dto: SignupDto) {
@@ -184,10 +194,26 @@ export class AuthService {
     }
 
     const newPasswordHash = await bcrypt.hash(dto.new_password, BCRYPT_ROUNDS);
-    await this.spExecutor.callProcedure('SP_USER_PASSWORD_CHANGE', [
-      userId,
-      newPasswordHash,
-    ]);
+    const { data } = await this.spExecutor.callProcedure<
+      PasswordChangeAuditRow[]
+    >('SP_USER_PASSWORD_CHANGE', [userId, newPasswordHash]);
+
+    // 13_LOG_AUDIT_API.md 2.4 — 본인 비밀번호 변경도 user UPDATE 감사 로그 대상.
+    const row = data?.[0];
+    if (row) {
+      void this.auditLog.record({
+        action: AuditAction.UPDATE,
+        companyId: user.company_id,
+        projectId: null,
+        tableName: 'user',
+        targetId: String(userId),
+        targetName: user.user_name,
+        beforeJson: row.before_json,
+        afterJson: row.after_json,
+        createdBy: userId,
+        createdByName: row.requester_name,
+      });
+    }
   }
 
   /** 로그인 성공 시 Access/Refresh Token을 발급하고 세션을 생성한다(09_AUTH_API.md 5장). */

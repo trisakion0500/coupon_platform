@@ -25,6 +25,10 @@ BEGIN
     --        프로젝트 생성은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
     --        02_DEV_CONVENTIONS.md 3.2).
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 결과 SELECT에 after_json/requester_name을
+    --        추가했다(before_json은 CREATE라 NULL). after_json 안의 api_secret/api_secret_prev는
+    --        암호문이라도 ENCRYPTION_KEY 유출 시 복호화가 가능해 password_hash와 동일 수준으로
+    --        '***' 마스킹한다(13_LOG_AUDIT_API.md 2.4).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -74,7 +78,17 @@ BEGIN
         SELECT 0 AS RESULT;
         SELECT
             `project_id`, `company_id`, `project_code`, `project_name`, `description`,
-            `api_key`, `status`, `created_at`, `updated_at`
+            `api_key`, `status`, `created_at`, `updated_at`,
+            JSON_OBJECT(                    -- after_json: log_audit 스냅샷(api_secret류 마스킹)
+                'project_id', `project_id`, 'company_id', `company_id`,
+                'project_code', `project_code`, 'project_name', `project_name`,
+                'description', `description`, 'api_key', `api_key`,
+                'api_secret', '***',
+                'api_secret_prev', IF(`api_secret_prev` IS NULL, NULL, '***'),
+                'secret_rotated_at', `secret_rotated_at`, 'status', `status`,
+                'created_at', `created_at`, 'updated_at', `updated_at`
+            ) AS after_json,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS requester_name
         FROM `project`
         WHERE `project_id` = v_project_id;
     END proc_block;

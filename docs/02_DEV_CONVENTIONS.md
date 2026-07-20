@@ -8,7 +8,7 @@
 
 # 1. 로깅 원칙
 
-`log_audit`/`log_coupon_campaign`/`log_coupon_use` 등 로그 테이블은 **메인 서비스 DB와 물리적으로 별도인 DB에 둔다** — "향후 분리될 수도 있다"는 가능성이 아니라 확정된 전제이며, 2026.07.19부터 **로컬 개발 환경에서도** 실제로 분리되어 있다(`coupon_platform`=메인, `coupon_platform_log`=로그 전용 DB). DDL은 `database/tables_log/`(개별 파일 + `all_log_tables.sql` 통합본)에 있고, `database/tables/all_tables.sql`에는 더 이상 포함되지 않는다. 접속 계정은 메인 DB와 같을 수도, 다를 수도 있어(운영 환경에서는 별도 계정일 가능성이 높음) 환경변수를 따로 관리한다(`LOG_DB_HOST`/`LOG_DB_PORT`/`LOG_DB_USER`/`LOG_DB_PASSWORD`/`LOG_DB_NAME`, `01_TECH_STACK.md` 참고). 과거 로그 적재 문제로 DB 전체가 장애를 겪은 경험 때문에, 로그가 안 쌓이는 상황이 오더라도 메인 트랜잭션(쿠폰 발급/사용 등 핵심 기능)은 절대 실패하면 안 된다.
+`log_audit`/`log_coupon_campaign`/`log_coupon_use` 등 로그 테이블은 **메인 서비스 DB와 물리적으로 별도인 DB에 둔다** — "향후 분리될 수도 있다"는 가능성이 아니라 확정된 전제이며, 2026.07.19부터 **로컬 개발 환경에서도** 실제로 분리되어 있다(`coupon_platform`=메인, `coupon_platform_log`=로그 전용 DB). DDL은 `database_log/tables/`(개별 파일 + `all_log_tables.sql` 통합본)에 있고, `database/tables/all_tables.sql`에는 더 이상 포함되지 않는다 — 메인 DB용 `database/`와 로그 DB용 `database_log/`를 별도 최상위 폴더로 분리해 물리적 DB 분리를 폴더 구조에서도 드러낸다. 접속 계정은 메인 DB와 같을 수도, 다를 수도 있어(운영 환경에서는 별도 계정일 가능성이 높음) 환경변수를 따로 관리한다(`LOG_DB_HOST`/`LOG_DB_PORT`/`LOG_DB_USER`/`LOG_DB_PASSWORD`/`LOG_DB_NAME`, `01_TECH_STACK.md` 참고). 과거 로그 적재 문제로 DB 전체가 장애를 겪은 경험 때문에, 로그가 안 쌓이는 상황이 오더라도 메인 트랜잭션(쿠폰 발급/사용 등 핵심 기능)은 절대 실패하면 안 된다.
 
 - 로그 테이블에 FK를 걸지 않는다(물리적으로 분리된 DB는 FK로 묶을 수 없음)
 - 로그 조회에 필요한 참조 정보는 조인 없이 볼 수 있도록 스냅샷 컬럼(예: `created_by_name`)으로 미리 비정규화해둔다
@@ -44,6 +44,7 @@ FN_CHECK_ROLE_LEVEL
 - 동작은 동사 위주로 짧게(`CREATE`/`UPDATE`/`APPROVE`/`RESERVE` 등)
 - Function은 여러 도메인의 SP에서 공용으로 호출되는 경우가 많아 특정 도메인에 묶이지 않는 서술적 이름(`FN_설명`)을 쓴다
 - 접두어뿐 아니라 저장 위치도 분리한다 — Procedure는 `database/procedures/`(개별 파일 + `all_procedures.sql` 통합본), Function은 `database/functions/`(개별 파일 + `all_functions.sql` 통합본)에 둔다(2026-07-19 폴더 분리). 동기화 원칙은 동일 — 개별 파일을 고치면 해당 통합 파일도 반드시 함께 갱신한다
+- **로그 DB(`coupon_platform_log`) 전용 SP는 `database_log/procedures/`(개별 파일 + `all_procedures_log.sql` 통합본)에 별도로 둔다**(2026-07-20 신설, 예: `SP_LOG_AUDIT_CREATE`) — `database_log/tables/`가 메인 테이블과 물리적으로 분리돼 있는 것과 동일한 이유로, 로그 DB에서만 실행되는 SP도 메인 DB SP(`database/procedures/`)와 저장 위치를 분리한다. 메인 DB 산출물은 `database/`, 로그 DB 산출물은 `database_log/`로 최상위 폴더 자체를 나눈다(각각 `tables/`+`procedures/` 하위 구조). `LogSpExecutorService`(로그 DB 전용 커넥션 풀)만 이 폴더의 SP를 호출한다
 
 ## 3.2 권한 체크는 재사용 가능한 Function으로 분리
 

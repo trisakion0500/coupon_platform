@@ -85,10 +85,18 @@ CREATE DATABASE coupon_platform_log
 ## 3.6 로그 테이블 생성
 
 ```bash
-mysql -u root -p coupon_platform_log < database/tables_log/all_log_tables.sql
+mysql -u root -p coupon_platform_log < database_log/tables/all_log_tables.sql
 ```
 
 로그 테이블은 FK가 없고 초기 데이터도 없다 — 스키마만 생성하면 된다.
+
+## 3.7 로그 DB용 Stored Procedure 생성
+
+로그 DB 전용 SP(`SP_LOG_AUDIT_CREATE` 등)는 메인 DB SP와 저장 위치가 분리돼 있다(`02_DEV_CONVENTIONS.md` 3.1 — 메인 DB 산출물은 `database/`, 로그 DB 산출물은 `database_log/`).
+
+```bash
+mysql -u root -p coupon_platform_log < database_log/procedures/all_procedures_log.sql
+```
 
 ---
 

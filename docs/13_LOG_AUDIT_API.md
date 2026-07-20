@@ -76,8 +76,11 @@ after_json = 상태 변경 후 전체 Row
 | table_name | 마스킹 필드   | 저장 값 |
 | ---------- | ------------- | ------- |
 | user       | password_hash | `"***"` |
+| project    | api_secret, api_secret_prev | `"***"` |
 
 `PATCH /auth/password`([09_AUTH_API.md](./09_AUTH_API.md) 9장), `POST /users/{user_id}/reset-password`([12_USER_API.md](./12_USER_API.md) 1.7) 호출 시 `user` 테이블 UPDATE 감사 로그가 생성되며, 이때 `password_hash`는 마스킹된다.
+
+`POST /projects`([11_PROJECT_API.md](./11_PROJECT_API.md) 2.1), `PATCH /projects/{project_id}`(2.4), `POST /projects/{project_id}/api-secret/rotate`(2.5) 호출 시 `project` 테이블 CREATE/UPDATE 감사 로그가 생성되며, 이때 `api_secret`/`api_secret_prev`는 마스킹된다(AES-256-CBC 암호문이라도 `ENCRYPTION_KEY` 유출 시 복호화가 가능하므로 `password_hash`와 동일 수준으로 취급).
 
 ## 2.5 수정 및 삭제 정책
 

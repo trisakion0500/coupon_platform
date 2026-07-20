@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { AuditAction } from '../common/audit-log/audit-action.enum';
+import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
 import { BusinessException } from '../common/response/business.exception';
 import {
@@ -35,6 +37,24 @@ interface UserRoleListRow extends Omit<UserRoleRow, 'user_id'> {
 }
 
 /**
+ * SP_USER_ROLE_CREATE 반환 행 — 감사로그(log_audit)용 company_id(project 조인)/user_name/
+ * project_name/after_json/requester_name이 추가로 온다. user_role은 company_id 컬럼이
+ * 없어 project 테이블 조인으로 얻는다(SP 주석 참고).
+ */
+interface UserRoleCreateRow extends UserRoleRow {
+  company_id: number;
+  user_name: string;
+  project_name: string;
+  after_json: Record<string, unknown>;
+  requester_name: string | null;
+}
+
+/** SP_USER_ROLE_UPDATE 반환 행 — UserRoleCreateRow + before_json. */
+interface UserRoleUpdateRow extends UserRoleCreateRow {
+  before_json: Record<string, unknown>;
+}
+
+/**
  * 11_PROJECT_API.md 3.1 `GET /user-roles/me` + 12_USER_API.md 3장(User Role) 3개
  * 엔드포인트(생성/목록/수정)의 비즈니스 로직.
  *
@@ -42,7 +62,10 @@ interface UserRoleListRow extends Omit<UserRoleRow, 'user_id'> {
  */
 @Injectable()
 export class UserRoleService {
-  constructor(private readonly spExecutor: SpExecutorService) {}
+  constructor(
+    private readonly spExecutor: SpExecutorService,
+    private readonly auditLog: AuditLogService,
+  ) {}
 
   /**
    * SUPER_ADMIN은 user_role 배정 여부와 무관하게 항상 role_code:10이라(11_PROJECT_API.md 3.1
@@ -78,10 +101,14 @@ export class UserRoleService {
     dto: CreateUserRoleDto,
     requesterUserId: number,
   ): Promise<UserRoleRow> {
-    const { result, data } = await this.spExecutor.callProcedure<UserRoleRow[]>(
-      'SP_USER_ROLE_CREATE',
-      [dto.user_id, dto.project_id, dto.role_code, requesterUserId],
-    );
+    const { result, data } = await this.spExecutor.callProcedure<
+      UserRoleCreateRow[]
+    >('SP_USER_ROLE_CREATE', [
+      dto.user_id,
+      dto.project_id,
+      dto.role_code,
+      requesterUserId,
+    ]);
 
     if (result === 20001) {
       throw new BusinessException(ResultCode.PERMISSION_DENIED);
@@ -102,7 +129,31 @@ export class UserRoleService {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
 
-    return data[0];
+    const row = data[0];
+    void this.auditLog.record({
+      action: AuditAction.CREATE,
+      companyId: row.company_id,
+      projectId: row.project_id,
+      tableName: 'user_role',
+      targetId: JSON.stringify({
+        user_id: row.user_id,
+        project_id: row.project_id,
+      }),
+      targetName: `${row.user_name} (${row.project_name})`,
+      beforeJson: null,
+      afterJson: row.after_json,
+      createdBy: requesterUserId,
+      createdByName: row.requester_name,
+    });
+
+    return {
+      user_id: row.user_id,
+      project_id: row.project_id,
+      role_code: row.role_code,
+      status: row.status,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
   }
 
   /** 12_USER_API.md 3.2 — SUPER_ADMIN 전용(RolesGuard + SP의 FN_IS_SUPER_ADMIN 재확인), 전부 선택 필터. */
@@ -159,16 +210,15 @@ export class UserRoleService {
     dto: UpdateUserRoleDto,
     requesterUserId: number,
   ): Promise<UserRoleRow> {
-    const { result, data } = await this.spExecutor.callProcedure<UserRoleRow[]>(
-      'SP_USER_ROLE_UPDATE',
-      [
-        userId,
-        projectId,
-        dto.role_code ?? null,
-        dto.status ?? null,
-        requesterUserId,
-      ],
-    );
+    const { result, data } = await this.spExecutor.callProcedure<
+      UserRoleUpdateRow[]
+    >('SP_USER_ROLE_UPDATE', [
+      userId,
+      projectId,
+      dto.role_code ?? null,
+      dto.status ?? null,
+      requesterUserId,
+    ]);
 
     if (result === 20001) {
       throw new BusinessException(ResultCode.PERMISSION_DENIED);
@@ -183,6 +233,30 @@ export class UserRoleService {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
 
-    return data[0];
+    const row = data[0];
+    void this.auditLog.record({
+      action: AuditAction.UPDATE,
+      companyId: row.company_id,
+      projectId: row.project_id,
+      tableName: 'user_role',
+      targetId: JSON.stringify({
+        user_id: row.user_id,
+        project_id: row.project_id,
+      }),
+      targetName: `${row.user_name} (${row.project_name})`,
+      beforeJson: row.before_json,
+      afterJson: row.after_json,
+      createdBy: requesterUserId,
+      createdByName: row.requester_name,
+    });
+
+    return {
+      user_id: row.user_id,
+      project_id: row.project_id,
+      role_code: row.role_code,
+      status: row.status,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
   }
 }

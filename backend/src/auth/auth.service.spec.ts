@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
+import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
 import { BusinessException } from '../common/response/business.exception';
@@ -24,17 +25,20 @@ describe('AuthService', () => {
   let spExecutor: jest.Mocked<Pick<SpExecutorService, 'callProcedure'>>;
   let jwtService: JwtService;
   let cryptoService: CryptoService;
+  let auditLog: jest.Mocked<Pick<AuditLogService, 'record'>>;
   let service: AuthService;
 
   beforeEach(() => {
     spExecutor = { callProcedure: jest.fn() };
     jwtService = new JwtService({ secret: 'test-jwt-secret' });
     cryptoService = new CryptoService(buildConfigService());
+    auditLog = { record: jest.fn() };
     service = new AuthService(
       spExecutor as unknown as SpExecutorService,
       jwtService,
       buildConfigService(),
       cryptoService,
+      auditLog as unknown as AuditLogService,
     );
   });
 

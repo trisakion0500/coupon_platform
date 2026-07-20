@@ -1,3 +1,4 @@
+import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
 import { ResultCode } from '../common/response/result-code.enum';
@@ -7,6 +8,7 @@ import { UserService } from './user.service';
 describe('UserService', () => {
   let spExecutor: jest.Mocked<Pick<SpExecutorService, 'callProcedure'>>;
   let crypto: jest.Mocked<Pick<CryptoService, 'encrypt' | 'decrypt'>>;
+  let auditLog: jest.Mocked<Pick<AuditLogService, 'record'>>;
   let service: UserService;
 
   const userRow = {
@@ -38,9 +40,11 @@ describe('UserService', () => {
       encrypt: jest.fn((plain: string) => `enc(${plain})`),
       decrypt: jest.fn((enc: string) => enc.replace(/^enc\(|\)$/g, '')),
     };
+    auditLog = { record: jest.fn() };
     service = new UserService(
       spExecutor as unknown as SpExecutorService,
       crypto as unknown as CryptoService,
+      auditLog as unknown as AuditLogService,
     );
   });
 

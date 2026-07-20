@@ -1,3 +1,4 @@
+import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
 import { BusinessException } from '../common/response/business.exception';
@@ -8,6 +9,7 @@ import { ProjectService } from './project.service';
 describe('ProjectService', () => {
   let spExecutor: jest.Mocked<Pick<SpExecutorService, 'callProcedure'>>;
   let crypto: jest.Mocked<Pick<CryptoService, 'encrypt'>>;
+  let auditLog: jest.Mocked<Pick<AuditLogService, 'record'>>;
   let service: ProjectService;
 
   const projectRow = {
@@ -35,9 +37,11 @@ describe('ProjectService', () => {
   beforeEach(() => {
     spExecutor = { callProcedure: jest.fn() };
     crypto = { encrypt: jest.fn((plain: string) => `enc(${plain})`) };
+    auditLog = { record: jest.fn() };
     service = new ProjectService(
       spExecutor as unknown as SpExecutorService,
       crypto as unknown as CryptoService,
+      auditLog as unknown as AuditLogService,
     );
   });
 

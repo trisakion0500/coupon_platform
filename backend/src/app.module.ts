@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { CompanyModule } from './company/company.module';
 import { ApiSecretCleanupModule } from './common/api-secret-cleanup/api-secret-cleanup.module';
+import { AuditLogModule } from './common/audit-log/audit-log.module';
 import { envValidationSchema } from './common/config/env.validation';
 import { DatabaseModule } from './common/database/database.module';
 import { LogDatabaseModule } from './common/database/log-database.module';
@@ -26,6 +27,7 @@ import { UserRoleModule } from './user-role/user-role.module';
     }),
     DatabaseModule,
     LogDatabaseModule,
+    AuditLogModule,
     SessionCleanupModule,
     ApiSecretCleanupModule,
     HealthModule,

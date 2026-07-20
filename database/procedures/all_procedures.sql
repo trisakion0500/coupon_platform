@@ -25,6 +25,11 @@ BEGIN
     --        회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 호출자가 실제 DB상 SUPER_ADMIN인지 재확인한다(방어적 이중
     --        체크, 02_DEV_CONVENTIONS.md 3.2) - 다른 검증보다 가장 먼저 확인한다.
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 결과 SELECT에 after_json/requester_name을
+    --        추가했다 - 로그 DB는 물리적으로 분리돼 있어 이 SP가 직접 기록할 수 없으므로, TS
+    --        서비스가 이 값을 그대로 SP_LOG_AUDIT_CREATE(로그 DB)에 전달한다(before_json은 CREATE라
+    --        NULL). requester_name은 JWT 페이로드에 user_name이 없어 여기서 user 테이블을 직접
+    --        조회해 채운다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -63,7 +68,13 @@ BEGIN
         SELECT 0 AS RESULT;
         SELECT
             `company_id`, `company_code`, `company_name`, `description`,
-            `status`, `created_at`, `updated_at`
+            `status`, `created_at`, `updated_at`,
+            JSON_OBJECT(                    -- after_json: log_audit 스냅샷(13_LOG_AUDIT_API.md)
+                'company_id', `company_id`, 'company_code', `company_code`,
+                'company_name', `company_name`, 'description', `description`,
+                'status', `status`, 'created_at', `created_at`, 'updated_at', `updated_at`
+            ) AS after_json,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS requester_name
         FROM `company`
         WHERE `company_id` = v_company_id;
     END proc_block;
@@ -316,10 +327,17 @@ BEGIN
     --        회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
     --        02_DEV_CONVENTIONS.md 3.2).
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
+    --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다 - 캡처와
+    --        UPDATE 사이에 이론상 레이스 윈도우가 있지만(관리콘솔 저빈도 트래픽이라 실무 영향 미미),
+    --        TS 레이어가 별도로 조회하는 방식(레이스 + user_role 등 일부 도메인은 단건 조회 SP
+    --        자체가 없어 신규 필요)보다 원자적이라 이 방식을 택했다(02_DEV_CONVENTIONS.md 3.2와
+    --        같은 "DB가 최종 방어선/근원" 원칙).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_before_json JSON         DEFAULT NULL;
 
     -- company_code 유니크 제약 위반(경쟁 상태로 사전 체크를 통과한 경우의 백스톱) — mysql_errno 1062
     DECLARE EXIT HANDLER FOR 1062
@@ -353,6 +371,13 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
+        SELECT JSON_OBJECT(             -- before_json: UPDATE 직전 스냅샷(log_audit용)
+            'company_id', `company_id`, 'company_code', `company_code`,
+            'company_name', `company_name`, 'description', `description`,
+            'status', `status`, 'created_at', `created_at`, 'updated_at', `updated_at`
+        ) INTO v_before_json
+        FROM `company` WHERE `company_id` = i_company_id;
+
         UPDATE `company`
         SET
             `company_code` = COALESCE(i_company_code, `company_code`),
@@ -364,7 +389,14 @@ BEGIN
         SELECT 0 AS RESULT;
         SELECT
             `company_id`, `company_code`, `company_name`, `description`,
-            `status`, `created_at`, `updated_at`
+            `status`, `created_at`, `updated_at`,
+            v_before_json AS before_json,
+            JSON_OBJECT(
+                'company_id', `company_id`, 'company_code', `company_code`,
+                'company_name', `company_name`, 'description', `description`,
+                'status', `status`, 'created_at', `created_at`, 'updated_at', `updated_at`
+            ) AS after_json,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS requester_name
         FROM `company`
         WHERE `company_id` = i_company_id;
     END proc_block;
@@ -485,10 +517,15 @@ BEGIN
     --        신규 값을 api_secret에 저장, secret_rotated_at을 갱신한다(07_AUTH_SECURITY.md 2.6
     --        Grace Period 방식). api_key는 변경하지 않는다. 반환 컬럼에 api_secret(암호문)은
     --        포함하지 않는다 — 평문은 앱 레이어가 자신이 생성한 값을 응답에 직접 얹는다.
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
+    --        캡처하고, 결과 SELECT에 company_id/project_name(스코핑/표시명용)과
+    --        before_json/after_json/requester_name을 추가했다. api_secret/api_secret_prev는
+    --        '***'로 마스킹한다(13_LOG_AUDIT_API.md 2.4).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_before_json JSON         DEFAULT NULL;
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS CONDITION 1
@@ -507,6 +544,17 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
+        SELECT JSON_OBJECT(             -- before_json: UPDATE 직전 스냅샷(api_secret류 마스킹)
+            'project_id', `project_id`, 'company_id', `company_id`,
+            'project_code', `project_code`, 'project_name', `project_name`,
+            'description', `description`, 'api_key', `api_key`,
+            'api_secret', '***',
+            'api_secret_prev', IF(`api_secret_prev` IS NULL, NULL, '***'),
+            'secret_rotated_at', `secret_rotated_at`, 'status', `status`,
+            'created_at', `created_at`, 'updated_at', `updated_at`
+        ) INTO v_before_json
+        FROM `project` WHERE `project_id` = i_project_id;
+
         UPDATE `project`
         SET
             `api_secret_prev`   = `api_secret`,
@@ -515,7 +563,19 @@ BEGIN
         WHERE `project_id` = i_project_id;
 
         SELECT 0 AS RESULT;
-        SELECT `project_id`, `secret_rotated_at`
+        SELECT
+            `project_id`, `company_id`, `project_name`, `secret_rotated_at`,
+            v_before_json AS before_json,
+            JSON_OBJECT(
+                'project_id', `project_id`, 'company_id', `company_id`,
+                'project_code', `project_code`, 'project_name', `project_name`,
+                'description', `description`, 'api_key', `api_key`,
+                'api_secret', '***',
+                'api_secret_prev', IF(`api_secret_prev` IS NULL, NULL, '***'),
+                'secret_rotated_at', `secret_rotated_at`, 'status', `status`,
+                'created_at', `created_at`, 'updated_at', `updated_at`
+            ) AS after_json,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_user_id) AS requester_name
         FROM `project`
         WHERE `project_id` = i_project_id;
     END proc_block;
@@ -553,6 +613,10 @@ BEGIN
     --        프로젝트 생성은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
     --        02_DEV_CONVENTIONS.md 3.2).
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 결과 SELECT에 after_json/requester_name을
+    --        추가했다(before_json은 CREATE라 NULL). after_json 안의 api_secret/api_secret_prev는
+    --        암호문이라도 ENCRYPTION_KEY 유출 시 복호화가 가능해 password_hash와 동일 수준으로
+    --        '***' 마스킹한다(13_LOG_AUDIT_API.md 2.4).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -602,7 +666,17 @@ BEGIN
         SELECT 0 AS RESULT;
         SELECT
             `project_id`, `company_id`, `project_code`, `project_name`, `description`,
-            `api_key`, `status`, `created_at`, `updated_at`
+            `api_key`, `status`, `created_at`, `updated_at`,
+            JSON_OBJECT(                    -- after_json: log_audit 스냅샷(api_secret류 마스킹)
+                'project_id', `project_id`, 'company_id', `company_id`,
+                'project_code', `project_code`, 'project_name', `project_name`,
+                'description', `description`, 'api_key', `api_key`,
+                'api_secret', '***',
+                'api_secret_prev', IF(`api_secret_prev` IS NULL, NULL, '***'),
+                'secret_rotated_at', `secret_rotated_at`, 'status', `status`,
+                'created_at', `created_at`, 'updated_at', `updated_at`
+            ) AS after_json,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS requester_name
         FROM `project`
         WHERE `project_id` = v_project_id;
     END proc_block;
@@ -864,10 +938,15 @@ BEGIN
     --        프로젝트 수정은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
     --        02_DEV_CONVENTIONS.md 3.2).
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
+    --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다.
+    --        api_secret/api_secret_prev는 이 SP가 건드리지 않는 필드지만 "전체 Row" 스냅샷
+    --        원칙(13_LOG_AUDIT_API.md 2.3)상 JSON에 포함하고 '***'로 마스킹한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_before_json JSON         DEFAULT NULL;
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS CONDITION 1
@@ -886,6 +965,17 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
+        SELECT JSON_OBJECT(             -- before_json: UPDATE 직전 스냅샷(api_secret류 마스킹)
+            'project_id', `project_id`, 'company_id', `company_id`,
+            'project_code', `project_code`, 'project_name', `project_name`,
+            'description', `description`, 'api_key', `api_key`,
+            'api_secret', '***',
+            'api_secret_prev', IF(`api_secret_prev` IS NULL, NULL, '***'),
+            'secret_rotated_at', `secret_rotated_at`, 'status', `status`,
+            'created_at', `created_at`, 'updated_at', `updated_at`
+        ) INTO v_before_json
+        FROM `project` WHERE `project_id` = i_project_id;
+
         UPDATE `project`
         SET
             `project_name` = COALESCE(i_project_name, `project_name`),
@@ -897,7 +987,18 @@ BEGIN
         SELECT
             p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
             p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
-            p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`
+            p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`,
+            v_before_json AS before_json,
+            JSON_OBJECT(
+                'project_id', p.`project_id`, 'company_id', p.`company_id`,
+                'project_code', p.`project_code`, 'project_name', p.`project_name`,
+                'description', p.`description`, 'api_key', p.`api_key`,
+                'api_secret', '***',
+                'api_secret_prev', IF(p.`api_secret_prev` IS NULL, NULL, '***'),
+                'secret_rotated_at', p.`secret_rotated_at`, 'status', p.`status`,
+                'created_at', p.`created_at`, 'updated_at', p.`updated_at`
+            ) AS after_json,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS requester_name
         FROM `project` p
         JOIN `company` c ON c.`company_id` = p.`company_id`
         WHERE p.`project_id` = i_project_id;
@@ -959,10 +1060,16 @@ BEGIN
     --        가입승인은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
     --        02_DEV_CONVENTIONS.md 3.2).
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
+    --        캡처하고(대상이 없으면 SELECT...INTO가 조용히 NULL을 남길 뿐이라 안전 — 이후
+    --        ROW_COUNT()=0 분기에서 어차피 LEAVE한다), 결과 SELECT에
+    --        before_json/after_json/requester_name을 추가했다. password_hash는 '***'로 마스킹한다
+    --        (13_LOG_AUDIT_API.md 2.4).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_before_json JSON         DEFAULT NULL;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -976,6 +1083,16 @@ BEGIN
             SELECT 20001 AS RESULT;
             LEAVE proc_block;
         END IF;
+
+        SELECT JSON_OBJECT(
+            'user_id', `user_id`, 'company_id', `company_id`,
+            'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+            'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+            'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+            'status', `status`, 'last_login_at', `last_login_at`,
+            'created_at', `created_at`, 'updated_at', `updated_at`
+        ) INTO v_before_json
+        FROM `user` WHERE `user_id` = i_user_id;
 
         UPDATE `user`
         SET `status` = 1
@@ -994,7 +1111,17 @@ BEGIN
         SELECT
             `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
             `phone_number`, `department`, `position`, `status`, `last_login_at`,
-            `created_at`, `updated_at`
+            `created_at`, `updated_at`,
+            v_before_json AS before_json,
+            JSON_OBJECT(
+                'user_id', `user_id`, 'company_id', `company_id`,
+                'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+                'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+                'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+                'status', `status`, 'last_login_at', `last_login_at`,
+                'created_at', `created_at`, 'updated_at', `updated_at`
+            ) AS after_json,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS requester_name
         FROM `user`
         WHERE `user_id` = i_user_id;
     END proc_block;
@@ -1214,10 +1341,16 @@ BEGIN
     -- 내용 : 현재 비밀번호 검증(bcrypt.compare)은 앱 레이어에서 이미 끝난 상태로 호출된다.
     --        password_hash 갱신과 "모든 활성 세션 종료"(07_AUTH_SECURITY.md 1.3)를 하나의
     --        트랜잭션으로 처리해, 비밀번호는 바뀌었는데 기존 세션이 살아있는 상태가 생기지 않게 한다.
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
+    --        캡처하고, 데이터 result set(before_json/after_json/requester_name)을 신규로 추가했다
+    --        (13_LOG_AUDIT_API.md 2.4 — 본인 비밀번호 변경도 user UPDATE 감사 로그 대상). 본인
+    --        조회라 requester_name도 i_user_id 자신의 user_name이다. password_hash는 '***'로
+    --        마스킹한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_before_json JSON         DEFAULT NULL;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -1226,6 +1359,16 @@ BEGIN
         ROLLBACK;
         SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
     END;
+
+    SELECT JSON_OBJECT(
+        'user_id', `user_id`, 'company_id', `company_id`,
+        'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+        'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+        'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+        'status', `status`, 'last_login_at', `last_login_at`,
+        'created_at', `created_at`, 'updated_at', `updated_at`
+    ) INTO v_before_json
+    FROM `user` WHERE `user_id` = i_user_id;
 
     START TRANSACTION;
 
@@ -1240,6 +1383,19 @@ BEGIN
     COMMIT;
 
     SELECT 0 AS RESULT;
+    SELECT
+        v_before_json AS before_json,
+        JSON_OBJECT(
+            'user_id', `user_id`, 'company_id', `company_id`,
+            'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+            'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+            'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+            'status', `status`, 'last_login_at', `last_login_at`,
+            'created_at', `created_at`, 'updated_at', `updated_at`
+        ) AS after_json,
+        `user_name` AS requester_name
+    FROM `user`
+    WHERE `user_id` = i_user_id;
 END$$
 
 DELIMITER ;
@@ -1266,10 +1422,14 @@ BEGIN
     --        비밀번호 강제 초기화는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
     --        02_DEV_CONVENTIONS.md 3.2).
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
+    --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다
+    --        (password_hash는 변경 전/후 모두 '***'로 마스킹 — 13_LOG_AUDIT_API.md 2.4).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_before_json JSON         DEFAULT NULL;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -1290,6 +1450,16 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
+        SELECT JSON_OBJECT(
+            'user_id', `user_id`, 'company_id', `company_id`,
+            'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+            'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+            'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+            'status', `status`, 'last_login_at', `last_login_at`,
+            'created_at', `created_at`, 'updated_at', `updated_at`
+        ) INTO v_before_json
+        FROM `user` WHERE `user_id` = i_user_id;
+
         START TRANSACTION;
 
             UPDATE `user`
@@ -1306,7 +1476,17 @@ BEGIN
         SELECT
             `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
             `phone_number`, `department`, `position`, `status`, `last_login_at`,
-            `created_at`, `updated_at`
+            `created_at`, `updated_at`,
+            v_before_json AS before_json,
+            JSON_OBJECT(
+                'user_id', `user_id`, 'company_id', `company_id`,
+                'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+                'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+                'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+                'status', `status`, 'last_login_at', `last_login_at`,
+                'created_at', `created_at`, 'updated_at', `updated_at`
+            ) AS after_json,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS requester_name
         FROM `user`
         WHERE `user_id` = i_user_id;
     END proc_block;
@@ -1329,10 +1509,14 @@ BEGIN
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : SP_USER_APPROVE와 동일한 조건부 UPDATE + 실패 사유 진단 패턴(31003 vs 30004),
     --        그리고 동일한 FN_IS_SUPER_ADMIN 재검증(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 SP_USER_APPROVE와 동일하게 UPDATE 직전
+    --        v_before_json 캡처 + 결과 SELECT에 before_json/after_json/requester_name 추가
+    --        (password_hash '***' 마스킹).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_before_json JSON         DEFAULT NULL;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -1346,6 +1530,16 @@ BEGIN
             SELECT 20001 AS RESULT;
             LEAVE proc_block;
         END IF;
+
+        SELECT JSON_OBJECT(
+            'user_id', `user_id`, 'company_id', `company_id`,
+            'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+            'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+            'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+            'status', `status`, 'last_login_at', `last_login_at`,
+            'created_at', `created_at`, 'updated_at', `updated_at`
+        ) INTO v_before_json
+        FROM `user` WHERE `user_id` = i_user_id;
 
         UPDATE `user`
         SET `status` = 2
@@ -1364,7 +1558,17 @@ BEGIN
         SELECT
             `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
             `phone_number`, `department`, `position`, `status`, `last_login_at`,
-            `created_at`, `updated_at`
+            `created_at`, `updated_at`,
+            v_before_json AS before_json,
+            JSON_OBJECT(
+                'user_id', `user_id`, 'company_id', `company_id`,
+                'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+                'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+                'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+                'status', `status`, 'last_login_at', `last_login_at`,
+                'created_at', `created_at`, 'updated_at', `updated_at`
+            ) AS after_json,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS requester_name
         FROM `user`
         WHERE `user_id` = i_user_id;
     END proc_block;
@@ -1396,6 +1600,10 @@ BEGIN
     --        복합 PK(user_id, project_id) 유니크 위반(경쟁 상태 백스톱) - mysql_errno 1062.
     --        이 SP는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, FN_IS_SUPER_ADMIN으로
     --        가장 먼저 재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 결과 SELECT에 after_json/requester_name과
+    --        스코핑/표시명용 company_id(project 조인)/user_name/project_name을 추가했다
+    --        (before_json은 CREATE라 NULL). user_role은 company_id 컬럼이 없어 project 테이블을
+    --        조인해서 얻는다 - 이미 위 검증 단계에서 하던 조인 패턴 그대로다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -1450,9 +1658,20 @@ BEGIN
         VALUES (i_user_id, i_project_id, i_role_code);
 
         SELECT 0 AS RESULT;
-        SELECT `user_id`, `project_id`, `role_code`, `status`, `created_at`, `updated_at`
-        FROM `user_role`
-        WHERE `user_id` = i_user_id AND `project_id` = i_project_id;
+        SELECT
+            ur.`user_id`, ur.`project_id`, ur.`role_code`, ur.`status`,
+            ur.`created_at`, ur.`updated_at`,
+            p.`company_id`, u.`user_name`, p.`project_name`,
+            JSON_OBJECT(                    -- after_json: log_audit 스냅샷
+                'user_id', ur.`user_id`, 'project_id', ur.`project_id`,
+                'role_code', ur.`role_code`, 'status', ur.`status`,
+                'created_at', ur.`created_at`, 'updated_at', ur.`updated_at`
+            ) AS after_json,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS requester_name
+        FROM `user_role` ur
+        JOIN `user` u ON u.`user_id` = ur.`user_id`
+        JOIN `project` p ON p.`project_id` = ur.`project_id`
+        WHERE ur.`user_id` = i_user_id AND ur.`project_id` = i_project_id;
     END proc_block;
 END$$
 
@@ -1589,10 +1808,15 @@ BEGIN
     --        물리 삭제 없음 원칙에 따라 권한 중지는 status=0 조건부 UPDATE로만 처리한다.
     --        이 SP는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, FN_IS_SUPER_ADMIN으로
     --        가장 먼저 재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
+    --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name과 스코핑/표시명용
+    --        company_id(project 조인)/user_name/project_name을 추가했다(SP_USER_ROLE_CREATE와
+    --        동일한 조인 패턴).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_before_json JSON         DEFAULT NULL;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -1619,6 +1843,12 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
+        SELECT JSON_OBJECT(             -- before_json: UPDATE 직전 스냅샷
+            'user_id', `user_id`, 'project_id', `project_id`, 'role_code', `role_code`,
+            'status', `status`, 'created_at', `created_at`, 'updated_at', `updated_at`
+        ) INTO v_before_json
+        FROM `user_role` WHERE `user_id` = i_user_id AND `project_id` = i_project_id;
+
         UPDATE `user_role`
         SET
             `role_code` = COALESCE(i_role_code, `role_code`),
@@ -1626,9 +1856,21 @@ BEGIN
         WHERE `user_id` = i_user_id AND `project_id` = i_project_id;
 
         SELECT 0 AS RESULT;
-        SELECT `user_id`, `project_id`, `role_code`, `status`, `created_at`, `updated_at`
-        FROM `user_role`
-        WHERE `user_id` = i_user_id AND `project_id` = i_project_id;
+        SELECT
+            ur.`user_id`, ur.`project_id`, ur.`role_code`, ur.`status`,
+            ur.`created_at`, ur.`updated_at`,
+            p.`company_id`, u.`user_name`, p.`project_name`,
+            v_before_json AS before_json,
+            JSON_OBJECT(
+                'user_id', ur.`user_id`, 'project_id', ur.`project_id`,
+                'role_code', ur.`role_code`, 'status', ur.`status`,
+                'created_at', ur.`created_at`, 'updated_at', ur.`updated_at`
+            ) AS after_json,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS requester_name
+        FROM `user_role` ur
+        JOIN `user` u ON u.`user_id` = ur.`user_id`
+        JOIN `project` p ON p.`project_id` = ur.`project_id`
+        WHERE ur.`user_id` = i_user_id AND ur.`project_id` = i_project_id;
     END proc_block;
 END$$
 
@@ -1985,10 +2227,14 @@ BEGIN
     --        사용자 수정은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
     --        02_DEV_CONVENTIONS.md 3.2).
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
+    --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다
+    --        (password_hash '***' 마스킹).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_before_json JSON         DEFAULT NULL;
 
     -- email 유니크 제약 위반(경쟁 상태로 사전 체크를 통과한 경우의 백스톱) — mysql_errno 1062
     DECLARE EXIT HANDLER FOR 1062
@@ -2022,6 +2268,16 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
+        SELECT JSON_OBJECT(
+            'user_id', `user_id`, 'company_id', `company_id`,
+            'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+            'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+            'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+            'status', `status`, 'last_login_at', `last_login_at`,
+            'created_at', `created_at`, 'updated_at', `updated_at`
+        ) INTO v_before_json
+        FROM `user` WHERE `user_id` = i_user_id;
+
         START TRANSACTION;
 
             UPDATE `user`
@@ -2046,7 +2302,17 @@ BEGIN
         SELECT
             `user_id`, `company_id`, `requested_project_id`, `login_id`, `user_name`, `email`,
             `phone_number`, `department`, `position`, `status`, `last_login_at`,
-            `created_at`, `updated_at`
+            `created_at`, `updated_at`,
+            v_before_json AS before_json,
+            JSON_OBJECT(
+                'user_id', `user_id`, 'company_id', `company_id`,
+                'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+                'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+                'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+                'status', `status`, 'last_login_at', `last_login_at`,
+                'created_at', `created_at`, 'updated_at', `updated_at`
+            ) AS after_json,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS requester_name
         FROM `user`
         WHERE `user_id` = i_user_id;
     END proc_block;

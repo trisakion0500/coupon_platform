@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { AuditAction } from '../common/audit-log/audit-action.enum';
+import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
 import {
   buildPaginatedResult,
@@ -27,6 +29,19 @@ export interface CompanyRow {
 interface CompanyListRow extends Omit<CompanyRow, 'company_id'> {
   company_id: number | null;
   total_count: number;
+}
+
+/** SP_COMPANY_CREATE 반환 행 — 감사로그(log_audit)용 after_json/requester_name이 추가로 온다. */
+interface CompanyCreateRow extends CompanyRow {
+  after_json: Record<string, unknown>;
+  requester_name: string | null;
+}
+
+/** SP_COMPANY_UPDATE 반환 행 — 감사로그(log_audit)용 before_json/after_json/requester_name이 추가로 온다. */
+interface CompanyUpdateRow extends CompanyRow {
+  before_json: Record<string, unknown>;
+  after_json: Record<string, unknown>;
+  requester_name: string | null;
 }
 
 export interface CompanyLookupRow {
@@ -58,7 +73,10 @@ export interface ActiveHeaderData {
  */
 @Injectable()
 export class CompanyService {
-  constructor(private readonly spExecutor: SpExecutorService) {}
+  constructor(
+    private readonly spExecutor: SpExecutorService,
+    private readonly auditLog: AuditLogService,
+  ) {}
 
   /**
    * 회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, SP도
@@ -69,15 +87,14 @@ export class CompanyService {
     dto: CreateCompanyDto,
     requesterUserId: number,
   ): Promise<CompanyRow> {
-    const { result, data } = await this.spExecutor.callProcedure<CompanyRow[]>(
-      'SP_COMPANY_CREATE',
-      [
-        dto.company_code,
-        dto.company_name,
-        dto.description ?? null,
-        requesterUserId,
-      ],
-    );
+    const { result, data } = await this.spExecutor.callProcedure<
+      CompanyCreateRow[]
+    >('SP_COMPANY_CREATE', [
+      dto.company_code,
+      dto.company_name,
+      dto.description ?? null,
+      requesterUserId,
+    ]);
 
     if (result === 20001) {
       throw new BusinessException(ResultCode.PERMISSION_DENIED);
@@ -89,7 +106,29 @@ export class CompanyService {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
 
-    return data[0];
+    const row = data[0];
+    void this.auditLog.record({
+      action: AuditAction.CREATE,
+      companyId: row.company_id,
+      projectId: null,
+      tableName: 'company',
+      targetId: String(row.company_id),
+      targetName: row.company_name,
+      beforeJson: null,
+      afterJson: row.after_json,
+      createdBy: requesterUserId,
+      createdByName: row.requester_name,
+    });
+
+    return {
+      company_id: row.company_id,
+      company_code: row.company_code,
+      company_name: row.company_name,
+      description: row.description,
+      status: row.status,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
   }
 
   async list(
@@ -159,17 +198,16 @@ export class CompanyService {
     dto: UpdateCompanyDto,
     requesterUserId: number,
   ): Promise<CompanyRow> {
-    const { result, data } = await this.spExecutor.callProcedure<CompanyRow[]>(
-      'SP_COMPANY_UPDATE',
-      [
-        companyId,
-        dto.company_code ?? null,
-        dto.company_name ?? null,
-        dto.description ?? null,
-        dto.status ?? null,
-        requesterUserId,
-      ],
-    );
+    const { result, data } = await this.spExecutor.callProcedure<
+      CompanyUpdateRow[]
+    >('SP_COMPANY_UPDATE', [
+      companyId,
+      dto.company_code ?? null,
+      dto.company_name ?? null,
+      dto.description ?? null,
+      dto.status ?? null,
+      requesterUserId,
+    ]);
 
     switch (result) {
       case 0:
@@ -188,7 +226,29 @@ export class CompanyService {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
 
-    return data[0];
+    const row = data[0];
+    void this.auditLog.record({
+      action: AuditAction.UPDATE,
+      companyId: row.company_id,
+      projectId: null,
+      tableName: 'company',
+      targetId: String(row.company_id),
+      targetName: row.company_name,
+      beforeJson: row.before_json,
+      afterJson: row.after_json,
+      createdBy: requesterUserId,
+      createdByName: row.requester_name,
+    });
+
+    return {
+      company_id: row.company_id,
+      company_code: row.company_code,
+      company_name: row.company_name,
+      description: row.description,
+      status: row.status,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
   }
 
   async lookup(companyCode: string): Promise<CompanyLookupRow> {

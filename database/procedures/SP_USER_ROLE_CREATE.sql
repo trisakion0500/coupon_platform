@@ -19,6 +19,10 @@ BEGIN
     --        복합 PK(user_id, project_id) 유니크 위반(경쟁 상태 백스톱) - mysql_errno 1062.
     --        이 SP는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, FN_IS_SUPER_ADMIN으로
     --        가장 먼저 재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
+    --        2026-07-20: 감사로그(log_audit) 적재를 위해 결과 SELECT에 after_json/requester_name과
+    --        스코핑/표시명용 company_id(project 조인)/user_name/project_name을 추가했다
+    --        (before_json은 CREATE라 NULL). user_role은 company_id 컬럼이 없어 project 테이블을
+    --        조인해서 얻는다 - 이미 위 검증 단계에서 하던 조인 패턴 그대로다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -73,9 +77,20 @@ BEGIN
         VALUES (i_user_id, i_project_id, i_role_code);
 
         SELECT 0 AS RESULT;
-        SELECT `user_id`, `project_id`, `role_code`, `status`, `created_at`, `updated_at`
-        FROM `user_role`
-        WHERE `user_id` = i_user_id AND `project_id` = i_project_id;
+        SELECT
+            ur.`user_id`, ur.`project_id`, ur.`role_code`, ur.`status`,
+            ur.`created_at`, ur.`updated_at`,
+            p.`company_id`, u.`user_name`, p.`project_name`,
+            JSON_OBJECT(                    -- after_json: log_audit 스냅샷
+                'user_id', ur.`user_id`, 'project_id', ur.`project_id`,
+                'role_code', ur.`role_code`, 'status', ur.`status`,
+                'created_at', ur.`created_at`, 'updated_at', ur.`updated_at`
+            ) AS after_json,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS requester_name
+        FROM `user_role` ur
+        JOIN `user` u ON u.`user_id` = ur.`user_id`
+        JOIN `project` p ON p.`project_id` = ur.`project_id`
+        WHERE ur.`user_id` = i_user_id AND ur.`project_id` = i_project_id;
     END proc_block;
 END$$
 
