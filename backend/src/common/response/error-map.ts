@@ -107,6 +107,10 @@ export const ERROR_MAP: Record<ResultCode, ErrorEntry> = {
     message: '현재 상태에서 허용되지 않는 처리입니다.',
     httpStatus: 400,
   },
+  [ResultCode.UPDATE_CONFLICT]: {
+    message: '다른 사용자가 먼저 수정했습니다. 최신 데이터를 다시 불러온 뒤 시도해주세요.',
+    httpStatus: 400,
+  },
 
   // 31000 — Validation (Not Found)
   [ResultCode.COMPANY_NOT_FOUND]: {

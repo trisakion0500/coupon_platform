@@ -5,6 +5,662 @@
 -- ------------------------------------------------------------------------------------------------------------ --
 
 -- ============================================================================================================ --
+-- SP_CAMPAIGN_APPROVE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_APPROVE`;
+DELIMITER $$
+CREATE PROCEDURE `SP_CAMPAIGN_APPROVE` (
+    IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 승인할 캠페인 ID
+    IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '캠페인 승인 - OPERATOR 승인불가(20001), approval_status 2->3 조건부 UPDATE (17_CAMPAIGN_API.md 2.6)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_CAMPAIGN_APPROVE
+    -- 작성 : 2026.07.20 trisakion
+    -- 내용 : 존재 확인(31004) -> 프로젝트 스코핑 + 승인권한 재검증 -> 조건부 UPDATE 순으로
+    --        처리한다. 승인은 SUPER_ADMIN/DEVELOPER/MANAGER만 가능하고 OPERATOR는 불가하다
+    --        (17_CAMPAIGN_API.md 2.6 Permission) - FN_GET_PROJECT_ROLE_CODE로 얻은 role_code가
+    --        40(OPERATOR)이면 "배정은 있으나 승인 권한이 없는" 경우이므로 이것도 20001로 응답한다
+    --        (배정 자체가 없는 경우와 동일한 코드를 쓴다 - 이 도메인은 "권한 부족"과 "배정 없음"을
+    --        세분화하지 않는다, 02_DEV_CONVENTIONS.md 3.2 원칙과 동일하게 SP가 최종 방어선).
+    --        approval_status=2(승인대기)가 아니거나 status=4(종료)면 조건부 UPDATE가 0건이 되어
+    --        30004로 응답한다(17_CAMPAIGN_API.md 2.6 State Transition, 1.3 종료 잠금).
+    --        log_coupon_campaign(action=40 APPROVE) 기록은 SP_CAMPAIGN_CREATE와 동일한 이유로
+    --        이 SP가 직접 하지 않는다 - 반환 행 전체를 TS 서비스가
+    --        SP_LOG_COUPON_CAMPAIGN_CREATE(로그 DB)에 그대로 전달한다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_role        TINYINT UNSIGNED DEFAULT NULL;
+    DECLARE v_project_id  BIGINT UNSIGNED  DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id
+        ) THEN
+            SELECT 31004 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT `project_id` INTO v_project_id
+        FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+
+        IF FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SET v_role = 10;
+        ELSE
+            SET v_role = FN_GET_PROJECT_ROLE_CODE(i_requester_user_id, v_project_id);
+        END IF;
+
+        IF v_role IS NULL OR v_role > 30 THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        UPDATE `coupon_campaign`
+        SET
+            `approval_status` = 3,
+            `approved_by`      = i_requester_user_id,
+            `approved_at`      = NOW(),
+            `updated_by`       = i_requester_user_id
+        WHERE `coupon_campaign_id` = i_coupon_campaign_id
+          AND `approval_status` = 2
+          AND `status` <> 4;
+
+        IF ROW_COUNT() = 0 THEN
+            SELECT 30004 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `coupon_campaign_id`, `project_id`, `name`, `campaign_start`, `campaign_end`,
+            `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
+            `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
+            `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
+            `created_by`, `updated_by`, `created_at`, `updated_at`
+        FROM `coupon_campaign`
+        WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_CAMPAIGN_CHANGE_STATUS
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_CHANGE_STATUS`;
+DELIMITER $$
+CREATE PROCEDURE `SP_CAMPAIGN_CHANGE_STATUS` (
+    IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 대상 캠페인 ID
+    IN i_status             TINYINT UNSIGNED, -- 전환할 목표 상태
+    IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '캠페인 상태변경 - 전이표 전체를 하나의 조건부 UPDATE로 원자 처리 (17_CAMPAIGN_API.md 2.5)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_CAMPAIGN_CHANGE_STATUS
+    -- 작성 : 2026.07.20 trisakion
+    -- 내용 : 존재 확인(31004) -> 프로젝트 스코핑 재검증(FN_CHECK_PROJECT_ACCESS, 20001, role_code
+    --        값 자체는 필요 없어 FN_GET_PROJECT_ROLE_CODE 대신 boolean 버전을 쓴다) -> 허용된
+    --        전이표(17_CAMPAIGN_API.md 2.5) 전체를 WHERE절 하나에 담아 조건부 UPDATE로 원자
+    --        처리한다(02_DEV_CONVENTIONS.md 4장 "동시성이 필요한 UPDATE는 조건부 갱신 우선").
+    --        조건부 UPDATE 하나로 "현재 status가 무엇이든, 그 status에서 목표 status로의 전이가
+    --        허용되는지 + (활성화 전이면) 승인 여부"까지 동시에 검증하므로, 상태를 먼저 읽어와
+    --        다시 비교하는 check-then-act 없이 동시 요청에도 안전하다. ROW_COUNT()=0이면(존재/
+    --        권한은 이미 통과했으므로) 남은 원인은 오직 "허용되지 않는 전이"뿐이라 30004로 확정
+    --        할 수 있다. i_status가 전이표에 아예 없는 값이어도 WHERE절의 어떤 OR 분기와도
+    --        매칭되지 않아 자연스럽게 0건으로 걸러진다.
+    --        log_coupon_campaign(action=30 STATUS_CHANGE) 기록은 SP_CAMPAIGN_CREATE와 동일한
+    --        이유로 이 SP가 직접 하지 않는다 - 반환 행 전체를 TS 서비스가
+    --        SP_LOG_COUPON_CAMPAIGN_CREATE(로그 DB)에 그대로 전달한다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_project_id  BIGINT UNSIGNED DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id
+        ) THEN
+            SELECT 31004 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT `project_id` INTO v_project_id
+        FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id)
+           AND NOT FN_CHECK_PROJECT_ACCESS(i_requester_user_id, v_project_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        UPDATE `coupon_campaign`
+        SET `status` = i_status, `updated_by` = i_requester_user_id
+        WHERE `coupon_campaign_id` = i_coupon_campaign_id
+          AND (
+              (`status` = 1 AND i_status = 2 AND `approval_status` IN (1, 3)) OR
+              (`status` = 1 AND i_status = 4) OR
+              (`status` = 2 AND i_status = 3) OR
+              (`status` = 2 AND i_status = 4) OR
+              (`status` = 3 AND i_status = 2 AND `approval_status` IN (1, 3)) OR
+              (`status` = 3 AND i_status = 4)
+          );
+
+        IF ROW_COUNT() = 0 THEN
+            SELECT 30004 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `coupon_campaign_id`, `project_id`, `name`, `campaign_start`, `campaign_end`,
+            `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
+            `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
+            `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
+            `created_by`, `updated_by`, `created_at`, `updated_at`
+        FROM `coupon_campaign`
+        WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_CAMPAIGN_CREATE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_CREATE`;
+DELIMITER $$
+CREATE PROCEDURE `SP_CAMPAIGN_CREATE` (
+    IN i_project_id        BIGINT UNSIGNED,  -- 소속 프로젝트 ID
+    IN i_name               VARCHAR(100),     -- 캠페인명
+    IN i_campaign_start     DATETIME,         -- 사용 가능 시작일시
+    IN i_campaign_end       DATETIME,         -- 사용 가능 종료일시
+    IN i_code_type          TINYINT UNSIGNED, -- 코드 발급 방식 (1:RANDOM, 2:FIXED)
+    IN i_use_hyphen         TINYINT UNSIGNED, -- 하이픈 포함 여부 (RANDOM에만 적용)
+    IN i_requested_qty      INT UNSIGNED,     -- 목표 발급 수량 (FIXED면 서버가 1로 강제)
+    IN i_use_limit_per_user INT UNSIGNED,     -- 동일 유저 재사용 허용 횟수
+    IN i_reward_data        JSON,             -- 보상 내용(자유 스키마, pass-through)
+    IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '캠페인 생성 - 프로젝트 스코핑 재검증, role_code 기반 approval_status 자동결정 (17_CAMPAIGN_API.md 2.1)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_CAMPAIGN_CREATE
+    -- 작성 : 2026.07.20 trisakion
+    -- 내용 : 쿠폰 도메인 최초 SP. 캠페인/코드 컨트롤은 회사 단위가 아니라 항상 **프로젝트 단위**로
+    --        스코핑한다(17_CAMPAIGN_API.md 1.2) — company/project/user 도메인의 "DEVELOPER는
+    --        회사 전체 조회" 예외가 이 도메인에는 적용되지 않는다. SUPER_ADMIN은 FN_IS_SUPER_ADMIN
+    --        으로 우회하고, 그 외 role은 FN_GET_PROJECT_ROLE_CODE(i_requester_user_id,
+    --        i_project_id)로 해당 프로젝트에 실제 활성 배정된 role_code를 얻는다(NULL이면 배정
+    --        자체가 없다는 뜻 -> 20001). 이렇게 얻은 role_code로 approval_status를 자동 결정한다
+    --        (role_code<=30 즉 SUPER_ADMIN/DEVELOPER/MANAGER면 1:승인불요, OPERATOR(40)면
+    --        2:승인대기 — 17_CAMPAIGN_API.md 2.1 Business Rules). project_id 자체의 존재 확인은
+    --        FN_GET_PROJECT_ROLE_CODE가 이미 project FK를 통해 암묵적으로 검증하지만(존재하지
+    --        않는 project_id는 배정도 있을 수 없음), SUPER_ADMIN 우회 경로는 이 검증을 건너뛰므로
+    --        별도로 존재 확인(31002)을 먼저 한다.
+    --        code_type=2(FIXED)면 요청값과 무관하게 requested_qty를 항상 1로 고정한다
+    --        (05_COUPON_ISSUANCE_SCENARIO.md 2장 — FIXED는 캠페인당 코드 1건뿐이며, "generated_qty
+    --        == requested_qty -> 완료" 판정 로직을 RANDOM과 동일하게 재사용하기 위함).
+    --        usable_qty/generated_qty/used_qty/generation_status/generation_error는 테이블
+    --        DEFAULT(0/0/0/1/NULL)를 그대로 따르므로 이 SP는 건드리지 않는다 — 코드는 아직 하나도
+    --        발급되지 않았으므로 usable_qty를 0보다 크게 열어둘 이유가 없다.
+    --        log_coupon_campaign(action=10 CREATE) 기록은 이 SP가 직접 하지 않는다 — 로그 DB가
+    --        물리적으로 분리돼 있어(02_DEV_CONVENTIONS.md 1장) 메인 SP가 호출할 수 없으므로, 이
+    --        SP가 반환하는 생성된 행 전체를 TS 서비스가 그대로 SP_LOG_COUPON_CAMPAIGN_CREATE(로그
+    --        DB)에 전달한다. log_audit(before/after JSON)와 달리 log_coupon_campaign은 컬럼을
+    --        그대로 복제하는 구조라(04_DATABASE_SCHEMA.md 10장) 이 SP가 별도 JSON 캡처를 할 필요가
+    --        없다 — 반환 행 자체가 곧 로그에 필요한 전부다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_role            TINYINT UNSIGNED DEFAULT NULL;
+    DECLARE v_approval_status TINYINT UNSIGNED DEFAULT NULL;
+    DECLARE v_requested_qty   INT UNSIGNED     DEFAULT NULL;
+    DECLARE v_campaign_id     BIGINT UNSIGNED  DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (SELECT 1 FROM `project` WHERE `project_id` = i_project_id) THEN
+            SELECT 31002 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SET v_role = 10;
+        ELSE
+            SET v_role = FN_GET_PROJECT_ROLE_CODE(i_requester_user_id, i_project_id);
+            IF v_role IS NULL THEN
+                SELECT 20001 AS RESULT;
+                LEAVE proc_block;
+            END IF;
+        END IF;
+
+        SET v_approval_status = IF(v_role <= 30, 1, 2);
+        SET v_requested_qty = IF(i_code_type = 2, 1, i_requested_qty);
+
+        INSERT INTO `coupon_campaign` (
+            `project_id`, `name`, `campaign_start`, `campaign_end`, `code_type`, `use_hyphen`,
+            `requested_qty`, `use_limit_per_user`, `approval_status`, `reward_data`,
+            `created_by`, `updated_by`
+        ) VALUES (
+            i_project_id, i_name, i_campaign_start, i_campaign_end, i_code_type, i_use_hyphen,
+            v_requested_qty, i_use_limit_per_user, v_approval_status, i_reward_data,
+            i_requester_user_id, i_requester_user_id
+        );
+
+        SET v_campaign_id = LAST_INSERT_ID();
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `coupon_campaign_id`, `project_id`, `name`, `campaign_start`, `campaign_end`,
+            `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
+            `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
+            `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
+            `created_by`, `updated_by`, `created_at`, `updated_at`
+        FROM `coupon_campaign`
+        WHERE `coupon_campaign_id` = v_campaign_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_CAMPAIGN_GET_BY_ID
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_GET_BY_ID`;
+DELIMITER $$
+CREATE PROCEDURE `SP_CAMPAIGN_GET_BY_ID` (
+    IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 조회할 캠페인 ID
+    IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '캠페인 단건 조회 - 미존재 31004, 스코핑 범위 밖 20001 (17_CAMPAIGN_API.md 2.3)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_CAMPAIGN_GET_BY_ID
+    -- 작성 : 2026.07.20 trisakion
+    -- 내용 : 존재 확인(31004) -> project_id 조회 -> 프로젝트 스코핑 재검증(20001) 순으로 처리한다.
+    --        17_CAMPAIGN_API.md 1.2/2.3 — "존재하지 않음"과 "스코핑 범위 밖"을 분리해서 각각
+    --        31004/20001로 응답한다(2026-07-20 문서 정정 — 이전에 2.3/4.1에 남아있던 "둘 다
+    --        31004" 서술은 1.2 일반 원칙과 어긋난 오기였고, 사용자 확인 후 20001로 통일함 —
+    --        company/project/user 도메인의 "스코핑 밖=20001" 선례와도 일치).
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_project_id  BIGINT UNSIGNED DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id
+        ) THEN
+            SELECT 31004 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT `project_id` INTO v_project_id
+        FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id)
+           AND NOT FN_CHECK_PROJECT_ACCESS(i_requester_user_id, v_project_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `coupon_campaign_id`, `project_id`, `name`, `campaign_start`, `campaign_end`,
+            `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
+            `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
+            `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
+            `created_by`, `updated_by`, `created_at`, `updated_at`
+        FROM `coupon_campaign`
+        WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_CAMPAIGN_LIST
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_LIST`;
+DELIMITER $$
+CREATE PROCEDURE `SP_CAMPAIGN_LIST` (
+    IN i_project_id        BIGINT UNSIGNED,   -- 필수 - 스코핑 기준(17_CAMPAIGN_API.md 2.2, 회사 단위 아님)
+    IN i_status            TINYINT UNSIGNED,  -- 상태 필터 (NULL이면 전체)
+    IN i_approval_status   TINYINT UNSIGNED,  -- 승인상태 필터 (NULL이면 전체)
+    IN i_generation_status TINYINT UNSIGNED,  -- 코드 생성 진행상태 필터 (NULL이면 전체)
+    IN i_code_type         TINYINT UNSIGNED,  -- 코드 발급 방식 필터 (NULL이면 전체)
+    IN i_page_size         INT,               -- 페이지당 행 수
+    IN i_offset            INT,               -- 시작 오프셋
+    IN i_requester_user_id BIGINT UNSIGNED    -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '캠페인 목록 조회 - project_id 필수 스코핑, 페이지네이션 (17_CAMPAIGN_API.md 2.2)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_CAMPAIGN_LIST
+    -- 작성 : 2026.07.20 trisakion
+    -- 내용 : company/project 도메인의 목록 조회와 달리, 이 도메인은 "회사 전체 조회" 예외가 없고
+    --        DEVELOPER/MANAGER/OPERATOR 전부 project_id 단위로만 스코핑한다(17_CAMPAIGN_API.md
+    --        1.2). 그래서 i_project_id는 필수이며(company_id처럼 NULL 허용 아님), SUPER_ADMIN
+    --        우회 후에는 FN_CHECK_PROJECT_ACCESS로 호출자가 그 프로젝트에 실제 활성 배정이
+    --        있는지만 확인하면 된다(role_code 값 자체는 이 SP의 분기에 필요 없음 —
+    --        FN_GET_PROJECT_ROLE_CODE가 아니라 FN_CHECK_PROJECT_ACCESS를 쓰는 이유).
+    --        total_count는 SP_PROJECT_LIST와 동일하게 COUNT(*) OVER()가 아니라 별도 서브쿼리 +
+    --        LEFT JOIN ... ON TRUE 패턴으로 반환한다(02_DEV_CONVENTIONS.md 3.6).
+    --        정렬은 status DESC, created_at DESC(17_CAMPAIGN_API.md 2.2 Sorting).
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id)
+           AND NOT FN_CHECK_PROJECT_ACCESS(i_requester_user_id, i_project_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            pg.`coupon_campaign_id`, pg.`project_id`, pg.`name`, pg.`code_type`,
+            pg.`requested_qty`, pg.`generated_qty`, pg.`generation_status`,
+            pg.`usable_qty`, pg.`used_qty`, pg.`status`, pg.`approval_status`,
+            pg.`campaign_start`, pg.`campaign_end`, pg.`created_at`, pg.`updated_at`,
+            cnt.`total_count`
+        FROM (
+            SELECT COUNT(*) AS total_count
+            FROM `coupon_campaign`
+            WHERE `project_id` = i_project_id
+              AND (i_status IS NULL OR `status` = i_status)
+              AND (i_approval_status IS NULL OR `approval_status` = i_approval_status)
+              AND (i_generation_status IS NULL OR `generation_status` = i_generation_status)
+              AND (i_code_type IS NULL OR `code_type` = i_code_type)
+        ) cnt
+        LEFT JOIN (
+            SELECT
+                `coupon_campaign_id`, `project_id`, `name`, `code_type`,
+                `requested_qty`, `generated_qty`, `generation_status`,
+                `usable_qty`, `used_qty`, `status`, `approval_status`,
+                `campaign_start`, `campaign_end`, `created_at`, `updated_at`
+            FROM `coupon_campaign`
+            WHERE `project_id` = i_project_id
+              AND (i_status IS NULL OR `status` = i_status)
+              AND (i_approval_status IS NULL OR `approval_status` = i_approval_status)
+              AND (i_generation_status IS NULL OR `generation_status` = i_generation_status)
+              AND (i_code_type IS NULL OR `code_type` = i_code_type)
+            ORDER BY `status` DESC, `created_at` DESC
+            LIMIT i_page_size OFFSET i_offset
+        ) pg ON TRUE;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_CAMPAIGN_REJECT
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_REJECT`;
+DELIMITER $$
+CREATE PROCEDURE `SP_CAMPAIGN_REJECT` (
+    IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 반려할 캠페인 ID
+    IN i_reject_reason      VARCHAR(500),     -- 반려 사유
+    IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '캠페인 반려 - OPERATOR 반려불가(20001), approval_status 2->4 조건부 UPDATE (17_CAMPAIGN_API.md 2.7)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_CAMPAIGN_REJECT
+    -- 작성 : 2026.07.20 trisakion
+    -- 내용 : SP_CAMPAIGN_APPROVE와 동일한 존재확인/스코핑+승인권한 재검증 패턴이며, 승인 대신
+    --        반려(approval_status=4) + reject_reason 기록만 다르다(17_CAMPAIGN_API.md 2.7).
+    --        반려 후 재상신은 별도 API 없이 SP_CAMPAIGN_UPDATE 호출 시 그 SP의 OPERATOR 재승인
+    --        규칙에 의해 approval_status가 2(승인대기)로 자동 재전환된다(17_CAMPAIGN_API.md 2.7
+    --        Business Rules).
+    --        log_coupon_campaign(action=50 REJECT) 기록은 SP_CAMPAIGN_CREATE와 동일한 이유로
+    --        이 SP가 직접 하지 않는다 - 반환 행 전체를 TS 서비스가
+    --        SP_LOG_COUPON_CAMPAIGN_CREATE(로그 DB)에 그대로 전달한다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_role        TINYINT UNSIGNED DEFAULT NULL;
+    DECLARE v_project_id  BIGINT UNSIGNED  DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id
+        ) THEN
+            SELECT 31004 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT `project_id` INTO v_project_id
+        FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+
+        IF FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SET v_role = 10;
+        ELSE
+            SET v_role = FN_GET_PROJECT_ROLE_CODE(i_requester_user_id, v_project_id);
+        END IF;
+
+        IF v_role IS NULL OR v_role > 30 THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        UPDATE `coupon_campaign`
+        SET
+            `approval_status` = 4,
+            `approved_by`      = i_requester_user_id,
+            `approved_at`      = NOW(),
+            `reject_reason`    = i_reject_reason,
+            `updated_by`       = i_requester_user_id
+        WHERE `coupon_campaign_id` = i_coupon_campaign_id
+          AND `approval_status` = 2
+          AND `status` <> 4;
+
+        IF ROW_COUNT() = 0 THEN
+            SELECT 30004 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `coupon_campaign_id`, `project_id`, `name`, `campaign_start`, `campaign_end`,
+            `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
+            `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
+            `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
+            `created_by`, `updated_by`, `created_at`, `updated_at`
+        FROM `coupon_campaign`
+        WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_CAMPAIGN_UPDATE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_UPDATE`;
+DELIMITER $$
+CREATE PROCEDURE `SP_CAMPAIGN_UPDATE` (
+    IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 수정할 캠페인 ID
+    IN i_updated_at         DATETIME,         -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 updated_at 그대로)
+    IN i_name               VARCHAR(100),     -- 새 캠페인명 (NULL이면 미변경)
+    IN i_campaign_start     DATETIME,         -- 새 시작일시 (NULL이면 미변경)
+    IN i_campaign_end       DATETIME,         -- 새 종료일시 (NULL이면 미변경)
+    IN i_use_limit_per_user INT UNSIGNED,     -- 새 재사용 허용 횟수 (NULL이면 미변경)
+    IN i_usable_qty         INT UNSIGNED,     -- 새 실제 사용가능 수량 (NULL이면 미변경)
+    IN i_reward_data        JSON,             -- 새 보상 내용 (NULL이면 미변경)
+    IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '캠페인 수정 - updated_at 낙관적 락 + status/수량/날짜 검증을 UPDATE 하나로 원자 처리 (17_CAMPAIGN_API.md 2.4)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_CAMPAIGN_UPDATE
+    -- 작성 : 2026.07.20 trisakion
+    -- 수정 : 2026.07.20 trisakion — read-then-update(check-then-act) 방식이 레이스 윈도우를
+    --        남긴다는 리뷰 지적을 받아, 검증+수정을 UPDATE 문 하나의 SET/WHERE절 안에서 원자적으로
+    --        처리하도록 재작성. 사용자가 "승인자가 본 updated_at과 다르면 거부하면 되지 않냐"고
+    --        제안해 낙관적 동시성 제어(optimistic concurrency)를 채택 — coupon_campaign.updated_at
+    --        은 모든 수정 시 자동 갱신되므로 별도 버전 컬럼 없이 이 값 하나로 "그 사이 변경 여부"를
+    --        판별한다(17_CAMPAIGN_API.md 2.4 Concurrency). 다만 이 낙관적 락은 "그 사이 아무것도
+    --        안 바뀌었는지"만 보장할 뿐 값 자체의 유효성(상태/수량/날짜)은 별개로 여전히 검증해야
+    --        하므로 두 가지를 같은 WHERE절에 함께 둔다(클라이언트를 신뢰하지 않는다는 02_DEV_
+    --        CONVENTIONS.md 3.2와 같은 원칙 — 낙관적 락 통과가 값 검증을 대신하지 않음).
+    -- 내용 : coupon_campaign_id/project_id/code_type/use_hyphen/requested_qty/generated_qty/
+    --        generation_status/generation_error/used_qty/status/approval_status류는 이 SP의
+    --        파라미터에 아예 없다 - 수정 불가 필드라 애초에 받지 않는다(17_CAMPAIGN_API.md 2.4
+    --        Non-Updatable Fields, status는 2.5 전용, approval_status는 2.6/2.7 전용). 단
+    --        approval_status/status는 아래 OPERATOR 재승인 규칙에 의해 부수효과로 바뀔 수 있다.
+    --        존재 확인(31004) -> 프로젝트 스코핑 재검증(FN_GET_PROJECT_ROLE_CODE, 20001)까지는
+    --        기존과 동일하게 사전에 처리한다(프로젝트 배정은 시간이 지나도 안 바뀌는 값이라 이
+    --        단계엔 레이스가 없다). 그 다음 단 하나의 UPDATE로:
+    --          WHERE: coupon_campaign_id 일치 AND updated_at 일치(낙관적 락) AND status<>4(1.3)
+    --                 AND (usable_qty 미지정 OR usable_qty<=generated_qty) AND campaign_end>campaign_start
+    --          SET  : OPERATOR 재승인/강제일시중지 로직을 status/approval_status 컬럼을 직접
+    --                 참조하는 IF(...)로 계산
+    --        를 원자적으로 처리한다. ROW_COUNT()=0이면 위 조건 중 무엇이 깨졌는지 재조회로 진단해
+    --        30005(충돌)/30004(종료)/30003(수량·날짜) 중 하나로 답한다 - SP_USER_APPROVE/REJECT의
+    --        "실패 후 재조회로 사유 진단" 패턴과 동일하다.
+    --        SET절 순서 주의: MySQL은 단일 테이블 UPDATE의 SET절을 왼쪽부터 순서대로 평가하며,
+    --        뒤에 오는 표현식은 앞에서 이미 갱신된 값을 본다(예: `SET a=a+1, b=a`면 b는 새 a값을
+    --        본다 - MySQL 공식 문서). `status` 계산이 `approval_status`의 "원래 값"을 봐야 하므로
+    --        `status =` 절을 `approval_status =` 절보다 반드시 먼저 둔다 - 순서를 바꾸면 강제
+    --        일시중지 조건이 항상 거짓으로 평가되는 조용한 버그가 된다.
+    --        OPERATOR 재승인 규칙(2.4 Business Rules): 호출자 role_code가 이 프로젝트에서 40
+    --        (OPERATOR)이고 수정 직전 approval_status가 3(승인완료)/4(반려)였다면, 수정과 동시에
+    --        approval_status=2(승인대기)로 재전환한다 - OPERATOR는 승인권한이 없어 이미 승인된
+    --        내용을 승인 절차 없이 바꾸는 우회를 막기 위함. 이때 status가 2(활성)였다면 함께
+    --        3(일시중지)로 강제 전환한다(미승인 내용이 활성 서비스로 계속 노출되는 상황 방지).
+    --        role_code<=30(승인권한 role)의 수정은 이 규칙이 발동하지 않고 즉시 그대로 반영된다.
+    --        log_coupon_campaign(action=20 UPDATE) 기록은 이 SP가 직접 하지 않는다 - 반환 행
+    --        전체를 TS 서비스가 SP_LOG_COUPON_CAMPAIGN_CREATE(로그 DB)에 그대로 전달한다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_role                 TINYINT UNSIGNED DEFAULT NULL;
+    DECLARE v_project_id           BIGINT UNSIGNED  DEFAULT NULL;
+    DECLARE v_check_updated_at     DATETIME         DEFAULT NULL;
+    DECLARE v_check_status         TINYINT UNSIGNED DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id
+        ) THEN
+            SELECT 31004 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT `project_id` INTO v_project_id
+        FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+
+        IF FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SET v_role = 10;
+        ELSE
+            SET v_role = FN_GET_PROJECT_ROLE_CODE(i_requester_user_id, v_project_id);
+            IF v_role IS NULL THEN
+                SELECT 20001 AS RESULT;
+                LEAVE proc_block;
+            END IF;
+        END IF;
+
+        UPDATE `coupon_campaign`
+        SET
+            `status`             = IF(
+                v_role = 40 AND `approval_status` IN (3, 4) AND `status` = 2, 3, `status`
+            ),
+            `approval_status`    = IF(v_role = 40 AND `approval_status` IN (3, 4), 2, `approval_status`),
+            `name`               = COALESCE(i_name, `name`),
+            `campaign_start`     = COALESCE(i_campaign_start, `campaign_start`),
+            `campaign_end`       = COALESCE(i_campaign_end, `campaign_end`),
+            `use_limit_per_user` = COALESCE(i_use_limit_per_user, `use_limit_per_user`),
+            `usable_qty`         = COALESCE(i_usable_qty, `usable_qty`),
+            `reward_data`        = COALESCE(i_reward_data, `reward_data`),
+            `updated_by`         = i_requester_user_id
+        WHERE `coupon_campaign_id` = i_coupon_campaign_id
+          AND `updated_at` = i_updated_at
+          AND `status` <> 4
+          AND (i_usable_qty IS NULL OR i_usable_qty <= `generated_qty`)
+          AND COALESCE(i_campaign_end, `campaign_end`) > COALESCE(i_campaign_start, `campaign_start`);
+
+        IF ROW_COUNT() = 0 THEN
+            SELECT `updated_at`, `status` INTO v_check_updated_at, v_check_status
+            FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+
+            IF v_check_updated_at <> i_updated_at THEN
+                SELECT 30005 AS RESULT;
+            ELSEIF v_check_status = 4 THEN
+                SELECT 30004 AS RESULT;
+            ELSE
+                SELECT 30003 AS RESULT;
+            END IF;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            `coupon_campaign_id`, `project_id`, `name`, `campaign_start`, `campaign_end`,
+            `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
+            `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
+            `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
+            `created_by`, `updated_by`, `created_at`, `updated_at`
+        FROM `coupon_campaign`
+        WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+
+-- ============================================================================================================ --
 -- SP_COMPANY_CREATE
 -- ============================================================================================================ --
 DROP PROCEDURE IF EXISTS `SP_COMPANY_CREATE`;

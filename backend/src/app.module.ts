@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
+import { CampaignModule } from './campaign/campaign.module';
 import { CompanyModule } from './company/company.module';
 import { ApiSecretCleanupModule } from './common/api-secret-cleanup/api-secret-cleanup.module';
 import { AuditLogModule } from './common/audit-log/audit-log.module';
@@ -36,6 +37,7 @@ import { UserRoleModule } from './user-role/user-role.module';
     ProjectModule,
     UserModule,
     UserRoleModule,
+    CampaignModule,
   ],
 })
 export class AppModule {}

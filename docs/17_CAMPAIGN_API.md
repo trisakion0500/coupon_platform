@@ -44,7 +44,7 @@ Role Code 표 자체는 [10_COMPANY_API.md](./10_COMPANY_API.md) 1.2를 따른�
 | MANAGER     | `project_id` (`user_role` 활성 배정 프로젝트만) |
 | OPERATOR    | `project_id` (`user_role` 활성 배정 프로젝트만) |
 
-DEVELOPER/MANAGER/OPERATOR 모두 스코핑 기준 자체는 동일(프로젝트 단위)하고, 역할별 차이는 승인 필요 여부·승인 권한 유무뿐이다. 스코핑 범위 밖의 `project_id`/`coupon_campaign_id`에 접근하면 20001(권한 없음)을 반환한다.
+DEVELOPER/MANAGER/OPERATOR 모두 스코핑 기준 자체는 동일(프로젝트 단위)하고, 역할별 차이는 승인 필요 여부·승인 권한 유무뿐이다. 스코핑 범위 밖의 `project_id`/`coupon_campaign_id`에 접근하면 20001(권한 없음)을 반환한다 — `coupon_campaign_id`가 아예 존재하지 않는 경우(31004)와는 구분한다.
 
 ## 1.3 종료된 캠페인(`status=4`) 잠금 원칙
 
@@ -224,7 +224,7 @@ GET /campaigns/{coupon_campaign_id}
 
 - SUPER_ADMIN, DEVELOPER, MANAGER, OPERATOR (스코핑 내 `project_id`만)
 
-미존재/스코핑 범위 밖이면 31004.
+미존재는 31004, 스코핑 범위 밖(1.2 일반 원칙과 동일)이면 20001.
 
 ---
 
@@ -240,9 +240,25 @@ PATCH /campaigns/{coupon_campaign_id}
 
 - SUPER_ADMIN, DEVELOPER, MANAGER, OPERATOR (스코핑 내 `project_id`만)
 
+### Request
+
+```json
+{
+  "updated_at": "2026-07-20 10:00:00",
+  "name": "여름 이벤트 쿠폰(연장)",
+  "campaign_end": "2026-09-15 23:59:59"
+}
+```
+
+`updated_at`은 필수다 — [2.3 Get Campaign](#23-get-campaign)에서 마지막으로 조회했을 때 받은 값을 그대로 되돌려 보낸다(낙관적 동시성 제어용 토큰, 아래 Concurrency 참고). 나머지 필드는 전부 선택(NULL/생략 시 미변경).
+
 ### Precondition
 
 `status != 4`(종료)여야 한다 — 종료된 캠페인은 어떤 필드도 수정 불가(1.3 참고). 위반 시 30004.
+
+### Concurrency
+
+`updated_at`이 서버의 현재 값과 다르면(=요청을 만드는 사이 다른 사용자가 이미 수정함) 30005(동시 수정 충돌)를 반환하고 이번 요청은 적용하지 않는다 — `coupon_campaign.updated_at`은 모든 수정 시 자동 갱신되므로 별도 버전 컬럼 없이 이 값 하나로 "그 사이 변경 여부"를 판별한다. 클라이언트는 최신 데이터를 다시 조회한 뒤 재시도해야 한다. 이 검증과 아래 Validation/Business Rules는 서버가 UPDATE 문 하나로 원자적으로 함께 처리한다(조건부 UPDATE, 02_DEV_CONVENTIONS.md 4장) — 즉 "그 사이 아무것도 안 바뀌었는지"와 "수정 내용 자체가 유효한지"를 별도 단계로 나눠 순차 확인하지 않는다.
 
 ### Updatable Fields
 
@@ -272,6 +288,7 @@ approval_status / approved_by / approved_at / reject_reason (2.6/2.7 전용, 단
 
 ### Validation
 
+- `updated_at`이 서버의 현재 값과 일치해야 함(불일치 시 30005 — 위 Concurrency 참고)
 - `campaign_end > campaign_start`
 - `usable_qty <= generated_qty` (아직 발급되지 않은 수량보다 많이 열 수 없음)
 - `name` 최대 100자, `use_limit_per_user` 1 이상
@@ -623,7 +640,7 @@ GET /campaigns/{coupon_campaign_id}/usages
 
 ### Errors
 
-미존재/스코핑 범위 밖 `coupon_campaign_id`는 31004.
+미존재는 31004, 스코핑 범위 밖(1.2 일반 원칙과 동일)이면 20001.
 
 ---
 
