@@ -52,6 +52,20 @@
 --  (이미 생성된 코드는 UNIQUE 제약으로 보호되는 정상 데이터라 버릴 이유가 없음).
 --  전이는 조건부 UPDATE로 원자성을 보장한다: 예) 재시도 트리거 시
 --  "UPDATE coupon_campaign SET generation_status=2 WHERE coupon_campaign_id=? AND generation_status=4"
+-- 낙관적 동시성 제어 (edit_count, 2026-07-20 추가)
+--  PATCH /campaigns/{id}(SP_CAMPAIGN_UPDATE)는 여러 필드를 한 번에 바꾸고 그 중 일부(승인상태
+--  재전환 등)는 "수정 직전 상태"에 따라 분기하는 로직이 있어, 단순 조건부 UPDATE만으로는
+--  "그 사이 다른 관리자가 승인/반려/상태변경을 먼저 했는지"까지 못 잡는다. 처음엔 updated_at
+--  (자동 갱신 컬럼)을 그대로 낙관적 락 토큰으로 재사용했으나, DATETIME이 초 단위까지만 기록돼
+--  같은 초 안에 두 수정이 겹치면(예: 승인 처리 직후 같은 초에 들어온 수정) 값이 안 바뀐 것처럼
+--  보여 충돌을 놓치는 사례가 실제로 재현됨 — 그래서 타이밍에 전혀 의존하지 않는 전용 정수
+--  카운터를 별도로 둔다. 이 캠페인 행을 바꾸는 SP(UPDATE/CHANGE_STATUS/APPROVE/REJECT) 전부가
+--  성공 시 `edit_count = edit_count + 1`을 실행하고, 클라이언트는 마지막으로 조회했을 때 받은
+--  값을 요청에 그대로 실어 보낸다 — SP는 WHERE절에 `edit_count = 받아온 값`을 조건으로 걸어,
+--  그 사이 이 행을 건드린 SP가 하나라도 있었다면(어떤 필드가 바뀌었든) 정확히 감지해 30005
+--  (동시 수정 충돌)로 거부한다. MySQL의 행 단위 락이 UPDATE 간 순서를 직렬화해주므로 두 요청이
+--  아무리 가깝게 들어와도 이 값 하나로 충돌을 확실하게 잡을 수 있다(17_CAMPAIGN_API.md 2.4
+--  Concurrency 참고).
 -- ------------------------------------------------------------------------------------------------------------ --
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `coupon_campaign`;
@@ -80,6 +94,7 @@ CREATE TABLE `coupon_campaign` (
   `updated_by`				BIGINT		UNSIGNED				DEFAULT NULL											COMMENT '수정자 계정 ID (user.user_id)',
   `created_at`				DATETIME				NOT NULL	DEFAULT CURRENT_TIMESTAMP								COMMENT '생성일시',
   `updated_at`				DATETIME				NOT NULL	DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	COMMENT '수정일시',
+  `edit_count`				INT			UNSIGNED	NOT NULL	DEFAULT 0												COMMENT '낙관적 동시성 제어용 수정 횟수(매 수정마다 +1, PATCH 요청은 이 값을 그대로 실어 보내야 함 - 위 헤더 주석 참고)',
   PRIMARY KEY (`coupon_campaign_id`),
   KEY `ix_project_status` (`project_id`,`status`),
   KEY `ix_project_approval_status` (`project_id`,`approval_status`),

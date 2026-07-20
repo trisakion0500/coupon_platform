@@ -33,6 +33,7 @@ describe('CampaignService', () => {
     updated_by: 4,
     created_at: '2026-07-20 10:00:00',
     updated_at: '2026-07-20 10:00:00',
+    edit_count: 0,
   };
 
   beforeEach(() => {
@@ -226,7 +227,7 @@ describe('CampaignService', () => {
 
       const result = await service.update(
         100,
-        { updated_at: '2026-07-20 10:00:00', name: 'Renamed' },
+        { edit_count: 0, name: 'Renamed' },
         4,
       );
 
@@ -234,35 +235,31 @@ describe('CampaignService', () => {
       expect(logSpExecutor.logCall).toHaveBeenCalled();
     });
 
-    it('passes updated_at through as the optimistic-lock token', async () => {
+    it('passes edit_count through as the optimistic-lock token', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({
         result: 0,
         data: [campaignRow],
       });
 
-      await service.update(
-        100,
-        { updated_at: '2026-07-20 10:00:00', name: 'Renamed' },
-        4,
-      );
+      await service.update(100, { edit_count: 0, name: 'Renamed' }, 4);
 
       expect(spExecutor.callProcedure).toHaveBeenCalledWith(
         'SP_CAMPAIGN_UPDATE',
-        [100, '2026-07-20 10:00:00', 'Renamed', null, null, null, null, null, 4],
+        [100, 0, 'Renamed', null, null, null, null, null, 4],
       );
     });
 
     it('throws CAMPAIGN_NOT_FOUND on 31004', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31004 });
       await expect(
-        service.update(999, { updated_at: '2026-07-20 10:00:00' }, 4),
+        service.update(999, { edit_count: 0 }, 4),
       ).rejects.toMatchObject({ resultCode: ResultCode.CAMPAIGN_NOT_FOUND });
     });
 
     it('throws INVALID_STATE_TRANSITION on 30004 (ended campaign)', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 30004 });
       await expect(
-        service.update(100, { updated_at: '2026-07-20 10:00:00' }, 4),
+        service.update(100, { edit_count: 0 }, 4),
       ).rejects.toMatchObject({
         resultCode: ResultCode.INVALID_STATE_TRANSITION,
       });
@@ -271,18 +268,14 @@ describe('CampaignService', () => {
     it('throws DISALLOWED_VALUE on 30003 (usable_qty > generated_qty)', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 30003 });
       await expect(
-        service.update(
-          100,
-          { updated_at: '2026-07-20 10:00:00', usable_qty: 99999 },
-          4,
-        ),
+        service.update(100, { edit_count: 0, usable_qty: 99999 }, 4),
       ).rejects.toMatchObject({ resultCode: ResultCode.DISALLOWED_VALUE });
     });
 
-    it('throws UPDATE_CONFLICT on 30005 (stale updated_at — someone else edited it first)', async () => {
+    it('throws UPDATE_CONFLICT on 30005 (stale edit_count — someone else edited it first)', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 30005 });
       await expect(
-        service.update(100, { updated_at: '2026-07-20 09:00:00' }, 4),
+        service.update(100, { edit_count: 0 }, 4),
       ).rejects.toMatchObject({ resultCode: ResultCode.UPDATE_CONFLICT });
     });
   });
@@ -294,7 +287,11 @@ describe('CampaignService', () => {
         data: [{ ...campaignRow, status: 2 }],
       });
 
-      const result = await service.changeStatus(100, { status: 2 }, 4);
+      const result = await service.changeStatus(
+        100,
+        { edit_count: 0, status: 2 },
+        4,
+      );
 
       expect(result.status).toBe(2);
       expect(logSpExecutor.logCall).toHaveBeenCalled();
@@ -303,7 +300,7 @@ describe('CampaignService', () => {
     it('throws INVALID_STATE_TRANSITION on 30004', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 30004 });
       await expect(
-        service.changeStatus(100, { status: 4 }, 4),
+        service.changeStatus(100, { edit_count: 0, status: 4 }, 4),
       ).rejects.toMatchObject({
         resultCode: ResultCode.INVALID_STATE_TRANSITION,
       });
@@ -312,8 +309,15 @@ describe('CampaignService', () => {
     it('throws CAMPAIGN_NOT_FOUND on 31004', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31004 });
       await expect(
-        service.changeStatus(999, { status: 2 }, 4),
+        service.changeStatus(999, { edit_count: 0, status: 2 }, 4),
       ).rejects.toMatchObject({ resultCode: ResultCode.CAMPAIGN_NOT_FOUND });
+    });
+
+    it('throws UPDATE_CONFLICT on 30005 (stale edit_count)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 30005 });
+      await expect(
+        service.changeStatus(100, { edit_count: 0, status: 2 }, 4),
+      ).rejects.toMatchObject({ resultCode: ResultCode.UPDATE_CONFLICT });
     });
   });
 
@@ -324,7 +328,7 @@ describe('CampaignService', () => {
         data: [{ ...campaignRow, approval_status: 3 }],
       });
 
-      const result = await service.approve(100, 1);
+      const result = await service.approve(100, { edit_count: 0 }, 1);
 
       expect(result.approval_status).toBe(3);
       expect(logSpExecutor.logCall).toHaveBeenCalled();
@@ -332,16 +336,27 @@ describe('CampaignService', () => {
 
     it('throws PERMISSION_DENIED when the SP rejects (20001, e.g. OPERATOR)', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
-      await expect(service.approve(100, 4)).rejects.toMatchObject({
+      await expect(
+        service.approve(100, { edit_count: 0 }, 4),
+      ).rejects.toMatchObject({
         resultCode: ResultCode.PERMISSION_DENIED,
       });
     });
 
     it('throws INVALID_STATE_TRANSITION on 30004', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 30004 });
-      await expect(service.approve(100, 1)).rejects.toMatchObject({
+      await expect(
+        service.approve(100, { edit_count: 0 }, 1),
+      ).rejects.toMatchObject({
         resultCode: ResultCode.INVALID_STATE_TRANSITION,
       });
+    });
+
+    it('throws UPDATE_CONFLICT on 30005 (stale edit_count)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 30005 });
+      await expect(
+        service.approve(100, { edit_count: 0 }, 1),
+      ).rejects.toMatchObject({ resultCode: ResultCode.UPDATE_CONFLICT });
     });
   });
 
@@ -354,7 +369,7 @@ describe('CampaignService', () => {
 
       const result = await service.reject(
         100,
-        { reject_reason: 'nope' },
+        { edit_count: 0, reject_reason: 'nope' },
         1,
       );
 
@@ -365,10 +380,17 @@ describe('CampaignService', () => {
     it('throws INVALID_STATE_TRANSITION on 30004', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 30004 });
       await expect(
-        service.reject(100, { reject_reason: 'nope' }, 1),
+        service.reject(100, { edit_count: 0, reject_reason: 'nope' }, 1),
       ).rejects.toMatchObject({
         resultCode: ResultCode.INVALID_STATE_TRANSITION,
       });
+    });
+
+    it('throws UPDATE_CONFLICT on 30005 (stale edit_count)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 30005 });
+      await expect(
+        service.reject(100, { edit_count: 0, reject_reason: 'nope' }, 1),
+      ).rejects.toMatchObject({ resultCode: ResultCode.UPDATE_CONFLICT });
     });
   });
 });

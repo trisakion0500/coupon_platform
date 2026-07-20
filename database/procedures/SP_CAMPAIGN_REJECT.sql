@@ -2,9 +2,10 @@ DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_REJECT`;
 DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_REJECT` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 반려할 캠페인 ID
+    IN i_edit_count         INT UNSIGNED,     -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 edit_count 그대로)
     IN i_reject_reason      VARCHAR(500),     -- 반려 사유
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 반려 - OPERATOR 반려불가(20001), approval_status 2->4 조건부 UPDATE (17_CAMPAIGN_API.md 2.7)'
+) COMMENT '캠페인 반려 - edit_count 낙관적 락 + OPERATOR 반려불가(20001) + approval_status 2->4 조건부 UPDATE (17_CAMPAIGN_API.md 2.7)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_REJECT
@@ -17,12 +18,17 @@ BEGIN
     --        log_coupon_campaign(action=50 REJECT) 기록은 SP_CAMPAIGN_CREATE와 동일한 이유로
     --        이 SP가 직접 하지 않는다 - 반환 행 전체를 TS 서비스가
     --        SP_LOG_COUPON_CAMPAIGN_CREATE(로그 DB)에 그대로 전달한다.
+    --        2026-07-20: edit_count 낙관적 락을 SP_CAMPAIGN_APPROVE와 동일한 이유로 이 SP에도
+    --        적용한다(반려자가 검토한 시점의 캠페인 내용과 실제 반려 시점의 내용이 다를 수 있는
+    --        문제, SP_CAMPAIGN_APPROVE 주석 참고). ROW_COUNT()=0이면 edit_count 불일치(30005)인지
+    --        반려 대상 상태 자체가 아닌지(30004)를 재조회로 구분한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
-    DECLARE v_role        TINYINT UNSIGNED DEFAULT NULL;
-    DECLARE v_project_id  BIGINT UNSIGNED  DEFAULT NULL;
+    DECLARE v_role             TINYINT UNSIGNED DEFAULT NULL;
+    DECLARE v_project_id       BIGINT UNSIGNED  DEFAULT NULL;
+    DECLARE v_check_edit_count INT UNSIGNED     DEFAULT NULL;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -59,13 +65,22 @@ BEGIN
             `approved_by`      = i_requester_user_id,
             `approved_at`      = NOW(),
             `reject_reason`    = i_reject_reason,
-            `updated_by`       = i_requester_user_id
+            `updated_by`       = i_requester_user_id,
+            `edit_count`       = `edit_count` + 1
         WHERE `coupon_campaign_id` = i_coupon_campaign_id
+          AND `edit_count` = i_edit_count
           AND `approval_status` = 2
           AND `status` <> 4;
 
         IF ROW_COUNT() = 0 THEN
-            SELECT 30004 AS RESULT;
+            SELECT `edit_count` INTO v_check_edit_count
+            FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+
+            IF v_check_edit_count <> i_edit_count THEN
+                SELECT 30005 AS RESULT;
+            ELSE
+                SELECT 30004 AS RESULT;
+            END IF;
             LEAVE proc_block;
         END IF;
 
@@ -75,7 +90,7 @@ BEGIN
             `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
             `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
             `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
-            `created_by`, `updated_by`, `created_at`, `updated_at`
+            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`
         FROM `coupon_campaign`
         WHERE `coupon_campaign_id` = i_coupon_campaign_id;
     END proc_block;

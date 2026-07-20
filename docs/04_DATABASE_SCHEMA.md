@@ -135,6 +135,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 - **승인 워크플로우(`approval_status`, `status`와 별개 축)**: `status`는 캠페인 라이프사이클(대기/활성/일시중지/종료), `approval_status`는 활성화해도 되는지에 대한 승인 여부다. MANAGER 이상이 생성/컨트롤하면 `approval_status=1`(승인불요)로 즉시 시작, OPERATOR가 생성/컨트롤하면 `approval_status=2`(승인대기)로 시작해 10/20/30이 승인/반려한다. `status`를 2(활성)로 전환하는 SP는 `approval_status IN (1,3)`(승인불요/승인완료)일 때만 허용 — 미승인 캠페인은 애초에 활성 상태에 도달할 수 없으므로 reserve 시점 체크는 `status=2`만 보면 된다. 변경 이력은 `log_coupon_campaign`에 별도 기록
 - `reward_data`는 완전 자유 스키마 JSON — 쿠폰서버는 내용을 해석하지 않고 게임서버로 그대로 pass-through
 - 쿠폰 코드 생성 규칙(RANDOM 전용): `nanoid.customAlphabet('23456789ABCDEFGHJKLMNPQRSTUVWXYZ', 12)().match(/.{1,4}/g)?.join('-')` → `XXXX-XXXX-XXXX` 형식
+- **`edit_count`(낙관적 동시성 제어)**: 이 행을 바꾸는 쓰기 API(수정/상태변경/승인/반려) 전부가 성공할 때마다 1씩 증가하는 전용 정수 카운터. `PATCH /campaigns/{id}`는 이 값을 필수로 받아 서버의 현재 값과 다르면(그 사이 다른 관리자가 먼저 수정) 30005로 거부한다([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.4 Concurrency). 처음엔 자동 갱신 컬럼 `updated_at`을 재사용했으나 `DATETIME`이 초 단위까지만 기록돼 같은 초 안의 동시 수정을 놓치는 사례가 실제로 재현되어, 타이밍에 의존하지 않는 정수 카운터로 교체함
 
 ### 상태 (`status`)
 

@@ -17,6 +17,7 @@ import { RoleCode } from '../common/roles/role-code.enum';
 import { Roles } from '../common/roles/roles.decorator';
 import { RolesGuard } from '../common/roles/roles.guard';
 import { CampaignService } from './campaign.service';
+import { ApproveCampaignDto } from './dto/approve-campaign.dto';
 import { ChangeCampaignStatusDto } from './dto/change-campaign-status.dto';
 import { CampaignListQueryDto } from './dto/campaign-list-query.dto';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
@@ -123,9 +124,10 @@ export class CampaignController {
   @HttpCode(200)
   approve(
     @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
+    @Body() dto: ApproveCampaignDto,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.campaignService.approve(campaignId, req.user!.userId);
+    return this.campaignService.approve(campaignId, dto, req.user!.userId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

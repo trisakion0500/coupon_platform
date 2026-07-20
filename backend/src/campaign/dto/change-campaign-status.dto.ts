@@ -1,4 +1,4 @@
-import { IsIn } from 'class-validator';
+import { IsIn, IsInt, Min } from 'class-validator';
 
 /**
  * POST /campaigns/{coupon_campaign_id}/status 요청 바디. 17_CAMPAIGN_API.md 2.5 전이표상
@@ -6,9 +6,17 @@ import { IsIn } from 'class-validator';
  * 실제 전이 가능 여부(현재 상태·승인상태 조합)는 SP_CAMPAIGN_CHANGE_STATUS의 조건부 UPDATE가
  * 최종 검증한다.
  *
+ * `edit_count`는 필수다 — 낙관적 동시성 제어 토큰(17_CAMPAIGN_API.md 2.5 Concurrency,
+ * SP_CAMPAIGN_UPDATE와 동일한 원칙). 캠페인을 바꾸는 액션은 수정/승인/반려/상태변경 순서로
+ * 다양하게 섞여 들어올 수 있어, 이 SP도 마지막으로 조회한 버전이 맞는지 검증해야 한다.
+ *
  * @author trisakion
  */
 export class ChangeCampaignStatusDto {
+  @IsInt()
+  @Min(0)
+  edit_count!: number;
+
   @IsIn([2, 3, 4])
   status!: number;
 }

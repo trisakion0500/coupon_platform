@@ -11,8 +11,9 @@ DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_APPROVE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_APPROVE` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 승인할 캠페인 ID
+    IN i_edit_count         INT UNSIGNED,     -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 edit_count 그대로)
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 승인 - OPERATOR 승인불가(20001), approval_status 2->3 조건부 UPDATE (17_CAMPAIGN_API.md 2.6)'
+) COMMENT '캠페인 승인 - edit_count 낙관적 락 + OPERATOR 승인불가(20001) + approval_status 2->3 조건부 UPDATE (17_CAMPAIGN_API.md 2.6)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_APPROVE
@@ -23,17 +24,26 @@ BEGIN
     --        40(OPERATOR)이면 "배정은 있으나 승인 권한이 없는" 경우이므로 이것도 20001로 응답한다
     --        (배정 자체가 없는 경우와 동일한 코드를 쓴다 - 이 도메인은 "권한 부족"과 "배정 없음"을
     --        세분화하지 않는다, 02_DEV_CONVENTIONS.md 3.2 원칙과 동일하게 SP가 최종 방어선).
-    --        approval_status=2(승인대기)가 아니거나 status=4(종료)면 조건부 UPDATE가 0건이 되어
-    --        30004로 응답한다(17_CAMPAIGN_API.md 2.6 State Transition, 1.3 종료 잠금).
     --        log_coupon_campaign(action=40 APPROVE) 기록은 SP_CAMPAIGN_CREATE와 동일한 이유로
     --        이 SP가 직접 하지 않는다 - 반환 행 전체를 TS 서비스가
     --        SP_LOG_COUPON_CAMPAIGN_CREATE(로그 DB)에 그대로 전달한다.
+    --        2026-07-20: edit_count 낙관적 락을 SP_CAMPAIGN_UPDATE뿐 아니라 이 SP에도 적용한다.
+    --        approval_status=2 조건만으로는 "승인자가 검토한 그 시점의 캠페인 내용"과 실제로
+    --        승인하는 시점의 내용이 같은지 보장하지 못한다 - 예를 들어 승인자가 화면에서
+    --        reward_data를 검토하고 승인 버튼을 누르는 사이에 다른 사람이 그 내용을 수정했다면,
+    --        approval_status는 여전히 2라서 이 조건만으로는 통과하지만 승인자는 자신이 검토한
+    --        것과 다른 버전을 승인하게 된다(사용자 지적 - 캠페인을 바꾸는 액션은 승인/거부/상태
+    --        변경/수정 순서로 다양하게 섞여 들어올 수 있어 SP_CAMPAIGN_UPDATE 하나만 검증해서는
+    --        부족하다). ROW_COUNT()=0이면 edit_count 불일치(30005)인지 승인 대상 상태 자체가
+    --        아닌지(30004, 17_CAMPAIGN_API.md 2.6 State Transition/1.3 종료 잠금)를 재조회로
+    --        구분한다 - SP_CAMPAIGN_UPDATE와 동일한 패턴.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
-    DECLARE v_role        TINYINT UNSIGNED DEFAULT NULL;
-    DECLARE v_project_id  BIGINT UNSIGNED  DEFAULT NULL;
+    DECLARE v_role             TINYINT UNSIGNED DEFAULT NULL;
+    DECLARE v_project_id       BIGINT UNSIGNED  DEFAULT NULL;
+    DECLARE v_check_edit_count INT UNSIGNED     DEFAULT NULL;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -69,13 +79,22 @@ BEGIN
             `approval_status` = 3,
             `approved_by`      = i_requester_user_id,
             `approved_at`      = NOW(),
-            `updated_by`       = i_requester_user_id
+            `updated_by`       = i_requester_user_id,
+            `edit_count`       = `edit_count` + 1
         WHERE `coupon_campaign_id` = i_coupon_campaign_id
+          AND `edit_count` = i_edit_count
           AND `approval_status` = 2
           AND `status` <> 4;
 
         IF ROW_COUNT() = 0 THEN
-            SELECT 30004 AS RESULT;
+            SELECT `edit_count` INTO v_check_edit_count
+            FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+
+            IF v_check_edit_count <> i_edit_count THEN
+                SELECT 30005 AS RESULT;
+            ELSE
+                SELECT 30004 AS RESULT;
+            END IF;
             LEAVE proc_block;
         END IF;
 
@@ -85,7 +104,7 @@ BEGIN
             `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
             `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
             `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
-            `created_by`, `updated_by`, `created_at`, `updated_at`
+            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`
         FROM `coupon_campaign`
         WHERE `coupon_campaign_id` = i_coupon_campaign_id;
     END proc_block;
@@ -93,38 +112,43 @@ END$$
 
 DELIMITER ;
 
--- ============================================================================================================ --
--- SP_CAMPAIGN_CHANGE_STATUS
--- ============================================================================================================ --
+
+
 DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_CHANGE_STATUS`;
 DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_CHANGE_STATUS` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 대상 캠페인 ID
+    IN i_edit_count         INT UNSIGNED,     -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 edit_count 그대로)
     IN i_status             TINYINT UNSIGNED, -- 전환할 목표 상태
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 상태변경 - 전이표 전체를 하나의 조건부 UPDATE로 원자 처리 (17_CAMPAIGN_API.md 2.5)'
+) COMMENT '캠페인 상태변경 - edit_count 낙관적 락 + 전이표 전체를 하나의 조건부 UPDATE로 원자 처리 (17_CAMPAIGN_API.md 2.5)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CHANGE_STATUS
     -- 작성 : 2026.07.20 trisakion
     -- 내용 : 존재 확인(31004) -> 프로젝트 스코핑 재검증(FN_CHECK_PROJECT_ACCESS, 20001, role_code
     --        값 자체는 필요 없어 FN_GET_PROJECT_ROLE_CODE 대신 boolean 버전을 쓴다) -> 허용된
-    --        전이표(17_CAMPAIGN_API.md 2.5) 전체를 WHERE절 하나에 담아 조건부 UPDATE로 원자
-    --        처리한다(02_DEV_CONVENTIONS.md 4장 "동시성이 필요한 UPDATE는 조건부 갱신 우선").
-    --        조건부 UPDATE 하나로 "현재 status가 무엇이든, 그 status에서 목표 status로의 전이가
-    --        허용되는지 + (활성화 전이면) 승인 여부"까지 동시에 검증하므로, 상태를 먼저 읽어와
-    --        다시 비교하는 check-then-act 없이 동시 요청에도 안전하다. ROW_COUNT()=0이면(존재/
-    --        권한은 이미 통과했으므로) 남은 원인은 오직 "허용되지 않는 전이"뿐이라 30004로 확정
-    --        할 수 있다. i_status가 전이표에 아예 없는 값이어도 WHERE절의 어떤 OR 분기와도
-    --        매칭되지 않아 자연스럽게 0건으로 걸러진다.
+    --        전이표(17_CAMPAIGN_API.md 2.5) + edit_count 일치를 WHERE절 하나에 담아 조건부
+    --        UPDATE로 원자 처리한다(02_DEV_CONVENTIONS.md 4장 "동시성이 필요한 UPDATE는 조건부
+    --        갱신 우선"). ROW_COUNT()=0이면(존재/권한은 이미 통과했으므로) edit_count 불일치인지
+    --        전이표 위반인지 재조회로 진단해 30005/30004로 구분한다 - SP_CAMPAIGN_UPDATE와 동일한
+    --        패턴(coupon_campaign.sql 헤더 주석 참고). i_status가 전이표에 아예 없는 값이어도
+    --        WHERE절의 어떤 OR 분기와도 매칭되지 않아 자연스럽게 0건으로 걸러진다.
     --        log_coupon_campaign(action=30 STATUS_CHANGE) 기록은 SP_CAMPAIGN_CREATE와 동일한
     --        이유로 이 SP가 직접 하지 않는다 - 반환 행 전체를 TS 서비스가
     --        SP_LOG_COUPON_CAMPAIGN_CREATE(로그 DB)에 그대로 전달한다.
+    --        2026-07-20: edit_count 낙관적 락을 SP_CAMPAIGN_UPDATE뿐 아니라 이 SP에도 적용 —
+    --        "승인 이후 상태변경", "상태변경 이후 수정"처럼 캠페인을 바꾸는 액션들은 어떤 순서로도
+    --        섞여 들어올 수 있어(사용자 지적), 특정 SP 하나만 검증해서는 부족하고 이 행을 바꾸는
+    --        쓰기 액션 전부가 "내가 마지막으로 본 버전이 맞는지"를 동일하게 검증해야 한다 —
+    --        예를 들어 운영자가 화면에서 본 캠페인 내용과 실제로 상태를 바꾸는 시점의 내용이
+    --        다르면(그 사이 누가 캠페인 필드를 수정했다면) 그것도 감지해야 하기 때문이다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
-    DECLARE v_project_id  BIGINT UNSIGNED DEFAULT NULL;
+    DECLARE v_project_id       BIGINT UNSIGNED  DEFAULT NULL;
+    DECLARE v_check_edit_count INT UNSIGNED     DEFAULT NULL;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -151,8 +175,9 @@ BEGIN
         END IF;
 
         UPDATE `coupon_campaign`
-        SET `status` = i_status, `updated_by` = i_requester_user_id
+        SET `status` = i_status, `updated_by` = i_requester_user_id, `edit_count` = `edit_count` + 1
         WHERE `coupon_campaign_id` = i_coupon_campaign_id
+          AND `edit_count` = i_edit_count
           AND (
               (`status` = 1 AND i_status = 2 AND `approval_status` IN (1, 3)) OR
               (`status` = 1 AND i_status = 4) OR
@@ -163,7 +188,14 @@ BEGIN
           );
 
         IF ROW_COUNT() = 0 THEN
-            SELECT 30004 AS RESULT;
+            SELECT `edit_count` INTO v_check_edit_count
+            FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+
+            IF v_check_edit_count <> i_edit_count THEN
+                SELECT 30005 AS RESULT;
+            ELSE
+                SELECT 30004 AS RESULT;
+            END IF;
             LEAVE proc_block;
         END IF;
 
@@ -173,13 +205,14 @@ BEGIN
             `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
             `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
             `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
-            `created_by`, `updated_by`, `created_at`, `updated_at`
+            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`
         FROM `coupon_campaign`
         WHERE `coupon_campaign_id` = i_coupon_campaign_id;
     END proc_block;
 END$$
 
 DELIMITER ;
+
 
 -- ============================================================================================================ --
 -- SP_CAMPAIGN_CREATE
@@ -278,7 +311,7 @@ BEGIN
             `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
             `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
             `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
-            `created_by`, `updated_by`, `created_at`, `updated_at`
+            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`
         FROM `coupon_campaign`
         WHERE `coupon_campaign_id` = v_campaign_id;
     END proc_block;
@@ -340,13 +373,14 @@ BEGIN
             `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
             `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
             `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
-            `created_by`, `updated_by`, `created_at`, `updated_at`
+            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`
         FROM `coupon_campaign`
         WHERE `coupon_campaign_id` = i_coupon_campaign_id;
     END proc_block;
 END$$
 
 DELIMITER ;
+
 
 -- ============================================================================================================ --
 -- SP_CAMPAIGN_LIST
@@ -430,16 +464,14 @@ END$$
 
 DELIMITER ;
 
--- ============================================================================================================ --
--- SP_CAMPAIGN_REJECT
--- ============================================================================================================ --
 DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_REJECT`;
 DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_REJECT` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 반려할 캠페인 ID
+    IN i_edit_count         INT UNSIGNED,     -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 edit_count 그대로)
     IN i_reject_reason      VARCHAR(500),     -- 반려 사유
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 반려 - OPERATOR 반려불가(20001), approval_status 2->4 조건부 UPDATE (17_CAMPAIGN_API.md 2.7)'
+) COMMENT '캠페인 반려 - edit_count 낙관적 락 + OPERATOR 반려불가(20001) + approval_status 2->4 조건부 UPDATE (17_CAMPAIGN_API.md 2.7)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_REJECT
@@ -452,12 +484,17 @@ BEGIN
     --        log_coupon_campaign(action=50 REJECT) 기록은 SP_CAMPAIGN_CREATE와 동일한 이유로
     --        이 SP가 직접 하지 않는다 - 반환 행 전체를 TS 서비스가
     --        SP_LOG_COUPON_CAMPAIGN_CREATE(로그 DB)에 그대로 전달한다.
+    --        2026-07-20: edit_count 낙관적 락을 SP_CAMPAIGN_APPROVE와 동일한 이유로 이 SP에도
+    --        적용한다(반려자가 검토한 시점의 캠페인 내용과 실제 반려 시점의 내용이 다를 수 있는
+    --        문제, SP_CAMPAIGN_APPROVE 주석 참고). ROW_COUNT()=0이면 edit_count 불일치(30005)인지
+    --        반려 대상 상태 자체가 아닌지(30004)를 재조회로 구분한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
-    DECLARE v_role        TINYINT UNSIGNED DEFAULT NULL;
-    DECLARE v_project_id  BIGINT UNSIGNED  DEFAULT NULL;
+    DECLARE v_role             TINYINT UNSIGNED DEFAULT NULL;
+    DECLARE v_project_id       BIGINT UNSIGNED  DEFAULT NULL;
+    DECLARE v_check_edit_count INT UNSIGNED     DEFAULT NULL;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -494,13 +531,22 @@ BEGIN
             `approved_by`      = i_requester_user_id,
             `approved_at`      = NOW(),
             `reject_reason`    = i_reject_reason,
-            `updated_by`       = i_requester_user_id
+            `updated_by`       = i_requester_user_id,
+            `edit_count`       = `edit_count` + 1
         WHERE `coupon_campaign_id` = i_coupon_campaign_id
+          AND `edit_count` = i_edit_count
           AND `approval_status` = 2
           AND `status` <> 4;
 
         IF ROW_COUNT() = 0 THEN
-            SELECT 30004 AS RESULT;
+            SELECT `edit_count` INTO v_check_edit_count
+            FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+
+            IF v_check_edit_count <> i_edit_count THEN
+                SELECT 30005 AS RESULT;
+            ELSE
+                SELECT 30004 AS RESULT;
+            END IF;
             LEAVE proc_block;
         END IF;
 
@@ -510,7 +556,7 @@ BEGIN
             `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
             `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
             `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
-            `created_by`, `updated_by`, `created_at`, `updated_at`
+            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`
         FROM `coupon_campaign`
         WHERE `coupon_campaign_id` = i_coupon_campaign_id;
     END proc_block;
@@ -525,7 +571,7 @@ DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_UPDATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_UPDATE` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 수정할 캠페인 ID
-    IN i_updated_at         DATETIME,         -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 updated_at 그대로)
+    IN i_edit_count         INT UNSIGNED,     -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 edit_count 그대로)
     IN i_name               VARCHAR(100),     -- 새 캠페인명 (NULL이면 미변경)
     IN i_campaign_start     DATETIME,         -- 새 시작일시 (NULL이면 미변경)
     IN i_campaign_end       DATETIME,         -- 새 종료일시 (NULL이면 미변경)
@@ -533,20 +579,23 @@ CREATE PROCEDURE `SP_CAMPAIGN_UPDATE` (
     IN i_usable_qty         INT UNSIGNED,     -- 새 실제 사용가능 수량 (NULL이면 미변경)
     IN i_reward_data        JSON,             -- 새 보상 내용 (NULL이면 미변경)
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 수정 - updated_at 낙관적 락 + status/수량/날짜 검증을 UPDATE 하나로 원자 처리 (17_CAMPAIGN_API.md 2.4)'
+) COMMENT '캠페인 수정 - edit_count 낙관적 락 + status/수량/날짜 검증을 UPDATE 하나로 원자 처리 (17_CAMPAIGN_API.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_UPDATE
     -- 작성 : 2026.07.20 trisakion
-    -- 수정 : 2026.07.20 trisakion — read-then-update(check-then-act) 방식이 레이스 윈도우를
+    -- 수정1: 2026.07.20 trisakion — read-then-update(check-then-act) 방식이 레이스 윈도우를
     --        남긴다는 리뷰 지적을 받아, 검증+수정을 UPDATE 문 하나의 SET/WHERE절 안에서 원자적으로
-    --        처리하도록 재작성. 사용자가 "승인자가 본 updated_at과 다르면 거부하면 되지 않냐"고
-    --        제안해 낙관적 동시성 제어(optimistic concurrency)를 채택 — coupon_campaign.updated_at
-    --        은 모든 수정 시 자동 갱신되므로 별도 버전 컬럼 없이 이 값 하나로 "그 사이 변경 여부"를
-    --        판별한다(17_CAMPAIGN_API.md 2.4 Concurrency). 다만 이 낙관적 락은 "그 사이 아무것도
-    --        안 바뀌었는지"만 보장할 뿐 값 자체의 유효성(상태/수량/날짜)은 별개로 여전히 검증해야
-    --        하므로 두 가지를 같은 WHERE절에 함께 둔다(클라이언트를 신뢰하지 않는다는 02_DEV_
-    --        CONVENTIONS.md 3.2와 같은 원칙 — 낙관적 락 통과가 값 검증을 대신하지 않음).
+    --        처리하도록 재작성. 처음엔 coupon_campaign.updated_at을 그대로 낙관적 락 토큰으로
+    --        재사용했다.
+    -- 수정2: 2026.07.20 trisakion — 실제 동시 요청(Promise.all)으로 재검증하는 과정에서 updated_at
+    --        방식의 구멍을 발견: DATETIME이 초 단위까지만 기록되다 보니, 같은 초 안에 승인
+    --        처리(SP_CAMPAIGN_APPROVE)와 이 SP의 수정 요청이 겹치면 updated_at 값이 안 바뀐
+    --        것처럼 보여 낙관적 락이 충돌을 그냥 통과시켜버리는 사례가 실제로 재현됨. 사용자
+    --        제안으로 시간 기반 토큰을 버리고 전용 정수 카운터 coupon_campaign.edit_count로
+    --        교체(coupon_campaign.sql 헤더 주석 참고) — 이 캠페인 행을 바꾸는 SP 전부
+    --        (UPDATE/CHANGE_STATUS/APPROVE/REJECT)가 성공 시 edit_count를 +1하므로, 타이밍과
+    --        무관하게 "그 사이 이 행을 건드린 SP가 있었는지"를 정확히 감지한다.
     -- 내용 : coupon_campaign_id/project_id/code_type/use_hyphen/requested_qty/generated_qty/
     --        generation_status/generation_error/used_qty/status/approval_status류는 이 SP의
     --        파라미터에 아예 없다 - 수정 불가 필드라 애초에 받지 않는다(17_CAMPAIGN_API.md 2.4
@@ -555,10 +604,10 @@ BEGIN
     --        존재 확인(31004) -> 프로젝트 스코핑 재검증(FN_GET_PROJECT_ROLE_CODE, 20001)까지는
     --        기존과 동일하게 사전에 처리한다(프로젝트 배정은 시간이 지나도 안 바뀌는 값이라 이
     --        단계엔 레이스가 없다). 그 다음 단 하나의 UPDATE로:
-    --          WHERE: coupon_campaign_id 일치 AND updated_at 일치(낙관적 락) AND status<>4(1.3)
+    --          WHERE: coupon_campaign_id 일치 AND edit_count 일치(낙관적 락) AND status<>4(1.3)
     --                 AND (usable_qty 미지정 OR usable_qty<=generated_qty) AND campaign_end>campaign_start
-    --          SET  : OPERATOR 재승인/강제일시중지 로직을 status/approval_status 컬럼을 직접
-    --                 참조하는 IF(...)로 계산
+    --          SET  : edit_count = edit_count + 1, OPERATOR 재승인/강제일시중지 로직을
+    --                 status/approval_status 컬럼을 직접 참조하는 IF(...)로 계산
     --        를 원자적으로 처리한다. ROW_COUNT()=0이면 위 조건 중 무엇이 깨졌는지 재조회로 진단해
     --        30005(충돌)/30004(종료)/30003(수량·날짜) 중 하나로 답한다 - SP_USER_APPROVE/REJECT의
     --        "실패 후 재조회로 사유 진단" 패턴과 동일하다.
@@ -581,7 +630,7 @@ BEGIN
     DECLARE error_message VARCHAR(255) DEFAULT '';
     DECLARE v_role                 TINYINT UNSIGNED DEFAULT NULL;
     DECLARE v_project_id           BIGINT UNSIGNED  DEFAULT NULL;
-    DECLARE v_check_updated_at     DATETIME         DEFAULT NULL;
+    DECLARE v_check_edit_count     INT UNSIGNED     DEFAULT NULL;
     DECLARE v_check_status         TINYINT UNSIGNED DEFAULT NULL;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -624,18 +673,19 @@ BEGIN
             `use_limit_per_user` = COALESCE(i_use_limit_per_user, `use_limit_per_user`),
             `usable_qty`         = COALESCE(i_usable_qty, `usable_qty`),
             `reward_data`        = COALESCE(i_reward_data, `reward_data`),
-            `updated_by`         = i_requester_user_id
+            `updated_by`         = i_requester_user_id,
+            `edit_count`         = `edit_count` + 1
         WHERE `coupon_campaign_id` = i_coupon_campaign_id
-          AND `updated_at` = i_updated_at
+          AND `edit_count` = i_edit_count
           AND `status` <> 4
           AND (i_usable_qty IS NULL OR i_usable_qty <= `generated_qty`)
           AND COALESCE(i_campaign_end, `campaign_end`) > COALESCE(i_campaign_start, `campaign_start`);
 
         IF ROW_COUNT() = 0 THEN
-            SELECT `updated_at`, `status` INTO v_check_updated_at, v_check_status
+            SELECT `edit_count`, `status` INTO v_check_edit_count, v_check_status
             FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id;
 
-            IF v_check_updated_at <> i_updated_at THEN
+            IF v_check_edit_count <> i_edit_count THEN
                 SELECT 30005 AS RESULT;
             ELSEIF v_check_status = 4 THEN
                 SELECT 30004 AS RESULT;
@@ -651,14 +701,13 @@ BEGIN
             `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
             `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
             `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
-            `created_by`, `updated_by`, `created_at`, `updated_at`
+            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`
         FROM `coupon_campaign`
         WHERE `coupon_campaign_id` = i_coupon_campaign_id;
     END proc_block;
 END$$
 
 DELIMITER ;
-
 
 -- ============================================================================================================ --
 -- SP_COMPANY_CREATE

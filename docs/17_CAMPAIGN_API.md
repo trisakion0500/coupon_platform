@@ -138,10 +138,13 @@ POST /campaigns
     "created_by": 4,
     "updated_by": 4,
     "created_at": "2026-07-17 10:00:00",
-    "updated_at": "2026-07-17 10:00:00"
+    "updated_at": "2026-07-17 10:00:00",
+    "edit_count": 0
   }
 }
 ```
+
+`edit_count`는 [2.4 Update Campaign](#24-update-campaign) 낙관적 동시성 제어용 토큰이다 — 이 캠페인을 조회한 화면에서 수정 요청을 만들 때 여기서 받은 값을 그대로 되돌려 보낸다.
 
 ---
 
@@ -244,13 +247,13 @@ PATCH /campaigns/{coupon_campaign_id}
 
 ```json
 {
-  "updated_at": "2026-07-20 10:00:00",
+  "edit_count": 3,
   "name": "여름 이벤트 쿠폰(연장)",
   "campaign_end": "2026-09-15 23:59:59"
 }
 ```
 
-`updated_at`은 필수다 — [2.3 Get Campaign](#23-get-campaign)에서 마지막으로 조회했을 때 받은 값을 그대로 되돌려 보낸다(낙관적 동시성 제어용 토큰, 아래 Concurrency 참고). 나머지 필드는 전부 선택(NULL/생략 시 미변경).
+`edit_count`는 필수다 — [2.3 Get Campaign](#23-get-campaign)에서 마지막으로 조회했을 때 받은 값을 그대로 되돌려 보낸다(낙관적 동시성 제어용 토큰, 아래 Concurrency 참고). 나머지 필드는 전부 선택(NULL/생략 시 미변경).
 
 ### Precondition
 
@@ -258,7 +261,9 @@ PATCH /campaigns/{coupon_campaign_id}
 
 ### Concurrency
 
-`updated_at`이 서버의 현재 값과 다르면(=요청을 만드는 사이 다른 사용자가 이미 수정함) 30005(동시 수정 충돌)를 반환하고 이번 요청은 적용하지 않는다 — `coupon_campaign.updated_at`은 모든 수정 시 자동 갱신되므로 별도 버전 컬럼 없이 이 값 하나로 "그 사이 변경 여부"를 판별한다. 클라이언트는 최신 데이터를 다시 조회한 뒤 재시도해야 한다. 이 검증과 아래 Validation/Business Rules는 서버가 UPDATE 문 하나로 원자적으로 함께 처리한다(조건부 UPDATE, 02_DEV_CONVENTIONS.md 4장) — 즉 "그 사이 아무것도 안 바뀌었는지"와 "수정 내용 자체가 유효한지"를 별도 단계로 나눠 순차 확인하지 않는다.
+`edit_count`가 서버의 현재 값과 다르면(=요청을 만드는 사이 다른 사용자가 이미 수정함) 30005(동시 수정 충돌)를 반환하고 이번 요청은 적용하지 않는다. 클라이언트는 최신 데이터를 다시 조회한 뒤 재시도해야 한다. 이 검증과 아래 Validation/Business Rules는 서버가 UPDATE 문 하나로 원자적으로 함께 처리한다(조건부 UPDATE, 02_DEV_CONVENTIONS.md 4장) — 즉 "그 사이 아무것도 안 바뀌었는지"와 "수정 내용 자체가 유효한지"를 별도 단계로 나눠 순차 확인하지 않는다.
+
+`coupon_campaign.edit_count`는 이 캠페인 행을 바꾸는 모든 쓰기 API(2.4 Update, 2.5 Change Status, 2.6 Approve, 2.7 Reject)가 성공할 때마다 1씩 증가하는 전용 정수 카운터다(테이블 DDL 헤더 주석 참고) — 처음엔 자동 갱신 컬럼인 `updated_at`을 그대로 재사용했으나, `DATETIME`이 초 단위까지만 기록돼 같은 초 안에 두 수정(예: 승인 처리 직후 같은 초에 들어온 수정)이 겹치면 값이 안 바뀐 것처럼 보여 충돌을 놓치는 사례가 실제로 재현되어, 타이밍에 전혀 의존하지 않는 정수 카운터로 교체했다.
 
 ### Updatable Fields
 
@@ -288,7 +293,7 @@ approval_status / approved_by / approved_at / reject_reason (2.6/2.7 전용, 단
 
 ### Validation
 
-- `updated_at`이 서버의 현재 값과 일치해야 함(불일치 시 30005 — 위 Concurrency 참고)
+- `edit_count`가 서버의 현재 값과 일치해야 함(불일치 시 30005 — 위 Concurrency 참고)
 - `campaign_end > campaign_start`
 - `usable_qty <= generated_qty` (아직 발급되지 않은 수량보다 많이 열 수 없음)
 - `name` 최대 100자, `use_limit_per_user` 1 이상
@@ -322,9 +327,16 @@ POST /campaigns/{coupon_campaign_id}/status
 
 ```json
 {
+  "edit_count": 3,
   "status": 2
 }
 ```
+
+`edit_count`는 필수다 — 마지막으로 조회했을 때 받은 값을 그대로 되돌려 보낸다(낙관적 동시성 제어용 토큰, 아래 Concurrency 참고).
+
+### Concurrency
+
+[2.4 Update Campaign의 Concurrency](#24-update-campaign)와 동일한 원칙 — `edit_count`가 서버의 현재 값과 다르면 30005(동시 수정 충돌)를 반환하고 상태 전이를 적용하지 않는다. 수정/승인/반려/상태변경은 어떤 순서로도 섞여 들어올 수 있어(예: 승인자가 화면을 보고 있는 사이 다른 관리자가 먼저 상태를 바꾼 경우), 이 SP도 조건부 UPDATE의 WHERE절에 `edit_count=i_edit_count`를 포함해 원자적으로 검증한다.
 
 ### Allowed State Transition
 
@@ -343,8 +355,8 @@ POST /campaigns/{coupon_campaign_id}/status
 
 - 조건부 UPDATE로 원자성 확보:
   ```sql
-  UPDATE coupon_campaign SET status=?
-  WHERE coupon_campaign_id=? AND status=? [AND approval_status IN (1,3)]
+  UPDATE coupon_campaign SET status=?, edit_count=edit_count+1
+  WHERE coupon_campaign_id=? AND edit_count=? AND status=? [AND approval_status IN (1,3)]
   ```
 - `log_coupon_campaign`에 `action=30`(STATUS_CHANGE) 스냅샷 기록
 
@@ -365,6 +377,20 @@ POST /campaigns/{coupon_campaign_id}/approve
 ### Permission
 
 - SUPER_ADMIN, DEVELOPER, MANAGER (스코핑 내 `project_id`만 — OPERATOR는 승인 불가)
+
+### Request
+
+```json
+{
+  "edit_count": 3
+}
+```
+
+`edit_count`는 필수다 — 승인자가 검토 화면에서 마지막으로 조회했을 때 받은 값을 그대로 되돌려 보낸다(낙관적 동시성 제어용 토큰, 아래 Concurrency 참고).
+
+### Concurrency
+
+[2.4 Update Campaign의 Concurrency](#24-update-campaign)와 동일한 원칙 — `edit_count`가 서버의 현재 값과 다르면(=승인자가 검토한 이후 내용이 바뀌었다는 뜻) 30005(동시 수정 충돌)를 반환하고 승인을 적용하지 않는다. 승인 시점의 `approval_status=2` 체크만으로는 "이미 승인된 건 재승인 못 함"만 막을 뿐 "승인자가 검토한 것과 다른 내용을 승인해버리는 것"은 막지 못하므로, 조건부 UPDATE의 WHERE절에 `edit_count=i_edit_count`를 함께 건다.
 
 ### State Transition
 
@@ -401,13 +427,20 @@ POST /campaigns/{coupon_campaign_id}/reject
 
 ```json
 {
+  "edit_count": 3,
   "reject_reason": "보상 아이템 ID 확인 필요"
 }
 ```
 
+`edit_count`는 필수다 — 마지막으로 조회했을 때 받은 값을 그대로 되돌려 보낸다(낙관적 동시성 제어용 토큰, 아래 Concurrency 참고).
+
 ### Validation
 
 - `reject_reason` 필수, 최대 500자
+
+### Concurrency
+
+[2.6 Approve Campaign의 Concurrency](#26-approve-campaign)와 동일한 원칙 — `edit_count`가 서버의 현재 값과 다르면 30005(동시 수정 충돌)를 반환하고 반려를 적용하지 않는다.
 
 ### State Transition
 

@@ -92,7 +92,7 @@ BEGIN
             `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
             `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
             `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
-            `created_by`, `updated_by`, `created_at`, `updated_at`
+            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`
         FROM `coupon_campaign`
         WHERE `coupon_campaign_id` = v_campaign_id;
     END proc_block;

@@ -7,6 +7,7 @@ import {
   PaginatedResult,
 } from '../common/response/pagination';
 import { ResultCode } from '../common/response/result-code.enum';
+import { ApproveCampaignDto } from './dto/approve-campaign.dto';
 import { ChangeCampaignStatusDto } from './dto/change-campaign-status.dto';
 import { CampaignListQueryDto } from './dto/campaign-list-query.dto';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
@@ -40,6 +41,8 @@ export interface CampaignRow {
   updated_by: number | null;
   created_at: string;
   updated_at: string;
+  /** 낙관적 동시성 제어 토큰 — PATCH /campaigns/{id} 요청 시 이 값을 그대로 되돌려 보내야 한다. */
+  edit_count: number;
 }
 
 /** SP_CAMPAIGN_LIST 반환 행 — 목록용 축약 컬럼 + total_count. */
@@ -227,7 +230,7 @@ export class CampaignService {
       CampaignRow[]
     >('SP_CAMPAIGN_UPDATE', [
       campaignId,
-      dto.updated_at,
+      dto.edit_count,
       dto.name ?? null,
       dto.campaign_start ?? null,
       dto.campaign_end ?? null,
@@ -268,13 +271,21 @@ export class CampaignService {
   ): Promise<CampaignRow> {
     const { result, data } = await this.spExecutor.callProcedure<
       CampaignRow[]
-    >('SP_CAMPAIGN_CHANGE_STATUS', [campaignId, dto.status, requesterUserId]);
+    >('SP_CAMPAIGN_CHANGE_STATUS', [
+      campaignId,
+      dto.edit_count,
+      dto.status,
+      requesterUserId,
+    ]);
 
     if (result === 31004) {
       throw new BusinessException(ResultCode.CAMPAIGN_NOT_FOUND);
     }
     if (result === 20001) {
       throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
+    if (result === 30005) {
+      throw new BusinessException(ResultCode.UPDATE_CONFLICT);
     }
     if (result === 30004) {
       throw new BusinessException(ResultCode.INVALID_STATE_TRANSITION);
@@ -294,17 +305,21 @@ export class CampaignService {
 
   async approve(
     campaignId: number,
+    dto: ApproveCampaignDto,
     requesterUserId: number,
   ): Promise<CampaignRow> {
     const { result, data } = await this.spExecutor.callProcedure<
       CampaignRow[]
-    >('SP_CAMPAIGN_APPROVE', [campaignId, requesterUserId]);
+    >('SP_CAMPAIGN_APPROVE', [campaignId, dto.edit_count, requesterUserId]);
 
     if (result === 31004) {
       throw new BusinessException(ResultCode.CAMPAIGN_NOT_FOUND);
     }
     if (result === 20001) {
       throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
+    if (result === 30005) {
+      throw new BusinessException(ResultCode.UPDATE_CONFLICT);
     }
     if (result === 30004) {
       throw new BusinessException(ResultCode.INVALID_STATE_TRANSITION);
@@ -327,6 +342,7 @@ export class CampaignService {
       CampaignRow[]
     >('SP_CAMPAIGN_REJECT', [
       campaignId,
+      dto.edit_count,
       dto.reject_reason,
       requesterUserId,
     ]);
@@ -336,6 +352,9 @@ export class CampaignService {
     }
     if (result === 20001) {
       throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
+    if (result === 30005) {
+      throw new BusinessException(ResultCode.UPDATE_CONFLICT);
     }
     if (result === 30004) {
       throw new BusinessException(ResultCode.INVALID_STATE_TRANSITION);
