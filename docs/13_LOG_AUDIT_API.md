@@ -86,6 +86,27 @@ after_json = 상태 변경 후 전체 Row
 
 감사 로그는 Append-Only 정책을 따른다. 생성/수정/삭제/상태변경 API를 지원하지 않으며, 시스템 내부에서만 생성된다.
 
+## 2.6 대상 SP 및 action 매핑
+
+각 엔드포인트가 실제로 어떤 `action`으로 기록되는지는 다음과 같다(2026-07-20 구현 확정). `approve`/`reject`처럼 상태 전이 자체가 목적인 엔드포인트만 STATUS_CHANGE(30)로 기록하고, 그 외 생성/수정 엔드포인트는 CREATE(10)/UPDATE(20)로 기록한다 — 일반 수정 API가 `status` 필드를 함께 바꾸는 경우(예: `PATCH /companies/{id}`, `PATCH /users/{id}`)에도 UPDATE(20)로만 기록하며 별도로 STATUS_CHANGE로 구분하지 않는다.
+
+| table_name | Endpoint | SP | action |
+| ---------- | -------- | -- | ------ |
+| company | `POST /companies` | `SP_COMPANY_CREATE` | 10 CREATE |
+| company | `PATCH /companies/{company_id}` | `SP_COMPANY_UPDATE` | 20 UPDATE |
+| project | `POST /projects` | `SP_PROJECT_CREATE` | 10 CREATE |
+| project | `PATCH /projects/{project_id}` | `SP_PROJECT_UPDATE` | 20 UPDATE |
+| project | `POST /projects/{project_id}/api-secret/rotate` | `SP_PROJECT_API_SECRET_ROTATE` | 20 UPDATE |
+| user | `POST /users/{user_id}/approve` | `SP_USER_APPROVE` | 30 STATUS_CHANGE |
+| user | `POST /users/{user_id}/reject` | `SP_USER_REJECT` | 30 STATUS_CHANGE |
+| user | `PATCH /users/{user_id}` | `SP_USER_UPDATE` | 20 UPDATE |
+| user | `POST /users/{user_id}/reset-password` | `SP_USER_PASSWORD_RESET` | 20 UPDATE |
+| user | `PATCH /auth/password`([09_AUTH_API.md](./09_AUTH_API.md) 9장) | `SP_USER_PASSWORD_CHANGE` | 20 UPDATE |
+| user_role | `POST /user-roles` | `SP_USER_ROLE_CREATE` | 10 CREATE |
+| user_role | `PATCH /user-roles/{user_id}/{project_id}` | `SP_USER_ROLE_UPDATE` | 20 UPDATE |
+
+각 SP는 UPDATE/STATUS_CHANGE 직전에 변경 전 행을 캡처해 `before_json`으로, CREATE/UPDATE/STATUS_CHANGE 완료 후 행을 `after_json`으로 결과 SELECT에 함께 반환한다(SP 내부 캡처 — TS 서비스 레이어가 별도로 조회하지 않고 SP가 반환한 값을 그대로 `SP_LOG_AUDIT_CREATE`에 전달). `requester_name`(`created_by_name` 스냅샷)도 JWT 페이로드에 `user_name`이 없어 SP가 `user` 테이블을 직접 조회해 채운다.
+
 ---
 
 # 3. 권한 정책
