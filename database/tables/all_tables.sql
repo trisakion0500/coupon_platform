@@ -29,7 +29,8 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- ------------------------------------------------------------------------------------------------------------ --
 -- 명칭 : project
 -- 작성 : 2026.07.11 trisakion
--- 수정 : 2026.07.18 trisakion — api_secret_hash(단방향 SHA-256) -> api_secret(AES-256-CBC 가역 암호화)
+-- 수정1: 2026.07.18 trisakion — api_secret_hash(단방향 SHA-256) -> api_secret(AES-256-CBC 가역 암호화)
+-- 수정2: 2026.07.21 trisakion — edit_count(낙관적 동시성 제어) 신설
 -- 내용 : 서비스 프로젝트 정보
 -- api_secret (가역 암호화, 단방향 해시 아님)
 --  S2S 인증을 HMAC-SHA256 요청 서명 방식으로 확정하면서(docs/07_AUTH_SECURITY.md 2장), 서버가
@@ -37,6 +38,16 @@ SET FOREIGN_KEY_CHECKS = 1;
 --  원문을 복원할 수 없어 이 방식 자체가 불가능하므로, phone_number(user 테이블)와 동일하게
 --  AES-256-CBC(Base64, ENCRYPTION_KEY)로 가역 암호화해 저장한다. 평문이 API 응답에 노출되는
 --  시점(발급/재발급 1회)은 기존과 동일하고, 그 외 조회 API는 여전히 평문/암호문 모두 반환하지 않는다.
+-- 낙관적 동시성 제어 (edit_count, 2026-07-21 추가, coupon_campaign과 동일 패턴)
+--  `SP_PROJECT_API_SECRET_ROTATE`가 버전 체크 없이 무조건 실행되는 걸 리뷰에서 발견 — 더블클릭이나
+--  타임아웃 재시도로 거의 동시에 두 번 재발급되면, 아직 유효했던 이전 api_secret_prev(grace
+--  period 중)가 조용히 유실될 수 있었다(슬롯이 하나뿐이라 두 번째 재발급이 첫 번째가 막 만든 값으로
+--  덮어씀). `SP_PROJECT_UPDATE`도 동일하게 버전 체크가 전혀 없는 순수 last-write-wins였다. 두 SP
+--  모두 같은 project 행을 건드리므로 coupon_campaign.edit_count와 동일한 방식으로 통일한다 —
+--  `updated_at`을 재사용하지 않는 이유도 동일(DATETIME 초 단위 정밀도로 같은 초 안의 충돌을 놓칠 수
+--  있음, coupon_campaign.sql 헤더 주석 참고). `SP_PROJECT_UPDATE`/`SP_PROJECT_API_SECRET_ROTATE`
+--  둘 다 성공 시 `edit_count = edit_count + 1`을 실행하고, 클라이언트는 마지막 조회 시 받은 값을
+--  요청에 그대로 실어 보낸다 — 불일치 시 30005(동시 수정 충돌)로 거부한다.
 -- ------------------------------------------------------------------------------------------------------------ --
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `project`;
@@ -53,6 +64,7 @@ CREATE TABLE `project` (
   `status`					TINYINT		UNSIGNED	NOT NULL	DEFAULT 1												COMMENT '상태 (1:사용, 0:중지)',
   `created_at`				DATETIME				NOT NULL	DEFAULT CURRENT_TIMESTAMP								COMMENT '생성일시',
   `updated_at`				DATETIME				NOT NULL	DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	COMMENT '수정일시',
+  `edit_count`				INT			UNSIGNED	NOT NULL	DEFAULT 0												COMMENT '낙관적 동시성 제어용 수정 횟수(매 수정마다 +1, PATCH/재발급 요청은 이 값을 그대로 실어 보내야 함 - 위 헤더 주석 참고)',
   PRIMARY KEY (`project_id`),
   UNIQUE KEY `uk_company_project_code` (`company_id`,`project_code`),
   UNIQUE KEY `uk_project_api_key` (`api_key`),
@@ -63,10 +75,10 @@ CREATE TABLE `project` (
 -- api_secret 시드값은 개발 환경용 플레이스홀더(AES-256-CBC(Base64) 형식만 흉내낸 값)다.
 -- 실제 ENCRYPTION_KEY로 암호화된 값이 아니므로 로컬에서 실제 서명 검증까지 확인하려면
 -- 프로젝트 생성/Secret 재발급 API로 다시 발급받아야 한다.
-INSERT INTO `project` (`project_id`, `company_id`, `project_code`, `project_name`, `description`, `api_key`, `api_secret`, `status`, `created_at`, `updated_at`)
+INSERT INTO `project` (`project_id`, `company_id`, `project_code`, `project_name`, `description`, `api_key`, `api_secret`, `status`, `created_at`, `updated_at`, `edit_count`)
 VALUES
-(1, 1, 'ADMIN_PROJECT', 'Administrator Company Default Project', NULL, 'dev-admin-project-api-key', 'U2FsdGVkX18k7f3qz9pQwK2vXeYtBjE1oNc5rM8hZdA=', 1, '1970-01-01 00:00:00', '1970-01-01 00:00:00'),
-(2, 2, 'DEV_PROJECT',   'Developer Company Default Project',     NULL, 'dev-dev-project-api-key',   'U2FsdGVkX1+aBcD3fGh6IjK9lMnOpQr2StUvWxYz012=', 1, '1970-01-01 00:00:00', '1970-01-01 00:00:00');
+(1, 1, 'ADMIN_PROJECT', 'Administrator Company Default Project', NULL, 'dev-admin-project-api-key', 'U2FsdGVkX18k7f3qz9pQwK2vXeYtBjE1oNc5rM8hZdA=', 1, '1970-01-01 00:00:00', '1970-01-01 00:00:00', 0),
+(2, 2, 'DEV_PROJECT',   'Developer Company Default Project',     NULL, 'dev-dev-project-api-key',   'U2FsdGVkX1+aBcD3fGh6IjK9lMnOpQr2StUvWxYz012=', 1, '1970-01-01 00:00:00', '1970-01-01 00:00:00', 0);
 SET FOREIGN_KEY_CHECKS = 1;
 -- ------------------------------------------------------------------------------------------------------------ --
 -- 명칭 : project_api_nonce

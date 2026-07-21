@@ -1867,14 +1867,25 @@ DROP PROCEDURE IF EXISTS `SP_PROJECT_API_SECRET_ROTATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_API_SECRET_ROTATE` (
     IN i_project_id      BIGINT UNSIGNED,  -- 재발급 대상 프로젝트 ID
+    IN i_edit_count      INT UNSIGNED,     -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 edit_count 그대로)
     IN i_user_id         BIGINT UNSIGNED,  -- 요청자 user_id (JWT 페이로드 값 그대로 신뢰)
     IN i_new_api_secret_enc VARCHAR(255)   -- 새 API Secret AES-256-CBC 암호화값 (앱 레이어에서 암호화 완료)
-) COMMENT 'API Secret 재발급 - Grace Period 방식 (11_PROJECT_API.md 2.5)'
+) COMMENT 'API Secret 재발급 - Grace Period 방식 + edit_count 낙관적 락 (11_PROJECT_API.md 2.5)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_API_SECRET_ROTATE
     -- 작성 : 2026.07.19 trisakion
-    -- 내용 : 존재 확인(31002) 후, FN_IS_SUPER_ADMIN(i_user_id)이 아니면 FN_CHECK_PROJECT_ACCESS로
+    -- 수정1: 2026.07.21 trisakion — 리뷰에서 이 UPDATE에 버전 체크가 전혀 없다는 걸 발견함. 더블
+    --        클릭이나 타임아웃 후 재시도로 거의 동시에 두 번 재발급되면, api_secret_prev 슬롯이
+    --        하나뿐이라 첫 번째 재발급이 만든 grace-period 값을 두 번째가 곧바로 덮어써 원래
+    --        시크릿(S0)이 흔적도 없이 사라지는 문제가 있었다(아직 S0로 서명 중인 게임서버가
+    --        있었다면 grace period가 예고 없이 조기 종료됨). "재발급 자체를 언제까지 막을지"를
+    --        시간(grace period 경과)으로 판단하는 방식도 검토했으나, 그건 "지금 이 행위를 해도
+    --        되는 시점인가"라는 별개의 정책 질문이고, 정작 이 버그가 실제로 묻는 질문은
+    --        "호출자가 최신 상태를 보고 요청한 게 맞는가"(concurrency)라 `coupon_campaign.edit_count`
+    --        와 동일한 낙관적 락으로 해결한다(project.sql 헤더 주석 참고) — 더블클릭/재시도는 항상
+    --        같은(오래된) edit_count를 들고 오므로 두 번째 요청이 정확히 충돌(30005)로 걸러진다.
+    --        내용 : 존재 확인(31002) 후, FN_IS_SUPER_ADMIN(i_user_id)이 아니면 FN_CHECK_PROJECT_ACCESS로
     --        해당 project_id에 실제 활성 user_role 배정이 있는지 재검증한다(11_PROJECT_API.md 2.5
     --        Business Rules — JWT의 role_code는 여러 프로젝트 중 최고 권한 하나뿐이라 이 project_id
     --        기준으로는 다시 확인해야 함). 원래는 앱이 전달한 i_role_code로 SUPER_ADMIN 우회를
@@ -1927,12 +1938,19 @@ BEGIN
         SET
             `api_secret_prev`   = `api_secret`,
             `api_secret`        = i_new_api_secret_enc,
-            `secret_rotated_at` = NOW()
-        WHERE `project_id` = i_project_id;
+            `secret_rotated_at` = NOW(),
+            `edit_count`        = `edit_count` + 1
+        WHERE `project_id` = i_project_id
+          AND `edit_count` = i_edit_count;
+
+        IF ROW_COUNT() = 0 THEN
+            SELECT 30005 AS RESULT;
+            LEAVE proc_block;
+        END IF;
 
         SELECT 0 AS RESULT;
         SELECT
-            `project_id`, `company_id`, `project_name`, `secret_rotated_at`,
+            `project_id`, `company_id`, `project_name`, `secret_rotated_at`, `edit_count`,
             v_before_json AS before_json,
             JSON_OBJECT(
                 'project_id', `project_id`, 'company_id', `company_id`,
@@ -2034,7 +2052,7 @@ BEGIN
         SELECT 0 AS RESULT;
         SELECT
             `project_id`, `company_id`, `project_code`, `project_name`, `description`,
-            `api_key`, `status`, `created_at`, `updated_at`,
+            `api_key`, `status`, `created_at`, `updated_at`, `edit_count`,
             JSON_OBJECT(                    -- after_json: log_audit 스냅샷(api_secret류 마스킹)
                 'project_id', `project_id`, 'company_id', `company_id`,
                 'project_code', `project_code`, 'project_name', `project_name`,
@@ -2198,7 +2216,7 @@ BEGIN
         SELECT
             p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
             p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
-            p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`
+            p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`, p.`edit_count`
         FROM `project` p
         JOIN `company` c ON c.`company_id` = p.`company_id`
         WHERE p.`project_id` = i_project_id;
@@ -2258,7 +2276,7 @@ BEGIN
         SELECT
             pg.`project_id`, pg.`company_id`, pg.`company_code`, pg.`company_name`,
             pg.`project_code`, pg.`project_name`, pg.`api_key`, pg.`description`,
-            pg.`status`, pg.`secret_rotated_at`, pg.`created_at`, pg.`updated_at`,
+            pg.`status`, pg.`secret_rotated_at`, pg.`created_at`, pg.`updated_at`, pg.`edit_count`,
             cnt.`total_count`
         FROM (
             SELECT COUNT(*) AS total_count
@@ -2270,7 +2288,7 @@ BEGIN
             SELECT
                 p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
                 p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
-                p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`
+                p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`, p.`edit_count`
             FROM `project` p
             JOIN `company` c ON c.`company_id` = p.`company_id`
             WHERE (i_company_id IS NULL OR p.`company_id` = i_company_id)
@@ -2290,15 +2308,21 @@ DROP PROCEDURE IF EXISTS `SP_PROJECT_UPDATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_UPDATE` (
     IN i_project_id        BIGINT UNSIGNED,  -- 수정할 프로젝트 ID
+    IN i_edit_count        INT UNSIGNED,     -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 edit_count 그대로)
     IN i_project_name      VARCHAR(100),     -- 새 프로젝트명 (NULL이면 미변경)
     IN i_description       VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
     IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '프로젝트 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE (11_PROJECT_API.md 2.4)'
+) COMMENT '프로젝트 수정 - SUPER_ADMIN 재검증, edit_count 낙관적 락 + 조건부 UPDATE (11_PROJECT_API.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_UPDATE
     -- 작성 : 2026.07.19 trisakion
+    -- 수정1: 2026.07.21 trisakion — 리뷰에서 이 SP가 버전 체크 없는 순수 last-write-wins라는 걸
+    --        발견함(두 관리자가 거의 동시에 수정하면 늦게 커밋된 쪽이 먼저 커밋된 변경을 조용히
+    --        덮어씀). `coupon_campaign.edit_count`와 동일한 방식으로 `project.edit_count`를
+    --        도입 — WHERE절에 `edit_count = i_edit_count`를 추가하고 성공 시 +1, 불일치하면
+    --        ROW_COUNT()=0으로 감지해 30005(동시 수정 충돌)를 반환한다(project.sql 헤더 주석 참고).
     -- 내용 : 프로젝트 정보 수정. company_id/project_code/api_key/api_secret은 이 SP의 파라미터에
     --        아예 없다 — 생성 후 변경 불가 필드라 애초에 받지 않는다(11_PROJECT_API.md 2.4
     --        Non-Updatable Fields). 존재 확인(31002) -> COALESCE 기반 조건부 UPDATE
@@ -2348,14 +2372,21 @@ BEGIN
         SET
             `project_name` = COALESCE(i_project_name, `project_name`),
             `description`  = COALESCE(i_description, `description`),
-            `status`       = COALESCE(i_status, `status`)
-        WHERE `project_id` = i_project_id;
+            `status`       = COALESCE(i_status, `status`),
+            `edit_count`   = `edit_count` + 1
+        WHERE `project_id` = i_project_id
+          AND `edit_count` = i_edit_count;
+
+        IF ROW_COUNT() = 0 THEN
+            SELECT 30005 AS RESULT;
+            LEAVE proc_block;
+        END IF;
 
         SELECT 0 AS RESULT;
         SELECT
             p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
             p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
-            p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`,
+            p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`, p.`edit_count`,
             v_before_json AS before_json,
             JSON_OBJECT(
                 'project_id', p.`project_id`, 'company_id', p.`company_id`,

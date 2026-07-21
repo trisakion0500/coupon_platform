@@ -42,6 +42,7 @@ Coupon Platform 데이터베이스 스키마 정의 문서
   - `api_secret`: 현재 사용 중인 Secret의 AES-256-CBC 암호화값(Base64) — 단방향 해시가 아니라 가역 암호화다. 서버가 요청마다 서명을 재계산해 대조해야 해서 원문 복원이 필요하기 때문(평문 자체가 DB에 그대로 저장되는 것은 아님)
   - `api_secret_prev`: 재발급 직후 유예기간(grace period) 동안만 유지되는 직전 Secret 암호화값. 유예기간 경과 시 배치로 `NULL` 처리
   - `secret_rotated_at`: 마지막 Secret 재발급 시각 (`NULL`이면 최초 발급 후 미변경)
+- `edit_count`(2026-07-21 추가) — 낙관적 동시성 제어용 수정 횟수. `SP_PROJECT_UPDATE`/`SP_PROJECT_API_SECRET_ROTATE` 둘 다 이 컬럼을 검증·증가시킨다(`coupon_campaign.edit_count`와 동일 패턴, [11_PROJECT_API.md](./11_PROJECT_API.md) 2.4/2.5 Concurrency 참고) — 두 SP가 같은 행을 건드리는데 재발급 쪽에 버전 체크가 없어 더블클릭/재시도로 grace-period Secret이 조용히 유실될 수 있었던 리뷰 발견 이후 도입됨
 
 ### 상태
 

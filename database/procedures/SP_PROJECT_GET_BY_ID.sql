@@ -46,7 +46,7 @@ BEGIN
         SELECT
             p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
             p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
-            p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`
+            p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`, p.`edit_count`
         FROM `project` p
         JOIN `company` c ON c.`company_id` = p.`company_id`
         WHERE p.`project_id` = i_project_id;

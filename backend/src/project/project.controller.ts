@@ -19,6 +19,7 @@ import { RolesGuard } from '../common/roles/roles.guard';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ProjectListQueryDto } from './dto/project-list-query.dto';
 import { ProjectLookupQueryDto } from './dto/project-lookup-query.dto';
+import { RotateApiSecretDto } from './dto/rotate-api-secret.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectService } from './project.service';
 
@@ -92,10 +93,11 @@ export class ProjectController {
   @HttpCode(200)
   rotateApiSecret(
     @Param('project_id', ParseIntPipe) projectId: number,
+    @Body() dto: RotateApiSecretDto,
     @Req() req: AuthenticatedRequest,
   ) {
     const { userId, roleCode, companyId } = req.user!;
-    return this.projectService.rotateApiSecret(projectId, {
+    return this.projectService.rotateApiSecret(projectId, dto, {
       userId,
       roleCode,
       companyId,

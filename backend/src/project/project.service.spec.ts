@@ -25,6 +25,7 @@ describe('ProjectService', () => {
     secret_rotated_at: null,
     created_at: '2026-07-19 10:00:00',
     updated_at: '2026-07-19 10:00:00',
+    edit_count: 0,
   };
 
   const superAdmin = {
@@ -248,20 +249,45 @@ describe('ProjectService', () => {
         data: [projectRow],
       });
       await expect(
-        service.update(10, { project_name: 'Renamed' }, 1),
+        service.update(10, { edit_count: 0, project_name: 'Renamed' }, 1),
       ).resolves.toEqual(projectRow);
+    });
+
+    it('passes edit_count through to the SP call', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({
+        result: 0,
+        data: [projectRow],
+      });
+
+      await service.update(10, { edit_count: 3, project_name: 'Renamed' }, 1);
+
+      expect(spExecutor.callProcedure).toHaveBeenCalledWith(
+        'SP_PROJECT_UPDATE',
+        [10, 3, 'Renamed', null, null, 1],
+      );
+    });
+
+    it('throws UPDATE_CONFLICT on 30005 (stale edit_count)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 30005 });
+      await expect(
+        service.update(10, { edit_count: 0 }, 1),
+      ).rejects.toMatchObject({ resultCode: ResultCode.UPDATE_CONFLICT });
     });
 
     it('throws PROJECT_NOT_FOUND on 31002', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31002 });
-      await expect(service.update(999, {}, 1)).rejects.toMatchObject({
+      await expect(
+        service.update(999, { edit_count: 0 }, 1),
+      ).rejects.toMatchObject({
         resultCode: ResultCode.PROJECT_NOT_FOUND,
       });
     });
 
     it('throws PERMISSION_DENIED when the SP rejects (20001)', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
-      await expect(service.update(10, {}, 2)).rejects.toMatchObject({
+      await expect(
+        service.update(10, { edit_count: 0 }, 2),
+      ).rejects.toMatchObject({
         resultCode: ResultCode.PERMISSION_DENIED,
       });
     });
@@ -271,28 +297,66 @@ describe('ProjectService', () => {
     it('returns a fresh plaintext api_secret and secret_rotated_at', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({
         result: 0,
-        data: [{ project_id: 10, secret_rotated_at: '2026-07-19 11:00:00' }],
+        data: [
+          {
+            project_id: 10,
+            secret_rotated_at: '2026-07-19 11:00:00',
+            edit_count: 1,
+          },
+        ],
       });
 
-      const result = await service.rotateApiSecret(10, superAdmin);
+      const result = await service.rotateApiSecret(
+        10,
+        { edit_count: 0 },
+        superAdmin,
+      );
 
       expect(result.project_id).toBe(10);
       expect(result.secret_rotated_at).toBe('2026-07-19 11:00:00');
+      expect(result.edit_count).toBe(1);
       expect(result.api_secret).toEqual(expect.any(String));
       expect(result.api_secret).toHaveLength(64);
+    });
+
+    it('passes edit_count through to the SP call', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({
+        result: 0,
+        data: [
+          {
+            project_id: 10,
+            secret_rotated_at: '2026-07-19 11:00:00',
+            edit_count: 1,
+          },
+        ],
+      });
+
+      await service.rotateApiSecret(10, { edit_count: 0 }, superAdmin);
+
+      expect(spExecutor.callProcedure).toHaveBeenCalledWith(
+        'SP_PROJECT_API_SECRET_ROTATE',
+        [10, 0, superAdmin.userId, expect.any(String)],
+      );
+    });
+
+    it('throws UPDATE_CONFLICT on 30005 (stale edit_count, e.g. double-submit)', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 30005 });
+      await expect(
+        service.rotateApiSecret(10, { edit_count: 0 }, superAdmin),
+      ).rejects.toMatchObject({ resultCode: ResultCode.UPDATE_CONFLICT });
     });
 
     it('throws PROJECT_NOT_FOUND on 31002', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31002 });
       await expect(
-        service.rotateApiSecret(999, superAdmin),
+        service.rotateApiSecret(999, { edit_count: 0 }, superAdmin),
       ).rejects.toMatchObject({ resultCode: ResultCode.PROJECT_NOT_FOUND });
     });
 
     it('throws PERMISSION_DENIED on 20001 (DEVELOPER without assignment)', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
       await expect(
-        service.rotateApiSecret(10, developer),
+        service.rotateApiSecret(10, { edit_count: 0 }, developer),
       ).rejects.toMatchObject({ resultCode: ResultCode.PERMISSION_DENIED });
     });
   });

@@ -78,7 +78,7 @@ BEGIN
         SELECT 0 AS RESULT;
         SELECT
             `project_id`, `company_id`, `project_code`, `project_name`, `description`,
-            `api_key`, `status`, `created_at`, `updated_at`,
+            `api_key`, `status`, `created_at`, `updated_at`, `edit_count`,
             JSON_OBJECT(                    -- after_json: log_audit 스냅샷(api_secret류 마스킹)
                 'project_id', `project_id`, 'company_id', `company_id`,
                 'project_code', `project_code`, 'project_name', `project_name`,

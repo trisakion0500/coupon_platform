@@ -13,6 +13,7 @@ import { ResultCode } from '../common/response/result-code.enum';
 import { RoleCode } from '../common/roles/role-code.enum';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ProjectListQueryDto } from './dto/project-list-query.dto';
+import { RotateApiSecretDto } from './dto/rotate-api-secret.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 
 export interface ProjectRow {
@@ -28,6 +29,8 @@ export interface ProjectRow {
   secret_rotated_at: string | null;
   created_at: string;
   updated_at: string;
+  /** 낙관적 동시성 제어 토큰 — PATCH/재발급 요청 시 이 값을 그대로 되돌려 보내야 한다. */
+  edit_count: number;
 }
 
 /**
@@ -50,6 +53,7 @@ interface ProjectCreateRow {
   status: number;
   created_at: string;
   updated_at: string;
+  edit_count: number;
   /** 감사로그(log_audit)용 — after_json은 api_secret류가 '***'로 마스킹돼 있다. */
   after_json: Record<string, unknown>;
   requester_name: string | null;
@@ -65,6 +69,7 @@ export interface ProjectCreateResponse {
   status: number;
   created_at: string;
   updated_at: string;
+  edit_count: number;
   /** 이 응답에만 1회 노출되는 평문 Secret(11_PROJECT_API.md 2.1). */
   api_secret: string;
 }
@@ -79,6 +84,7 @@ export interface ApiSecretRotateResponse {
   /** 이 응답에만 1회 노출되는 평문 Secret(11_PROJECT_API.md 2.5). */
   api_secret: string;
   secret_rotated_at: string;
+  edit_count: number;
 }
 
 /** SP_PROJECT_UPDATE 반환 행 — 감사로그(log_audit)용 before_json/after_json/requester_name 포함. */
@@ -94,6 +100,7 @@ interface ApiSecretRotateRow {
   company_id: number;
   project_name: string;
   secret_rotated_at: string;
+  edit_count: number;
   before_json: Record<string, unknown>;
   after_json: Record<string, unknown>;
   requester_name: string | null;
@@ -176,6 +183,7 @@ export class ProjectService {
       status: row.status,
       created_at: row.created_at,
       updated_at: row.updated_at,
+      edit_count: row.edit_count,
       api_secret: apiSecretPlain,
     };
   }
@@ -227,6 +235,7 @@ export class ProjectService {
         secret_rotated_at: row.secret_rotated_at,
         created_at: row.created_at,
         updated_at: row.updated_at,
+        edit_count: row.edit_count,
       }));
 
     return buildPaginatedResult(query, totalCount, items);
@@ -270,6 +279,7 @@ export class ProjectService {
       ProjectUpdateRow[]
     >('SP_PROJECT_UPDATE', [
       projectId,
+      dto.edit_count,
       dto.project_name ?? null,
       dto.description ?? null,
       dto.status ?? null,
@@ -281,6 +291,9 @@ export class ProjectService {
     }
     if (result === 31002) {
       throw new BusinessException(ResultCode.PROJECT_NOT_FOUND);
+    }
+    if (result === 30005) {
+      throw new BusinessException(ResultCode.UPDATE_CONFLICT);
     }
     if (result !== 0 || !data?.[0]) {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
@@ -313,6 +326,7 @@ export class ProjectService {
       secret_rotated_at: row.secret_rotated_at,
       created_at: row.created_at,
       updated_at: row.updated_at,
+      edit_count: row.edit_count,
     };
   }
 
@@ -324,6 +338,7 @@ export class ProjectService {
    */
   async rotateApiSecret(
     projectId: number,
+    dto: RotateApiSecretDto,
     requester: ProjectRequester,
   ): Promise<ApiSecretRotateResponse> {
     const apiSecretPlain = this.generateRandomHex();
@@ -333,6 +348,7 @@ export class ProjectService {
       ApiSecretRotateRow[]
     >('SP_PROJECT_API_SECRET_ROTATE', [
       projectId,
+      dto.edit_count,
       requester.userId,
       apiSecretEnc,
     ]);
@@ -342,6 +358,9 @@ export class ProjectService {
     }
     if (result === 20001) {
       throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
+    if (result === 30005) {
+      throw new BusinessException(ResultCode.UPDATE_CONFLICT);
     }
     if (result !== 0 || !data?.[0]) {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
@@ -364,6 +383,7 @@ export class ProjectService {
     return {
       project_id: row.project_id,
       secret_rotated_at: row.secret_rotated_at,
+      edit_count: row.edit_count,
       api_secret: apiSecretPlain,
     };
   }

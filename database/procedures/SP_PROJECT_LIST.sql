@@ -46,7 +46,7 @@ BEGIN
         SELECT
             pg.`project_id`, pg.`company_id`, pg.`company_code`, pg.`company_name`,
             pg.`project_code`, pg.`project_name`, pg.`api_key`, pg.`description`,
-            pg.`status`, pg.`secret_rotated_at`, pg.`created_at`, pg.`updated_at`,
+            pg.`status`, pg.`secret_rotated_at`, pg.`created_at`, pg.`updated_at`, pg.`edit_count`,
             cnt.`total_count`
         FROM (
             SELECT COUNT(*) AS total_count
@@ -58,7 +58,7 @@ BEGIN
             SELECT
                 p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
                 p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
-                p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`
+                p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`, p.`edit_count`
             FROM `project` p
             JOIN `company` c ON c.`company_id` = p.`company_id`
             WHERE (i_company_id IS NULL OR p.`company_id` = i_company_id)

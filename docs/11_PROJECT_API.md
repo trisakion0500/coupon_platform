@@ -63,7 +63,8 @@ POST /projects
     "api_secret": "s3cr3t...(평문, 이 응답에만 1회 노출)",
     "status": 1,
     "created_at": "2026-07-16 10:00:00",
-    "updated_at": "2026-07-16 10:00:00"
+    "updated_at": "2026-07-16 10:00:00",
+    "edit_count": 0
   }
 }
 ```
@@ -128,7 +129,8 @@ ORDER BY status DESC,
         "status": 1,
         "secret_rotated_at": null,
         "created_at": "2026-07-16 10:00:00",
-        "updated_at": "2026-07-16 10:00:00"
+        "updated_at": "2026-07-16 10:00:00",
+        "edit_count": 0
       }
     ]
   }
@@ -168,6 +170,21 @@ PATCH /projects/{project_id}
 ### Permission
 
 - SUPER_ADMIN
+
+### Request
+
+```json
+{
+  "edit_count": 0,
+  "project_name": "RPG Project (Renamed)",
+  "description": "설명 수정",
+  "status": 1
+}
+```
+
+### Concurrency
+
+`edit_count`는 필수다 — 마지막으로 조회했을 때(2.2/2.3) 받은 값을 그대로 되돌려 보낸다(`coupon_campaign`과 동일한 낙관적 동시성 제어 패턴, [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.4 참고). 서버의 현재 값과 다르면 그 사이 다른 관리자가 먼저 수정했다는 뜻이라 30005(동시 수정 충돌)로 거부된다. 성공하면 `edit_count`가 1 증가한다.
 
 ### Updatable Fields
 
@@ -217,7 +234,15 @@ POST /projects/{project_id}/api-secret/rotate
 
 ### Request
 
-Body 없음 (`project_id`는 path parameter로만 전달).
+```json
+{
+  "edit_count": 0
+}
+```
+
+### Concurrency
+
+`edit_count`는 필수다 — 마지막으로 조회했을 때(2.2/2.3) 받은 값을 그대로 되돌려 보낸다(2.4 Update Project와 동일한 패턴). 재발급은 멱등하지 않다 — 호출할 때마다 `api_secret_prev`가 갱신되므로, 더블클릭이나 타임아웃 후 재시도로 같은 `edit_count`를 든 요청이 거의 동시에 두 번 들어오면 둘째 요청이 30005(동시 수정 충돌)로 거부된다(그러지 않으면 첫 번째 재발급이 만든 grace-period Secret이 조용히 유실될 수 있음 — 2026-07-21 리뷰에서 발견). 성공하면 `edit_count`가 1 증가한다.
 
 ### Response
 
@@ -227,7 +252,8 @@ Body 없음 (`project_id`는 path parameter로만 전달).
   "data": {
     "project_id": 10,
     "api_secret": "n3w-s3cr3t...(평문, 이 응답에만 1회 노출)",
-    "secret_rotated_at": "2026-07-16 11:00:00"
+    "secret_rotated_at": "2026-07-16 11:00:00",
+    "edit_count": 1
   }
 }
 ```

@@ -2,15 +2,21 @@ DROP PROCEDURE IF EXISTS `SP_PROJECT_UPDATE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_UPDATE` (
     IN i_project_id        BIGINT UNSIGNED,  -- 수정할 프로젝트 ID
+    IN i_edit_count        INT UNSIGNED,     -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 edit_count 그대로)
     IN i_project_name      VARCHAR(100),     -- 새 프로젝트명 (NULL이면 미변경)
     IN i_description       VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
     IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '프로젝트 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE (11_PROJECT_API.md 2.4)'
+) COMMENT '프로젝트 수정 - SUPER_ADMIN 재검증, edit_count 낙관적 락 + 조건부 UPDATE (11_PROJECT_API.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_UPDATE
     -- 작성 : 2026.07.19 trisakion
+    -- 수정1: 2026.07.21 trisakion — 리뷰에서 이 SP가 버전 체크 없는 순수 last-write-wins라는 걸
+    --        발견함(두 관리자가 거의 동시에 수정하면 늦게 커밋된 쪽이 먼저 커밋된 변경을 조용히
+    --        덮어씀). `coupon_campaign.edit_count`와 동일한 방식으로 `project.edit_count`를
+    --        도입 — WHERE절에 `edit_count = i_edit_count`를 추가하고 성공 시 +1, 불일치하면
+    --        ROW_COUNT()=0으로 감지해 30005(동시 수정 충돌)를 반환한다(project.sql 헤더 주석 참고).
     -- 내용 : 프로젝트 정보 수정. company_id/project_code/api_key/api_secret은 이 SP의 파라미터에
     --        아예 없다 — 생성 후 변경 불가 필드라 애초에 받지 않는다(11_PROJECT_API.md 2.4
     --        Non-Updatable Fields). 존재 확인(31002) -> COALESCE 기반 조건부 UPDATE
@@ -60,14 +66,21 @@ BEGIN
         SET
             `project_name` = COALESCE(i_project_name, `project_name`),
             `description`  = COALESCE(i_description, `description`),
-            `status`       = COALESCE(i_status, `status`)
-        WHERE `project_id` = i_project_id;
+            `status`       = COALESCE(i_status, `status`),
+            `edit_count`   = `edit_count` + 1
+        WHERE `project_id` = i_project_id
+          AND `edit_count` = i_edit_count;
+
+        IF ROW_COUNT() = 0 THEN
+            SELECT 30005 AS RESULT;
+            LEAVE proc_block;
+        END IF;
 
         SELECT 0 AS RESULT;
         SELECT
             p.`project_id`, p.`company_id`, c.`company_code`, c.`company_name`,
             p.`project_code`, p.`project_name`, p.`api_key`, p.`description`,
-            p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`,
+            p.`status`, p.`secret_rotated_at`, p.`created_at`, p.`updated_at`, p.`edit_count`,
             v_before_json AS before_json,
             JSON_OBJECT(
                 'project_id', p.`project_id`, 'company_id', p.`company_id`,
