@@ -1,0 +1,129 @@
+DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_CODE_ISSUE`;
+DELIMITER $$
+CREATE PROCEDURE `SP_CAMPAIGN_CODE_ISSUE` (
+    IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 대상 캠페인 ID
+    IN i_code_value         VARCHAR(50),      -- FIXED 전용 코드값(RANDOM이면 NULL)
+    IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '코드 발급 요청 - RANDOM은 진행중 전환만(202), FIXED는 코드 1건 동기 등록(200) (17_CAMPAIGN_API.md 3.1)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_CAMPAIGN_CODE_ISSUE
+    -- 작성 : 2026.07.21 trisakion
+    -- 내용 : 존재 확인(31004) -> 프로젝트 스코핑 재검증(FN_CHECK_PROJECT_ACCESS, 20001 — 이 SP는
+    --        role_code 값 자체가 필요 없어 FN_GET_PROJECT_ROLE_CODE 대신 boolean 버전을 쓴다.
+    --        05_COUPON_ISSUANCE_SCENARIO.md 1장: 코드 발급은 approval_status와 무관하게 호출
+    --        가능하므로 승인상태는 아예 확인하지 않는다) -> FIXED인데 code_value가 없으면
+    --        30001(필수값 누락, DTO가 code_type을 몰라 걸러줄 수 없어 여기서 재검증) 순으로 처리한다.
+    --        그 다음 "generation_status 1(대기)->2(진행중)" 조건부 UPDATE로 이 job을 원자적으로
+    --        선점한다(status<>4도 같은 WHERE절에 포함 — 1.3 종료 캠페인 잠금). 캠페인당 코드 발급
+    --        job은 1회뿐이라(05_COUPON_ISSUANCE_SCENARIO.md 1장) 이 조건부 UPDATE 자체가 동시에
+    --        들어온 두 번째 발급 요청을 막는 락 역할을 겸한다 - ROW_COUNT()=0이면 이미 발급
+    --        요청됐거나(생성/진행중/완료/실패 중 대기가 아님) 캠페인이 종료됐다는 뜻이라 둘 다
+    --        30004로 답한다(17_CAMPAIGN_API.md 3.1 Precondition, 상세 사유 구분은 API 스펙에도
+    --        없어 필요 없음).
+    --        선점 이후 code_type으로 분기한다:
+    --        - RANDOM(1): 여기서 할 일이 끝난다 - 실제 대량생성은 TS 서비스가 이 SP가 반환하는
+    --          project_id/use_hyphen/requested_qty를 가지고 백그라운드로 수행한다(SP는 생성 루프를
+    --          모른다 - nanoid는 앱 레이어 라이브러리라 SQL에서 호출할 수 없다,
+    --          04_DATABASE_SCHEMA.md 6장 코드 생성 규칙 참고).
+    --        - FIXED(2): 코드 1건을 즉시 INSERT한다. UNIQUE(project_id, code_value) 충돌은 이
+    --          INSERT 문 범위로 좁힌 CONTINUE HANDLER FOR 1062로만 잡는다(더 일반적인 바깥
+    --          EXIT HANDLER FOR SQLEXCEPTION보다 특정 조건 핸들러가 우선한다는 MySQL 규칙을
+    --          이용) - 충돌 시 방금 선점한 generation_status를 1로 되돌려(재요청 가능하게) 32001을
+    --          반환한다. 성공하면 generated_qty=requested_qty=1, generation_status=3(완료)까지
+    --          이 SP 안에서 동기로 확정한다.
+    --        edit_count는 건드리지 않는다 - 17_CAMPAIGN_API.md 2.4가 edit_count 대상 SP로 나열한
+    --        것은 Update/ChangeStatus/Approve/Reject(2.4~2.7)뿐이고 코드 발급(3.1/3.2)은 별개
+    --        축이다(coupon_campaign.sql edit_count 헤더 주석, PATCH의 WHERE절도 generation_status를
+    --        보지 않으므로 상호 간섭이 없다).
+    --        반환 컬럼은 API 응답 그대로가 아니라 TS 서비스가 RANDOM/FIXED 응답을 각각 조립하는 데
+    --        필요한 필드(project_id/use_hyphen/requested_qty 등 백그라운드 루프용 포함)를 전부 담은
+    --        슈퍼셋이다 - RANDOM 요청이면 coupon_code_id/code_value/code_status는 항상 NULL.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_project_id     BIGINT UNSIGNED  DEFAULT NULL;
+    DECLARE v_code_type      TINYINT UNSIGNED DEFAULT NULL;
+    DECLARE v_duplicate      BOOLEAN          DEFAULT FALSE;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        ROLLBACK;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    -- FIXED 코드 INSERT 전용 - 1062(UNIQUE 위반)만 여기서 흡수하고 그 외 SQLEXCEPTION은 위 EXIT
+    -- HANDLER로 넘어간다(같은 스코프에 선언돼도 더 구체적인 조건 핸들러가 우선한다는 MySQL 규칙).
+    DECLARE CONTINUE HANDLER FOR 1062 SET v_duplicate = TRUE;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id
+        ) THEN
+            SELECT 31004 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT `project_id`, `code_type` INTO v_project_id, v_code_type
+        FROM `coupon_campaign` WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id)
+           AND NOT FN_CHECK_PROJECT_ACCESS(i_requester_user_id, v_project_id) THEN
+            SELECT 20001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF v_code_type = 2 AND i_code_value IS NULL THEN
+            SELECT 30001 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        UPDATE `coupon_campaign`
+        SET `generation_status` = 2
+        WHERE `coupon_campaign_id` = i_coupon_campaign_id
+          AND `generation_status` = 1
+          AND `status` <> 4;
+
+        IF ROW_COUNT() = 0 THEN
+            SELECT 30004 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF v_code_type = 2 THEN
+            START TRANSACTION;
+
+            INSERT INTO `coupon_code` (`coupon_campaign_id`, `project_id`, `code_value`, `status`)
+            VALUES (i_coupon_campaign_id, v_project_id, i_code_value, 1);
+
+            IF v_duplicate THEN
+                ROLLBACK;
+                -- 방금 선점한 job을 되돌려 관리자가 다른 code_value로 재요청할 수 있게 한다
+                -- (05_COUPON_ISSUANCE_SCENARIO.md 2.2 - FIXED는 실패해도 generation_status=1 유지).
+                UPDATE `coupon_campaign` SET `generation_status` = 1
+                WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+                SELECT 32001 AS RESULT;
+                LEAVE proc_block;
+            END IF;
+
+            UPDATE `coupon_campaign`
+            SET `generated_qty` = 1, `generation_status` = 3
+            WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+
+            COMMIT;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT
+            cc.`coupon_campaign_id`, cc.`project_id`, cc.`code_type`, cc.`use_hyphen`,
+            cc.`requested_qty`, cc.`generated_qty`, cc.`generation_status`,
+            co.`coupon_code_id`, co.`code_value`, co.`status` AS code_status
+        FROM `coupon_campaign` cc
+        LEFT JOIN `coupon_code` co ON co.`coupon_campaign_id` = cc.`coupon_campaign_id`
+        WHERE cc.`coupon_campaign_id` = i_coupon_campaign_id;
+    END proc_block;
+END$$
+
+DELIMITER ;

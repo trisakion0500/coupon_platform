@@ -108,7 +108,8 @@ export const ERROR_MAP: Record<ResultCode, ErrorEntry> = {
     httpStatus: 400,
   },
   [ResultCode.UPDATE_CONFLICT]: {
-    message: '다른 사용자가 먼저 수정했습니다. 최신 데이터를 다시 불러온 뒤 시도해주세요.',
+    message:
+      '다른 사용자가 먼저 수정했습니다. 최신 데이터를 다시 불러온 뒤 시도해주세요.',
     httpStatus: 400,
   },
 

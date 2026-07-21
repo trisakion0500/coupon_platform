@@ -53,7 +53,7 @@ describe('SpExecutorService', () => {
     expect(result).toEqual({ result: 31002 });
   });
 
-  it('logs diagnostics and throws BusinessException(DATABASE_ERROR) without exposing them to the caller', async () => {
+  it('logs diagnostics and throws BusinessException(DATABASE_ERROR) without exposing them in the HTTP response body', async () => {
     queryMock.mockResolvedValueOnce([
       [
         [
@@ -67,9 +67,23 @@ describe('SpExecutorService', () => {
       ],
     ]);
 
-    await expect(service.callProcedure('SP_TEST', [])).rejects.toMatchObject({
+    let caught: unknown;
+    try {
+      await service.callProcedure('SP_TEST', []);
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toMatchObject({
       resultCode: ResultCode.DATABASE_ERROR,
+      // sqlDiagnostics는 CampaignService의 재시도 가능 여부 판단처럼 극히 드문 내부 호출부만
+      // 읽는 필드다(business.exception.ts 참고) — 어떤 경우에도 HTTP 응답 바디에는 포함되지
+      // 않으므로 getResponse()로 별도 확인한다.
+      sqlDiagnostics: { sqlState: '45000', errorNo: 1644 },
     });
+    expect(
+      (caught as { getResponse: () => unknown }).getResponse(),
+    ).not.toHaveProperty('sqlDiagnostics');
   });
 
   it('throws when the first result set has no RESULT column', async () => {

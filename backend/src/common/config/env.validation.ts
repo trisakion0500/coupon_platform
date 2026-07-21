@@ -56,4 +56,20 @@ export const envValidationSchema = Joi.object({
   LOGIN_RATE_LIMIT_WINDOW_MS: Joi.number().integer().min(1).default(900000),
   LOGIN_RATE_LIMIT_MAX: Joi.number().integer().min(1).default(10),
   SESSION_CLEANUP_CRON: Joi.string().default('0 4 * * *'),
+
+  // RANDOM 코드 대량생성 백그라운드 루프(05_COUPON_ISSUANCE_SCENARIO.md 2.2) — DB 일시 오류
+  // 재시도 한도/지연. 코드값 충돌(1062)은 이 설정과 무관하게 무제한 즉시 재시도한다.
+  CODE_GENERATION_MAX_DB_RETRIES: Joi.number().integer().min(0).default(5),
+  CODE_GENERATION_RETRY_BASE_DELAY_MS: Joi.number()
+    .integer()
+    .min(1)
+    .default(200),
+
+  // POST /campaigns/{id}/codes/abort(05_COUPON_ISSUANCE_SCENARIO.md 2.4) — "얼마나 오래
+  // updated_at이 안 움직였으면 멈춘 것으로 볼지"를 위 두 값에서 계산하는 안전 배율. 별도
+  // 독립적인 임계값을 두지 않고 재시도 설정에서 파생시켜, 두 설정이 서로 어긋나지 않게 한다.
+  CODE_GENERATION_ABORT_STALE_SAFETY_MULTIPLIER: Joi.number()
+    .integer()
+    .min(1)
+    .default(3),
 });

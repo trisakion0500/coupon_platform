@@ -13,7 +13,7 @@ describe('AuditLogService', () => {
     );
   });
 
-  it('calls SP_LOG_AUDIT_CREATE with JSON.stringify\'d before/after snapshots', async () => {
+  it("calls SP_LOG_AUDIT_CREATE with JSON.stringify'd before/after snapshots", async () => {
     await service.record({
       action: AuditAction.UPDATE,
       companyId: 1,

@@ -25,11 +25,15 @@ export interface SpCallResult<TData = unknown> {
  *
  * - 첫 result set은 항상 RESULT 단일 컬럼 단일 행
  * - RESULT=0일 때만 두 번째 result set(data)이 존재
- * - RESULT=50001(시스템 오류)은 SQL_STATE/ERROR_NO/ERROR_MESSAGE를 서버 로그로만 남기고
+ * - RESULT=50001(시스템 오류)은 SQL_STATE/ERROR_NO/ERROR_MESSAGE를 서버 로그로 남기고
  *   `BusinessException(DATABASE_ERROR)`을 즉시 던진다 — 호출부마다 "혹시 50001 아닌가"를
  *   따로 확인할 필요 없이, 여기서 한 번 막아두면 그 아래 어떤 비즈니스 로직도 시스템 오류를
  *   특정 비즈니스 실패로 착각해 잘못 분류할 수 없다(2026-07-19 리뷰에서 흩어진 50001 체크가
- *   누락된 호출부를 여러 곳 발견한 뒤, 참고 구현체의 `callSP` 패턴을 그대로 적용).
+ *   누락된 호출부를 여러 곳 발견한 뒤, 참고 구현체의 `callSP` 패턴을 그대로 적용). SQL_STATE/
+ *   ERROR_NO는 던지는 예외의 `sqlDiagnostics`에도 실어 보낸다(HTTP 응답 바디에는 안 실림) —
+ *   `CampaignService.generateRandomCodes`처럼 재시도 가능한 에러(deadlock/lock wait timeout)와
+ *   그렇지 않은 에러를 구분해야 하는 극히 드문 내부 호출부를 위한 것으로, 대부분의 호출부는 이
+ *   필드를 알 필요도 없고 봐서도 안 된다(05_COUPON_ISSUANCE_SCENARIO.md 2.2, 2026-07-21 추가).
  *
  * @param pool - 호출에 사용할 mysql2 커넥션 풀(메인/로그 DB 중 하나)
  * @param logger - 50001 진단 정보를 남길 로거
@@ -61,11 +65,19 @@ export async function callStoredProcedure<TData = unknown>(
   const result = firstRow.RESULT;
 
   if (result === 50001) {
+    const sqlState = String(firstRow.SQL_STATE);
+    const errorNo = Number(firstRow.ERROR_NO);
     logger.error(
-      `${spName} DB error — SQL_STATE=${String(firstRow.SQL_STATE)} ` +
-        `ERROR_NO=${String(firstRow.ERROR_NO)} MESSAGE=${String(firstRow.ERROR_MESSAGE)}`,
+      `${spName} DB error — SQL_STATE=${sqlState} ` +
+        `ERROR_NO=${errorNo} MESSAGE=${String(firstRow.ERROR_MESSAGE)}`,
     );
-    throw new BusinessException(ResultCode.DATABASE_ERROR);
+    // sqlState/errorNo는 HTTP 응답 바디에는 실리지 않는다(BusinessException 생성자 참고) —
+    // CampaignService의 RANDOM 코드 생성 재시도 루프처럼 재시도 가능 여부를 직접 판단해야 하는
+    // 극히 드문 내부 호출부만을 위한 것이다.
+    throw new BusinessException(ResultCode.DATABASE_ERROR, undefined, {
+      sqlState,
+      errorNo,
+    });
   }
 
   if (result !== 0) {

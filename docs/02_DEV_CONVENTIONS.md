@@ -227,6 +227,8 @@ throw new BusinessException(ResultCode.PROJECT_NOT_FOUND);
 - 호출부마다 "혹시 50001 아닌가"를 따로 확인할 필요가 없어, 그 확인이 누락되어 시스템 오류가 엉뚱한 비즈니스 실패(예: 로그인 실패, 세션 무효)로 잘못 분류되는 사고를 원천 차단한다(2026-07-19 리뷰에서 이 누락 패턴이 여러 곳에서 발견된 뒤 도입)
 - 로그 적재처럼 실패를 절대 밖으로 던지면 안 되는 곳(`LogSpExecutorService.logCall`)은 이 예외를 그냥 try/catch로 잡아 삼키면 되므로 호환에 문제없다
 
+**예외(2026-07-21 추가)**: `BusinessException`은 던져질 때 `sqlDiagnostics`(`{sqlState, errorNo}`)를 함께 실을 수 있다 — HTTP 응답 바디(`{result, message}`)에는 절대 포함되지 않고, 예외 인스턴스 자체에만 붙어 있다. 이건 위 원칙(호출부는 특정 비즈니스 코드만 신경 쓴다)을 깨는 게 아니라, "재시도 가능한 시스템 오류인지"까지 스스로 판단해야 하는 극히 드문 내부 호출부(코드 발급 백그라운드 루프의 `CampaignService.generateRandomCodes` — `05_COUPON_ISSUANCE_SCENARIO.md` 2.2 "재시도 가능 에러만 대상, 4xx류 등은 즉시 실패 처리")를 위해 열어둔 좁은 탈출구다. 대부분의 호출부는 여전히 `if (result !== 0) throw` 패턴만으로 충분하고 이 필드를 알 필요가 없다.
+
 # 8. 의존성 버전 관리
 
 **`package.json`의 모든 의존성(dependencies/devDependencies)은 `^`/`~` 없이 특정 버전으로 고정한다.** 안정성과 모듈간 충돌 방지가 목적이다 — 세만틱 버전 범위(`^11.0.1` 등)는 `npm install` 시점마다 팀원/배포 환경마다 실제 설치되는 버전이 달라질 수 있어, 같은 커밋인데도 재현이 안 되는 문제가 생긴다.

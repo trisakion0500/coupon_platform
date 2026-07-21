@@ -51,7 +51,7 @@ DEVELOPER/MANAGER/OPERATOR 모두 스코핑 기준 자체는 동일(프로젝트
 `status=4`(종료)는 캠페인 라이프사이클의 최종 상태([2.5](#25-change-campaign-status) 참고)이며, 도달 즉시 아래 쓰기 API를 전부 차단한다 — role/스코핑과 무관하게 30004(상태 전이 불가)를 반환한다.
 
 ```text
-차단 대상 : 2.4 Update Campaign, 2.6 Approve, 2.7 Reject, 3.1 Issue Codes, 3.2 Retry Code Issuance
+차단 대상 : 2.4 Update Campaign, 2.6 Approve, 2.7 Reject, 3.1 Issue Codes, 3.2 Retry Code Issuance, 3.4 Abort Code Generation
 차단 안 됨 : 2.2/2.3(조회), 3.3 코드 목록 조회, 4.1 사용 이력 조회 — 종료된 캠페인도 이력 확인은 계속 가능해야 함
 ```
 
@@ -617,6 +617,52 @@ GET /campaigns/{coupon_campaign_id}/codes
   }
 }
 ```
+
+---
+
+## 3.4 Abort Code Generation
+
+### Endpoint
+
+```http
+POST /campaigns/{coupon_campaign_id}/codes/abort
+```
+
+### Permission
+
+- SUPER_ADMIN, DEVELOPER, MANAGER (스코핑 내 `project_id`만) — **OPERATOR는 불가**. 승인/반려(2.6/2.7)와 동일한 급의 판단(시스템이 자동으로 못 정하는 걸 사람이 강제로 결정)이라 그 권한 범위를 그대로 따른다.
+
+### 배경
+
+서버 프로세스가 RANDOM 코드 대량생성 백그라운드 작업 도중 재시작/크래시되면(작업이 순수 인메모리 상태라 재시작 시 완전히 유실됨) 캠페인이 `generation_status=2`(진행중)에 영구히 멈출 수 있다 — [3.1 Issue Codes](#31-issue-codes)는 `generation_status=1`일 때만, [3.2 Retry Code Issuance](#32-retry-code-issuance)는 `generation_status=4`일 때만 허용하므로 둘 중 어느 것으로도 복구할 수 없다(05_COUPON_ISSUANCE_SCENARIO.md 2.4 참고). 이 API는 관리자가 "이 job은 멈췄다"고 수동으로 판단해 정체를 풀 수 있게 한다.
+
+### Precondition
+
+- `generation_status=2`이고, `updated_at`이 서버가 계산한 임계값(초) 이상 갱신되지 않았을 때만 허용한다 — **호출한다고 무조건 되는 게 아니다.** `coupon_campaign.updated_at`은 `SP_CAMPAIGN_CODE_GENERATE_ONE`이 코드를 하나 만들 때마다 자동 갱신되므로, 최근에 실제로 진행된 흔적이 있으면(=아직 살아있을 가능성이 높으면) 30004로 거부한다. 임계값은 `CODE_GENERATION_MAX_DB_RETRIES`/`CODE_GENERATION_RETRY_BASE_DELAY_MS`/`CODE_GENERATION_ABORT_STALE_SAFETY_MULTIPLIER`(01_TECH_STACK.md)로 서버가 계산한다 — 정상적으로 살아있는 루프가 DB 일시 오류 재시도로 만들 수 있는 이론상 최대 무진행 구간보다 충분히 크게 잡아, 실제로 살아있는 job을 성급하게 끊지 않도록 한다.
+- `status=4`(종료)면 30004(1.3 참고).
+- `generation_status`가 2가 아니면(이미 완료/실패/대기) 30004.
+
+### Business Rules
+
+- **RANDOM**(`code_type=1`): `generation_status=4`(실패)로 전환하고 `generation_error`에 사유를 남긴다. 이후 관리자가 [3.2 Retry Code Issuance](#32-retry-code-issuance)를 그대로 호출하면 이미 만든 `generated_qty`부터 이어서 생성된다.
+- **FIXED**(`code_type=2`): `generation_status=1`(대기)로 전환한다. FIXED는 성공 아니면 아무것도 만들어지지 않는(all-or-nothing) 동기 처리라 "부분 진행" 개념이 없다 — [3.1 Issue Codes](#31-issue-codes)로 처음부터 다시 발급하면 된다.
+- `edit_count`/`log_coupon_campaign` 둘 다 대상이 아니다 — 3.1/3.2와 동일한 축(코드 발급은 별개 흐름).
+
+### Response
+
+```json
+{
+  "result": 0,
+  "data": {
+    "coupon_campaign_id": 100,
+    "generation_status": 4
+  }
+}
+```
+
+### Errors
+
+미존재는 31004, 스코핑 범위 밖(1.2 일반 원칙과 동일)이면 20001, 전제조건 미충족(진행중 아님/아직 stale 기준 미달/캠페인 종료)이면 30004.
 
 ---
 
