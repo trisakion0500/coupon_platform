@@ -30,6 +30,7 @@ erDiagram
         TINYINT     status
         DATETIME    created_at
         DATETIME    updated_at
+        INT         edit_count              "낙관적 동시성 제어"
     }
 
     user {
@@ -80,6 +81,8 @@ erDiagram
         TINYINT     use_hyphen          "RANDOM에만 적용"
         INT         requested_qty
         INT         generated_qty
+        TINYINT     generation_status   "1:대기,2:진행중,3:완료,4:실패 - status/approval_status와 별개 축"
+        VARCHAR500  generation_error    "NULL허용, 재시도 소진 시 최종 실패 사유"
         INT         usable_qty
         INT         used_qty
         INT         use_limit_per_user
@@ -93,6 +96,7 @@ erDiagram
         BIGINT      updated_by          FK "NULL허용"
         DATETIME    created_at
         DATETIME    updated_at
+        INT         edit_count          "낙관적 동시성 제어"
     }
 
     coupon_code {
@@ -225,6 +229,7 @@ erDiagram
 | coupon_campaign | code_type | 1:RANDOM / 2:FIXED |
 | coupon_campaign | status | 1:대기 / 2:활성 / 3:일시중지 / 4:종료 |
 | coupon_campaign | approval_status | 1:승인불요 / 2:승인대기 / 3:승인완료 / 4:반려 (status와 별개 축) |
+| coupon_campaign | generation_status | 1:대기 / 2:진행중 / 3:완료 / 4:실패 (status/approval_status와 별개 축) |
 | coupon_code | status | 0:중지 / 1:미사용(RANDOM)·사용중(FIXED) / 2:사용완료(RANDOM 전용) |
 | log_coupon_campaign | action | 10:CREATE / 20:UPDATE / 30:STATUS_CHANGE / 40:APPROVE / 50:REJECT |
 | log_coupon_use | action | 10:RESERVE / 20:CONFIRM |
