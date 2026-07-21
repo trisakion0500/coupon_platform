@@ -580,6 +580,18 @@ BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_ISSUE
     -- 작성 : 2026.07.21 trisakion
+    -- 수정1: 2026.07.21 trisakion — 리뷰에서 FIXED 동기 완료 UPDATE(구 코드: `SET generated_qty=1,
+    --        generation_status=3 WHERE coupon_campaign_id=...`)에 `status<>4` 가드가 빠져있다는 걸
+    --        발견함. 이 SP 호출이 INSERT까지 마친 뒤 COMMIT하기 전 그 짧은 순간에 다른 트랜잭션이
+    --        `SP_CAMPAIGN_CHANGE_STATUS`로 캠페인을 종료(status→4)시키면, 이 완료 UPDATE는 그걸
+    --        모르고 그대로 성공해 종료된 캠페인에 coupon_code가 생성되고 generation_status=3까지
+    --        진행돼버렸다(RANDOM 경로는 SP_CAMPAIGN_CODE_GENERATE_ONE 수정3에서 이미 막아뒀는데
+    --        같은 SP의 FIXED 분기만 비대칭적으로 뚫려있던 것). 완료 UPDATE의 WHERE절에도
+    --        `status<>4`를 추가하고, ROW_COUNT()=0이면(=그 사이 종료됨) 방금 성공한 INSERT까지
+    --        같은 트랜잭션 ROLLBACK으로 함께 되돌린 뒤 30004를 반환한다 — generation_status는
+    --        선점 당시 값(2)에 그대로 남지만, 05_COUPON_ISSUANCE_SCENARIO.md 2.5가 이미 정한
+    --        원칙(종료된 캠페인의 generation_status는 억지로 전이시키지 않는다 — 1.3이 모든 쓰기를
+    --        차단하므로 무해함)과 동일하게 취급해 별도로 되돌리지 않는다.
     -- 내용 : 존재 확인(31004) -> 프로젝트 스코핑 재검증(FN_CHECK_PROJECT_ACCESS, 20001 — 이 SP는
     --        role_code 값 자체가 필요 없어 FN_GET_PROJECT_ROLE_CODE 대신 boolean 버전을 쓴다.
     --        05_COUPON_ISSUANCE_SCENARIO.md 1장: 코드 발급은 approval_status와 무관하게 호출
@@ -602,7 +614,9 @@ BEGIN
     --          EXIT HANDLER FOR SQLEXCEPTION보다 특정 조건 핸들러가 우선한다는 MySQL 규칙을
     --          이용) - 충돌 시 방금 선점한 generation_status를 1로 되돌려(재요청 가능하게) 32001을
     --          반환한다. 성공하면 generated_qty=requested_qty=1, generation_status=3(완료)까지
-    --          이 SP 안에서 동기로 확정한다.
+    --          이 SP 안에서 동기로 확정한다 - 단 이 완료 UPDATE도 `status<>4`를 조건으로 걸어,
+    --          INSERT 이후 COMMIT 전 그 사이 캠페인이 종료됐으면 INSERT까지 함께 되돌리고
+    --          30004를 반환한다(수정1 참고).
     --        edit_count는 건드리지 않는다 - 17_CAMPAIGN_API.md 2.4가 edit_count 대상 SP로 나열한
     --        것은 Update/ChangeStatus/Approve/Reject(2.4~2.7)뿐이고 코드 발급(3.1/3.2)은 별개
     --        축이다(coupon_campaign.sql edit_count 헤더 주석, PATCH의 WHERE절도 generation_status를
@@ -671,6 +685,8 @@ BEGIN
 
             IF v_duplicate THEN
                 ROLLBACK;
+                -- 방금 선점한 job을 되돌려 관리자가 다른 code_value로 재요청할 수 있게 한다
+                -- (05_COUPON_ISSUANCE_SCENARIO.md 2.2 - FIXED는 실패해도 generation_status=1 유지).
                 UPDATE `coupon_campaign` SET `generation_status` = 1
                 WHERE `coupon_campaign_id` = i_coupon_campaign_id;
                 SELECT 32001 AS RESULT;
@@ -679,7 +695,18 @@ BEGIN
 
             UPDATE `coupon_campaign`
             SET `generated_qty` = 1, `generation_status` = 3
-            WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+            WHERE `coupon_campaign_id` = i_coupon_campaign_id
+              AND `status` <> 4;
+
+            IF ROW_COUNT() = 0 THEN
+                -- INSERT까지는 성공했으나 그 사이 캠페인이 종료(status=4)됨 - 완료 처리를 포기하고
+                -- INSERT까지 함께 되돌린다. generation_status는 선점 당시 값(2)에 그대로 남지만
+                -- 1.3이 종료된 캠페인의 모든 쓰기 API를 이미 차단하므로 무해하다
+                -- (05_COUPON_ISSUANCE_SCENARIO.md 2.5와 동일한 원칙 - 억지로 되돌리지 않는다).
+                ROLLBACK;
+                SELECT 30004 AS RESULT;
+                LEAVE proc_block;
+            END IF;
 
             COMMIT;
         END IF;

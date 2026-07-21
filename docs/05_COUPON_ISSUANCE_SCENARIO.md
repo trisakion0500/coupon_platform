@@ -150,6 +150,7 @@ POST /campaigns/{id}/codes/abort
 - `SP_CAMPAIGN_CHANGE_STATUS`(종료 처리)와 이 SP 둘 다 같은 행에 대한 조건부 UPDATE라, MySQL의 행 단위 락이 둘 사이의 순서를 직렬화해준다 — 종료 처리가 먼저 커밋되면 그 다음 코드 생성 시도는 곧바로 실패한다. 타이밍에 의존하는 레이스 윈도우가 없다.
 - 종료는 `generation_status`를 건드리지 않으므로, "이미 목표 도달"(정상)/"job을 빼앗김(abort)"/"캠페인 종료"를 앱이 구분하려면 SP가 no-op 응답에 `status`도 함께 반환해야 한다. TS 백그라운드 루프는 `generation_status<>2 OR status=4`면 조용히 멈추고 `SP_CAMPAIGN_CODE_GENERATION_COMPLETE`/`FAIL`을 호출하지 않는다.
 - 종료된 캠페인의 `generation_status`는 억지로 전이시키지 않는다 — `17_CAMPAIGN_API.md` 1.3이 종료된 캠페인의 모든 쓰기 API를 이미 차단하므로, 어떤 값이든 더 손댈 필요가 없는 무해한 상태로 남는다.
+- **FIXED 동기 처리도 같은 문제가 있었다**: `SP_CAMPAIGN_CODE_ISSUE`의 FIXED 분기는 코드 INSERT 이후 `generated_qty=1, generation_status=3`으로 확정하는 완료 UPDATE에 원래 `status<>4` 조건이 없어, INSERT~COMMIT 사이의 짧은 순간에 다른 트랜잭션이 캠페인을 종료시키면 그 사실을 모르고 그대로 성공해버리는 비대칭이 있었다(2026-07-21 리뷰에서 발견). 이 완료 UPDATE에도 `status<>4`를 추가해 `ROW_COUNT()=0`이면(=그 사이 종료됨) 방금 성공한 INSERT까지 같은 트랜잭션 `ROLLBACK`으로 함께 되돌리고 30004를 반환하도록 수정했다 — `generation_status`는 선점 당시 값(2)에 그대로 남고, 위와 동일한 원칙(억지로 되돌리지 않음)으로 무해하게 처리한다.
 
 ---
 
