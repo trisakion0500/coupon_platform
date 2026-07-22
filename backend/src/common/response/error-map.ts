@@ -142,6 +142,10 @@ export const ERROR_MAP: Record<ResultCode, ErrorEntry> = {
     message: '사용자 권한 배정이 없습니다.',
     httpStatus: 404,
   },
+  [ResultCode.LOG_AUDIT_NOT_FOUND]: {
+    message: '존재하지 않는 감사 로그입니다.',
+    httpStatus: 404,
+  },
 
   // 32000 — Validation (중복)
   [ResultCode.DUPLICATE_DATA]: {

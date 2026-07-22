@@ -204,8 +204,10 @@ GET /log-audits?table_name=user&target_id=100&page=1&page_size=1
 ## Sorting
 
 ```sql
-ORDER BY created_at DESC
+ORDER BY created_at DESC, idx DESC
 ```
+
+`created_at`은 초 단위 정밀도(마이크로초 없음)라 같은 초 안에 두 로그가 생성되면(예: CREATE 직후 곧바로 UPDATE) 단독으로는 순서가 보장되지 않는다(2026-07-22 스모크 테스트에서 실제 재현). `idx`(AUTO_INCREMENT)를 2차 키로 더해 생성 순서를 항상 정확히 보존한다.
 
 ---
 
@@ -253,6 +255,12 @@ GET /log-audits/{idx}
 | 코드  | 설명      |
 | ----- | --------- |
 | 20001 | 권한 없음 |
+
+## 조회 오류
+
+| 코드  | 설명        |
+| ----- | ----------- |
+| 31008 | 감사 로그 없음 |
 
 ## 시스템 오류
 
