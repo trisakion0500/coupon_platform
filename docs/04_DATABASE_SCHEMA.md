@@ -129,9 +129,9 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 ### 특징
 
 - `project` 소속. 실제 코드 값은 `code_type` 무관하게 항상 `coupon_code`에만 저장(중복 저장 없음)
-- `code_type`(1:RANDOM/2:FIXED)에 따라 코드 발급 방식이 다름 — RANDOM은 `requested_qty`만큼 코드를 대량 생성, FIXED는 관리자 입력 코드 1건만 생성 후 `requested_qty`를 목표 발급 수량으로 기록
+- `code_type`(1:RANDOM/2:FIXED)에 따라 코드 발급 방식이 다름 — RANDOM은 `requested_qty`만큼 코드를 대량 생성, FIXED는 관리자 입력 코드 1건만 생성. `requested_qty`/`generated_qty`의 의미도 code_type에 따라 다르다: RANDOM은 "코드 개수" 그대로지만, FIXED는 코드가 항상 1건이라 대신 "그 1건을 서로 다른 유저가 각자 소모할 수 있는 총 횟수"를 의미한다(2026-07-22 — 처음엔 FIXED의 `requested_qty`를 서버가 항상 `1`로 고정했으나, 그러면 아래 `usable_qty<=generated_qty` 검증 때문에 FIXED 캠페인이 전체 통틀어 딱 1번만 소모 가능해져 여러 유저의 독립적 사용을 막는 문제가 있어 제거함 — [05_COUPON_ISSUANCE_SCENARIO.md](./05_COUPON_ISSUANCE_SCENARIO.md) 2장 참고)
 - `use_hyphen`은 RANDOM 코드 생성 시에만 적용(하이픈 포함 여부), FIXED는 관리자 입력값을 그대로 사용해 적용 대상 아님
-- 수량 컬럼 4종: `requested_qty`(목표 발급) / `generated_qty`(실제 발급) / `usable_qty`(실제 사용 가능, 선착순 오픈 등으로 `generated_qty`보다 적을 수 있음) / `used_qty`(실제 소모, reserve 성공 시점 즉시 확정 기준 — confirm 여부와 무관)
+- 수량 컬럼 4종: `requested_qty`(목표) / `generated_qty`(실제 발급, FIXED는 코드 발급 완료 시 `requested_qty`와 동일하게 채워짐) / `usable_qty`(실제 사용 가능, 선착순 오픈 등으로 `generated_qty`보다 적을 수 있음) / `used_qty`(실제 소모, reserve 성공 시점 즉시 확정 기준 — confirm 여부와 무관)
 - **동시성(오버셀 방지)**: reserve 시 `UPDATE coupon_campaign SET used_qty=used_qty+1 WHERE used_qty<usable_qty AND status=2 AND NOW() BETWEEN campaign_start AND campaign_end` 조건부 갱신 하나로 수량/상태(활성)/기간을 동시에 원자적으로 체크한다. status/기간 조건을 같은 UPDATE에 포함시키면 관리자의 일시중지/종료 시점과 겹치는 reserve 요청도 추가 비용 없이 함께 막힌다
 - **승인 워크플로우(`approval_status`, `status`와 별개 축)**: `status`는 캠페인 라이프사이클(대기/활성/일시중지/종료), `approval_status`는 활성화해도 되는지에 대한 승인 여부다. MANAGER 이상이 생성/컨트롤하면 `approval_status=1`(승인불요)로 즉시 시작, OPERATOR가 생성/컨트롤하면 `approval_status=2`(승인대기)로 시작해 10/20/30이 승인/반려한다. `status`를 2(활성)로 전환하는 SP는 `approval_status IN (1,3)`(승인불요/승인완료)일 때만 허용 — 미승인 캠페인은 애초에 활성 상태에 도달할 수 없으므로 reserve 시점 체크는 `status=2`만 보면 된다. 변경 이력은 `log_coupon_campaign`에 별도 기록
 - `reward_data`는 완전 자유 스키마 JSON — 쿠폰서버는 내용을 해석하지 않고 게임서버로 그대로 pass-through

@@ -96,14 +96,14 @@ POST /campaigns
 - `campaign_start`/`campaign_end` 필수, `campaign_end > campaign_start`
 - `code_type` 필수, `1`(RANDOM) 또는 `2`(FIXED)
 - `use_hyphen`은 `code_type=1`(RANDOM)일 때만 의미 있음(FIXED는 무시)
-- `requested_qty`는 `code_type=1`(RANDOM)일 때 필수, `1` 이상
+- `requested_qty` 필수, `1` 이상 — **RANDOM/FIXED 공통**. RANDOM은 실제 발급할 코드 개수, FIXED는 (코드 자체는 항상 1건이지만) 그 1건이 지원할 **총 사용가능 횟수**를 의미한다(2026-07-22, 아래 Business Rules 참고)
 - `use_limit_per_user` 1 이상(기본 1)
 - `reward_data` 필수(JSON), 쿠폰서버는 내용을 해석하지 않고 그대로 저장([04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md) 6장 참고)
 
 ### Business Rules
 
 - **`approval_status` 자동 결정**: 호출자 `role_code <= 30`(SUPER_ADMIN/DEVELOPER/MANAGER)이면 `1`(승인불요), `role_code = 40`(OPERATOR)이면 `2`(승인대기)
-- **`code_type=2`(FIXED)면 `requested_qty`는 요청값과 무관하게 항상 `1`로 서버가 고정한다** — FIXED는 캠페인당 코드 1건만 존재하며(3.1 참고), `requested_qty`/`generated_qty` 비교로 "완료" 여부를 판단하는 로직을 RANDOM과 동일하게 재사용하기 위한 것일 뿐 코드 개수를 의미하지 않는다
+- **`code_type=2`(FIXED)도 `requested_qty`를 호출자가 직접 지정한다** — FIXED는 여전히 캠페인당 코드 1건만 존재하지만(3.1 참고), `requested_qty`/`generated_qty`는 "코드 개수"가 아니라 "그 1건을 서로 다른 유저가 각자 소모할 수 있는 총 횟수"를 의미한다. 처음엔 FIXED의 `requested_qty`를 서버가 항상 `1`로 강제했으나, 그러면 [2.4 Update Campaign](#24-update-campaign)의 `usable_qty<=generated_qty` 검증 때문에 FIXED 캠페인이 전체 통틀어 딱 1번만 소모 가능해져 [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md)가 전제하는 "서로 다른 유저의 독립적 reserve"가 막히는 문제가 실사용 테스트에서 발견되어(2026-07-22) 제거했다
 - `status` 기본값 `1`(대기), `generation_status` 기본값 `1`(대기), `usable_qty`/`generated_qty`/`used_qty` 기본값 `0`
 - `usable_qty`는 생성 시점엔 항상 `0`이다 — 코드 발급 완료 후 관리자가 [2.4 Update Campaign](#24-update-campaign)으로 별도로 오픈한다
 - `created_by`/`updated_by`는 JWT `user_id`
@@ -502,7 +502,7 @@ Body 없음. 캠페인 생성 시 저장된 `requested_qty`/`use_hyphen`을 그�
 ### Business Rules
 
 - **RANDOM**: 호출 즉시 `generation_status=2`(진행중)로 전환 후 `202 Accepted` 응답, 백그라운드로 `requested_qty`만큼 대량 생성. 코드값 충돌은 즉시 재생성, DB 일시 오류는 backoff+jitter 재시도, 재시도 소진 시 `generation_status=4`(실패) + `generation_error` 기록([05_COUPON_ISSUANCE_SCENARIO.md](./05_COUPON_ISSUANCE_SCENARIO.md) 2.2 참고). 전량 생성 완료 시 `generation_status=3`(완료)
-- **FIXED**: 동기 처리, 성공 시 `coupon_code` 1행 생성 + `generated_qty=1`(=`requested_qty`), `generation_status=3`(완료)로 즉시 `200 OK` 응답. FIXED는 `generation_status=4`(실패) 상태에 도달하지 않는다(재시도 인프라 대상이 아님 — 실패 시 그냈로 재요청)
+- **FIXED**: 동기 처리, 성공 시 `coupon_code` 1행 생성 + `generated_qty=requested_qty`(캠페인 생성 시 지정한 총 사용가능 횟수 — 코드 행은 항상 1건이지만 이 값은 코드 개수가 아니다, 2.1 Business Rules 참고), `generation_status=3`(완료)로 즉시 `200 OK` 응답. FIXED는 `generation_status=4`(실패) 상태에 도달하지 않는다(재시도 인프라 대상이 아님 — 실패 시 그냈로 재요청)
 
 ### Response — RANDOM (202 Accepted)
 
@@ -524,7 +524,7 @@ Body 없음. 캠페인 생성 시 저장된 `requested_qty`/`use_hyphen`을 그�
   "data": {
     "coupon_campaign_id": 100,
     "generation_status": 3,
-    "generated_qty": 1,
+    "generated_qty": 100,
     "coupon_code": {
       "coupon_code_id": 5000,
       "code_value": "SUMMER2024",
@@ -533,6 +533,8 @@ Body 없음. 캠페인 생성 시 저장된 `requested_qty`/`use_hyphen`을 그�
   }
 }
 ```
+
+`generated_qty`는 캠페인 생성 시 지정한 `requested_qty`와 동일한 값이다(위 예시는 `requested_qty=100`으로 생성한 캠페인) — `coupon_code` 행은 위와 같이 항상 1건뿐이지만, 이 값은 "이 코드를 서로 다른 유저가 각자 소모할 수 있는 총 횟수"를 의미한다.
 
 ---
 

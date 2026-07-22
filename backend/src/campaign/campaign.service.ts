@@ -277,7 +277,7 @@ export class CampaignService {
         dto.campaign_end,
         dto.code_type,
         dto.use_hyphen ?? 1,
-        dto.requested_qty ?? 1,
+        dto.requested_qty,
         dto.use_limit_per_user ?? 1,
         JSON.stringify(dto.reward_data),
         requesterUserId,

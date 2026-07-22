@@ -198,6 +198,14 @@ S2S (1.2 참고)
 
 - `game_user_id` 미지정 상태에서 `page`/`page_size` 누락 → 30001
 
+### Sorting
+
+```sql
+ORDER BY created_at ASC
+```
+
+게임서버가 오래된 미지급 건부터 재처리하기 유리하도록 오래된 순으로 고정한다(관리 콘솔의 로그성 조회가 최신순인 것과 반대 — 이 API는 사람이 훑어보는 화면이 아니라 게임서버의 리컨실리에이션 배치가 순차 처리하는 대상이라 목적이 다르다).
+
 ### Business Rules
 
 - 두 모드 모두 실제 쿼리는 `coupon_code_usage.project_id`(비정규화 컬럼) 기준으로 스코핑하고, `confirmed_at IS NULL` 조건은 공통이다

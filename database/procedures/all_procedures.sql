@@ -580,6 +580,14 @@ BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_ISSUE
     -- 작성 : 2026.07.21 trisakion
+    -- 수정2: 2026.07.22 trisakion — FIXED 완료 UPDATE의 `generated_qty=1` 하드코딩을
+    --        `generated_qty=requested_qty`로 교체(SP_CAMPAIGN_CREATE 수정1과 짝). FIXED는
+    --        여전히 coupon_code 물리 행 1건만 만들지만, 캠페인 레벨의 requested_qty/
+    --        generated_qty는 이제 "코드 개수"가 아니라 "그 1건이 지원할 총 사용가능 횟수"를
+    --        의미한다 - 이전엔 강제로 1이라 usable_qty<=generated_qty 제약(17_CAMPAIGN_API.md
+    --        2.4) 때문에 FIXED 캠페인이 사실상 전체 통틀어 딱 1번만 소모 가능했다(S2S reserve
+    --        스모크 테스트에서 발견, 06_COUPON_USAGE_SCENARIO.md 4.2가 명시한 "서로 다른 유저가
+    --        각자 독립적으로 reserve 가능"과 모순).
     -- 수정1: 2026.07.21 trisakion — 리뷰에서 FIXED 동기 완료 UPDATE(구 코드: `SET generated_qty=1,
     --        generation_status=3 WHERE coupon_campaign_id=...`)에 `status<>4` 가드가 빠져있다는 걸
     --        발견함. 이 SP 호출이 INSERT까지 마친 뒤 COMMIT하기 전 그 짧은 순간에 다른 트랜잭션이
@@ -694,7 +702,7 @@ BEGIN
             END IF;
 
             UPDATE `coupon_campaign`
-            SET `generated_qty` = 1, `generation_status` = 3
+            SET `generated_qty` = `requested_qty`, `generation_status` = 3
             WHERE `coupon_campaign_id` = i_coupon_campaign_id
               AND `status` <> 4;
 
@@ -889,7 +897,7 @@ CREATE PROCEDURE `SP_CAMPAIGN_CREATE` (
     IN i_campaign_end       DATETIME,         -- 사용 가능 종료일시
     IN i_code_type          TINYINT UNSIGNED, -- 코드 발급 방식 (1:RANDOM, 2:FIXED)
     IN i_use_hyphen         TINYINT UNSIGNED, -- 하이픈 포함 여부 (RANDOM에만 적용)
-    IN i_requested_qty      INT UNSIGNED,     -- 목표 발급 수량 (FIXED면 서버가 1로 강제)
+    IN i_requested_qty      INT UNSIGNED,     -- 목표 수량(RANDOM: 발급할 코드 개수, FIXED: 단일 공유 코드의 총 사용가능 횟수) - RANDOM/FIXED 공통, 서버가 강제하지 않음
     IN i_use_limit_per_user INT UNSIGNED,     -- 동일 유저 재사용 허용 횟수
     IN i_reward_data        JSON,             -- 보상 내용(자유 스키마, pass-through)
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
@@ -898,6 +906,17 @@ BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CREATE
     -- 작성 : 2026.07.20 trisakion
+    -- 수정1: 2026.07.22 trisakion — code_type=2(FIXED)면 requested_qty를 서버가 항상 1로
+    --        강제하던 로직을 제거했다. S2S reserve 스모크 테스트에서 FIXED 코드를 서로 다른
+    --        유저가 각자 독립적으로 쓸 수 있어야 한다는 06_COUPON_USAGE_SCENARIO.md 4.2 예시가
+    --        실제로는 SP_CAMPAIGN_UPDATE의 `usable_qty<=generated_qty` 검증 때문에 막히는 걸
+    --        발견함 — FIXED는 generated_qty가 강제로 1이라 usable_qty도 최대 1까지만 열 수
+    --        있어, 첫 유저가 쓰는 순간 캠페인 전체가 소진돼버렸다. 코드 물리적 행은 여전히
+    --        FIXED당 1건뿐이지만(05_COUPON_ISSUANCE_SCENARIO.md 2장 - "코드 문자열을 여러 개
+    --        둘 이유가 없다"는 이유 자체는 변하지 않음), requested_qty/generated_qty를 "코드
+    --        개수"가 아니라 "그 1건이 지원할 총 사용가능 횟수"로 재정의해 RANDOM과 동일하게
+    --        관리자가 직접 지정하도록 바꿨다 - SP_CAMPAIGN_CODE_ISSUE의 FIXED 완료 처리도
+    --        `generated_qty=requested_qty`로 맞춰 함께 수정.
     -- 내용 : 쿠폰 도메인 최초 SP. 캠페인/코드 컨트롤은 회사 단위가 아니라 항상 **프로젝트 단위**로
     --        스코핑한다(17_CAMPAIGN_API.md 1.2) — company/project/user 도메인의 "DEVELOPER는
     --        회사 전체 조회" 예외가 이 도메인에는 적용되지 않는다. SUPER_ADMIN은 FN_IS_SUPER_ADMIN
@@ -909,9 +928,10 @@ BEGIN
     --        FN_GET_PROJECT_ROLE_CODE가 이미 project FK를 통해 암묵적으로 검증하지만(존재하지
     --        않는 project_id는 배정도 있을 수 없음), SUPER_ADMIN 우회 경로는 이 검증을 건너뛰므로
     --        별도로 존재 확인(31002)을 먼저 한다.
-    --        code_type=2(FIXED)면 요청값과 무관하게 requested_qty를 항상 1로 고정한다
-    --        (05_COUPON_ISSUANCE_SCENARIO.md 2장 — FIXED는 캠페인당 코드 1건뿐이며, "generated_qty
-    --        == requested_qty -> 완료" 판정 로직을 RANDOM과 동일하게 재사용하기 위함).
+    --        requested_qty는 RANDOM/FIXED 모두 호출자가 지정한 값을 그대로 저장한다(수정1 참고,
+    --        05_COUPON_ISSUANCE_SCENARIO.md 2장 — FIXED에서도 "generated_qty == requested_qty
+    --        -> 완료" 판정 로직을 RANDOM과 동일하게 재사용하되, 그 값 자체는 코드 개수가 아니라
+    --        총 사용가능 횟수를 의미).
     --        usable_qty/generated_qty/used_qty/generation_status/generation_error는 테이블
     --        DEFAULT(0/0/0/1/NULL)를 그대로 따르므로 이 SP는 건드리지 않는다 — 코드는 아직 하나도
     --        발급되지 않았으므로 usable_qty를 0보다 크게 열어둘 이유가 없다.
@@ -927,7 +947,6 @@ BEGIN
     DECLARE error_message VARCHAR(255) DEFAULT '';
     DECLARE v_role            TINYINT UNSIGNED DEFAULT NULL;
     DECLARE v_approval_status TINYINT UNSIGNED DEFAULT NULL;
-    DECLARE v_requested_qty   INT UNSIGNED     DEFAULT NULL;
     DECLARE v_campaign_id     BIGINT UNSIGNED  DEFAULT NULL;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -954,7 +973,6 @@ BEGIN
         END IF;
 
         SET v_approval_status = IF(v_role <= 30, 1, 2);
-        SET v_requested_qty = IF(i_code_type = 2, 1, i_requested_qty);
 
         INSERT INTO `coupon_campaign` (
             `project_id`, `name`, `campaign_start`, `campaign_end`, `code_type`, `use_hyphen`,
@@ -962,7 +980,7 @@ BEGIN
             `created_by`, `updated_by`
         ) VALUES (
             i_project_id, i_name, i_campaign_start, i_campaign_end, i_code_type, i_use_hyphen,
-            v_requested_qty, i_use_limit_per_user, v_approval_status, i_reward_data,
+            i_requested_qty, i_use_limit_per_user, v_approval_status, i_reward_data,
             i_requester_user_id, i_requester_user_id
         );
 
@@ -1859,6 +1877,366 @@ BEGIN
             (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS requester_name
         FROM `company`
         WHERE `company_id` = i_company_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_COUPON_CODE_GET_BY_VALUE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_COUPON_CODE_GET_BY_VALUE`;
+DELIMITER $$
+CREATE PROCEDURE `SP_COUPON_CODE_GET_BY_VALUE` (
+    IN i_project_id BIGINT UNSIGNED,  -- S2S 인증으로 스코핑된 project_id
+    IN i_code_value  VARCHAR(50)      -- 조회할 코드값
+) COMMENT '프로젝트+코드값으로 coupon_code 조회 (SP_COUPON_RESERVE/CONFIRM 실패 시 log_coupon_use용 campaign_id 보강 전용)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_COUPON_CODE_GET_BY_VALUE
+    -- 작성 : 2026.07.22 trisakion
+    -- 내용 : SP_COUPON_RESERVE/SP_COUPON_CONFIRM은 02_DEV_CONVENTIONS.md 3.4 규약상 실패 시
+    --        RESULT 단일 컬럼만 반환하므로, 코드는 존재하지만 다른 사유로 실패한 경우(RESERVE의
+    --        33001/33002/33003, CONFIRM의 31006)에도 coupon_campaign_id를 알 수 없다. 하지만
+    --        log_coupon_use.coupon_campaign_id는 "코드 자체가 없는 시도만 NULL"이 설계 의도라
+    --        (log_coupon_use.sql 헤더 주석), TS 서비스가 이 실패 분기에서만 별도로 이 SP를
+    --        호출해 campaign_id를 보강한 뒤 로그를 남긴다(성공 경로/코드없음(31005) 경로는
+    --        이 SP를 호출하지 않음 - RESERVE/CONFIRM 성공 시엔 각 SP가 이미 campaign_id를
+    --        함께 반환하므로 불필요). 순수 로깅 보강용이라 결과를 못 찾아도(31005) TS는 그냥
+    --        campaign_id=NULL로 로그를 남기면 그만이며 에러를 전파하지 않는다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM `coupon_code`
+            WHERE `project_id` = i_project_id AND `code_value` = i_code_value
+        ) THEN
+            SELECT 31005 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT `coupon_code_id`, `coupon_campaign_id`, `status`
+        FROM `coupon_code`
+        WHERE `project_id` = i_project_id AND `code_value` = i_code_value;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_COUPON_CONFIRM
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_COUPON_CONFIRM`;
+DELIMITER $$
+CREATE PROCEDURE `SP_COUPON_CONFIRM` (
+    IN i_project_id   BIGINT UNSIGNED,  -- S2S 인증으로 스코핑된 project_id
+    IN i_code_value   VARCHAR(50),      -- coupon_code.code_value
+    IN i_game_user_id VARCHAR(100)      -- 게임서버 유저 식별자
+) COMMENT '쿠폰 사용 지급결과 기록 - confirm (18_COUPON_USAGE_API.md 2.2)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_COUPON_CONFIRM
+    -- 작성 : 2026.07.22 trisakion
+    -- 내용 : 06_COUPON_USAGE_SCENARIO.md 2.1(confirm 흐름도)/2.2(중복 호출 무해)를 그대로
+    --        구현한다. confirm은 coupon_code/coupon_campaign 어떤 상태도 바꾸지 않으므로(소모
+    --        확정은 이미 reserve에서 끝남) 별도 락이 필요 없다 - 재시도로 두 번 호출돼도
+    --        confirmed_at을 같은 값으로 다시 쓰는 것뿐이라 무해하다.
+    --        1) 코드 조회(project_id+code_value) - 없으면 31005
+    --        2) coupon_code_usage 조회(coupon_code_id+game_user_id 매칭) - 없으면 31006
+    --           (reserve를 먼저 호출한 적 없거나, reserve 때와 다른 game_user_id로 호출한 경우)
+    --        3) 이미 confirmed_at이 있으면 그대로 재반환(멱등), 없으면 조건부 UPDATE(`WHERE
+    --           confirmed_at IS NULL`)로 기록 후 재조회해 반환 - 조건부 UPDATE로 감싼 것은
+    --           동시 confirm 호출 시 ROW_COUNT()=0이 나더라도(=경쟁에서 짐) 에러로 취급하지
+    --           않고 그냥 결과를 다시 읽어 그대로 반환하기 위함(둘 다 성공 응답을 받는 것이
+    --           의도된 동작, 02_DEV_CONVENTIONS.md 4장의 "조건부 UPDATE 우선" 원칙을 따르되
+    --           실패를 별도 분기로 두지 않는 경우).
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_coupon_code_id     BIGINT UNSIGNED DEFAULT NULL;
+    DECLARE v_coupon_campaign_id BIGINT UNSIGNED DEFAULT NULL;
+    DECLARE v_usage_id           BIGINT UNSIGNED DEFAULT NULL;
+    DECLARE v_confirmed_at       DATETIME        DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        SELECT `coupon_code_id`, `coupon_campaign_id` INTO v_coupon_code_id, v_coupon_campaign_id
+        FROM `coupon_code`
+        WHERE `project_id` = i_project_id AND `code_value` = i_code_value;
+
+        IF v_coupon_code_id IS NULL THEN
+            SELECT 31005 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT `coupon_code_usage_id`, `confirmed_at` INTO v_usage_id, v_confirmed_at
+        FROM `coupon_code_usage`
+        WHERE `coupon_code_id` = v_coupon_code_id AND `game_user_id` = i_game_user_id
+        LIMIT 1;
+
+        IF v_usage_id IS NULL THEN
+            SELECT 31006 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        IF v_confirmed_at IS NULL THEN
+            UPDATE `coupon_code_usage` SET `confirmed_at` = NOW()
+            WHERE `coupon_code_usage_id` = v_usage_id AND `confirmed_at` IS NULL;
+        END IF;
+
+        SELECT 0 AS RESULT;
+        SELECT `coupon_code_usage_id`, v_coupon_campaign_id AS `coupon_campaign_id`, `confirmed_at`
+        FROM `coupon_code_usage`
+        WHERE `coupon_code_usage_id` = v_usage_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_COUPON_RESERVE
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_COUPON_RESERVE`;
+DELIMITER $$
+CREATE PROCEDURE `SP_COUPON_RESERVE` (
+    IN i_project_id  BIGINT UNSIGNED,  -- S2S 인증으로 스코핑된 project_id
+    IN i_code_value  VARCHAR(50),      -- coupon_code.code_value
+    IN i_game_user_id VARCHAR(100)     -- 게임서버 유저 식별자
+) COMMENT '쿠폰 코드 예약(=즉시 소모 확정) - reserve (18_COUPON_USAGE_API.md 2.1)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_COUPON_RESERVE
+    -- 작성 : 2026.07.22 trisakion
+    -- 내용 : 06_COUPON_USAGE_SCENARIO.md 2.1/2.2/2.3을 그대로 구현한다.
+    --        1) 코드 조회(project_id+code_value, uk_project_code_value 활용) - 없으면 31005
+    --        2) 멱등 체크(use_limit_per_user=1일 때만): (coupon_code_id, game_user_id) 매칭 기존
+    --           coupon_code_usage 행이 있으면 새로 만들지 않고 그 행 그대로 RESULT=0 재반환
+    --           (1.2 참고 - 재시도 응답 재현)
+    --        3) code_type별 코드 잠금(락 획득 순서: 코드 -> 캠페인 -> 사용자한도, 2.3 참고):
+    --           RANDOM(1): `UPDATE coupon_code SET status=2 WHERE status=1` 조건부 갱신(검증+락+
+    --             확정 동시) - 0건이면 33001
+    --           FIXED(2): status=1(사용중) 아니면 33001. FIXED는 코드 전체 on/off만 의미하고
+    --             개별 소모를 표현하지 않으므로 락 UPDATE가 필요 없다(2.2 표 - 관리자 중지
+    --             레이스는 범위 밖으로 의도적으로 미대응, 2.2 마지막 문단 참고)
+    --        4) 캠페인 사용 가능 조건부 UPDATE(`used_qty=used_qty+1 WHERE used_qty<usable_qty
+    --           AND status=2 AND NOW() BETWEEN campaign_start AND campaign_end`) - 0건이면 33002
+    --           (여기서 처음으로 명시적 트랜잭션을 ROLLBACK - RANDOM 코드 잠금도 함께 해제됨)
+    --        5) 사용자당 한도 갭락(`SELECT COUNT(*) ... FOR UPDATE`) - 초과 시 33003(ROLLBACK)
+    --        6) coupon_code_usage 생성(confirmed_at=NULL) + COMMIT
+    --        RANDOM 코드 잠금(3)과 이후 단계(4/5/6)를 하나의 트랜잭션으로 묶기 위해 START
+    --        TRANSACTION을 코드 조회 직후(멱등 체크 이후)에 연다 - FIXED는 3단계에 UPDATE가
+    --        없지만 같은 트랜잭션 안에서 4/5/6이 처리되어도 무해하다(단순 SELECT 체크 후 그대로
+    --        진행).
+    --        반환 컬럼(coupon_code_usage_id/coupon_campaign_id/code_value/game_user_id/
+    --        reward_data/created_at)은 18_COUPON_USAGE_API.md 2.1 Response를 그대로 따른다 -
+    --        TS 서비스가 이 값을 그대로 HTTP 응답으로 내보낸다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_coupon_code_id     BIGINT UNSIGNED  DEFAULT NULL;
+    DECLARE v_coupon_campaign_id BIGINT UNSIGNED  DEFAULT NULL;
+    DECLARE v_code_status        TINYINT UNSIGNED DEFAULT NULL;
+    DECLARE v_code_type          TINYINT UNSIGNED DEFAULT NULL;
+    DECLARE v_use_limit          INT UNSIGNED     DEFAULT NULL;
+    DECLARE v_reward_data        JSON             DEFAULT NULL;
+    DECLARE v_existing_usage_id  BIGINT UNSIGNED  DEFAULT NULL;
+    DECLARE v_usage_count        INT              DEFAULT 0;
+    DECLARE v_new_usage_id       BIGINT UNSIGNED  DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        ROLLBACK;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        SELECT co.`coupon_code_id`, co.`coupon_campaign_id`, co.`status`,
+               ca.`code_type`, ca.`use_limit_per_user`, ca.`reward_data`
+        INTO v_coupon_code_id, v_coupon_campaign_id, v_code_status,
+             v_code_type, v_use_limit, v_reward_data
+        FROM `coupon_code` co
+        JOIN `coupon_campaign` ca ON ca.`coupon_campaign_id` = co.`coupon_campaign_id`
+        WHERE co.`project_id` = i_project_id AND co.`code_value` = i_code_value;
+
+        IF v_coupon_code_id IS NULL THEN
+            SELECT 31005 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        -- 멱등 체크(use_limit_per_user=1일 때만, 06_COUPON_USAGE_SCENARIO.md 1.2)
+        IF v_use_limit = 1 THEN
+            SELECT `coupon_code_usage_id` INTO v_existing_usage_id
+            FROM `coupon_code_usage`
+            WHERE `coupon_code_id` = v_coupon_code_id AND `game_user_id` = i_game_user_id
+            LIMIT 1;
+
+            IF v_existing_usage_id IS NOT NULL THEN
+                SELECT 0 AS RESULT;
+                SELECT `coupon_code_usage_id`, v_coupon_campaign_id AS `coupon_campaign_id`,
+                       i_code_value AS `code_value`, `game_user_id`, v_reward_data AS `reward_data`,
+                       `created_at`
+                FROM `coupon_code_usage`
+                WHERE `coupon_code_usage_id` = v_existing_usage_id;
+                LEAVE proc_block;
+            END IF;
+        END IF;
+
+        START TRANSACTION;
+
+        IF v_code_type = 1 THEN
+            UPDATE `coupon_code` SET `status` = 2
+            WHERE `coupon_code_id` = v_coupon_code_id AND `status` = 1;
+
+            IF ROW_COUNT() = 0 THEN
+                ROLLBACK;
+                SELECT 33001 AS RESULT;
+                LEAVE proc_block;
+            END IF;
+        ELSE
+            IF v_code_status <> 1 THEN
+                ROLLBACK;
+                SELECT 33001 AS RESULT;
+                LEAVE proc_block;
+            END IF;
+        END IF;
+
+        UPDATE `coupon_campaign`
+        SET `used_qty` = `used_qty` + 1
+        WHERE `coupon_campaign_id` = v_coupon_campaign_id
+          AND `used_qty` < `usable_qty`
+          AND `status` = 2
+          AND NOW() BETWEEN `campaign_start` AND `campaign_end`;
+
+        IF ROW_COUNT() = 0 THEN
+            ROLLBACK;
+            SELECT 33002 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        SELECT COUNT(*) INTO v_usage_count
+        FROM `coupon_code_usage`
+        WHERE `coupon_campaign_id` = v_coupon_campaign_id AND `game_user_id` = i_game_user_id
+        FOR UPDATE;
+
+        IF v_usage_count >= v_use_limit THEN
+            ROLLBACK;
+            SELECT 33003 AS RESULT;
+            LEAVE proc_block;
+        END IF;
+
+        INSERT INTO `coupon_code_usage`
+            (`coupon_code_id`, `coupon_campaign_id`, `project_id`, `game_user_id`, `confirmed_at`)
+        VALUES
+            (v_coupon_code_id, v_coupon_campaign_id, i_project_id, i_game_user_id, NULL);
+
+        SET v_new_usage_id = LAST_INSERT_ID();
+
+        COMMIT;
+
+        SELECT 0 AS RESULT;
+        SELECT `coupon_code_usage_id`, v_coupon_campaign_id AS `coupon_campaign_id`,
+               i_code_value AS `code_value`, `game_user_id`, v_reward_data AS `reward_data`,
+               `created_at`
+        FROM `coupon_code_usage`
+        WHERE `coupon_code_usage_id` = v_new_usage_id;
+    END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_COUPON_UNCONFIRMED_LIST
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_COUPON_UNCONFIRMED_LIST`;
+DELIMITER $$
+CREATE PROCEDURE `SP_COUPON_UNCONFIRMED_LIST` (
+    IN i_project_id  BIGINT UNSIGNED,  -- S2S 인증으로 스코핑된 project_id
+    IN i_game_user_id VARCHAR(100),    -- 지정 시 특정유저 조회 모드(NULL이면 전체유저 조회)
+    IN i_campaign_id BIGINT UNSIGNED,  -- 두 모드 공통 선택 필터 (NULL이면 전체)
+    IN i_page_size   INT,              -- 전체유저 조회 모드에서만 사용(특정유저 모드면 NULL)
+    IN i_offset      INT               -- 전체유저 조회 모드에서만 사용(특정유저 모드면 NULL)
+) COMMENT '미컨슘(confirm 안 된) 쿠폰 사용 조회 - 특정유저 전체반환/전체유저 페이지네이션 (18_COUPON_USAGE_API.md 3.1)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_COUPON_UNCONFIRMED_LIST
+    -- 작성 : 2026.07.22 trisakion
+    -- 내용 : 06_COUPON_USAGE_SCENARIO.md 3장 - 두 모드(특정유저/전체유저) 모두 실제 쿼리는
+    --        coupon_code_usage.project_id(비정규화 컬럼) 기준으로 스코핑하고 confirmed_at IS
+    --        NULL 조건은 공통이다. game_user_id만으로 조회하는 특정유저 모드도 project_id로
+    --        함께 스코핑해 다른 프로젝트의 동일 game_user_id 데이터가 섞이지 않는다(3.2 참고).
+    --        i_page_size/i_offset이 NULL이면(특정유저 모드) LIMIT을 사실상 무제한으로 취급하는
+    --        v_effective_limit(MySQL BIGINT UNSIGNED 최댓값)을 써서, 페이지네이션 유무와
+    --        무관하게 하나의 쿼리 경로(총 개수 서브쿼리 + LEFT JOIN ... ON TRUE, 02_DEV_
+    --        CONVENTIONS.md 3.6)를 그대로 재사용한다 - 특정유저 모드에서 total_count는 TS가
+    --        응답 조립 시 그냥 버린다(3.1 Response에 없는 필드).
+    --        code_value/reward_data는 coupon_code_usage에 비정규화돼 있지 않아 coupon_code/
+    --        coupon_campaign을 조인해서 가져온다. 정렬은 게임서버가 오래된 미지급 건부터
+    --        재처리하기 유리하도록 created_at ASC로 고정한다(오래된 순).
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE v_effective_limit  BIGINT UNSIGNED DEFAULT NULL;
+    DECLARE v_effective_offset BIGINT UNSIGNED DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    proc_block: BEGIN
+        SET v_effective_limit = IF(i_page_size IS NULL, 18446744073709551615, i_page_size);
+        SET v_effective_offset = IF(i_offset IS NULL, 0, i_offset);
+
+        SELECT 0 AS RESULT;
+        SELECT
+            pg.`code_value`, pg.`game_user_id`, pg.`coupon_campaign_id`,
+            pg.`reward_data`, pg.`created_at`,
+            cnt.`total_count`
+        FROM (
+            SELECT COUNT(*) AS total_count
+            FROM `coupon_code_usage`
+            WHERE `project_id` = i_project_id
+              AND `confirmed_at` IS NULL
+              AND (i_game_user_id IS NULL OR `game_user_id` = i_game_user_id)
+              AND (i_campaign_id IS NULL OR `coupon_campaign_id` = i_campaign_id)
+        ) cnt
+        LEFT JOIN (
+            SELECT co.`code_value`, ccu.`game_user_id`, ccu.`coupon_campaign_id`,
+                   ca.`reward_data`, ccu.`created_at`
+            FROM `coupon_code_usage` ccu
+            JOIN `coupon_code` co ON co.`coupon_code_id` = ccu.`coupon_code_id`
+            JOIN `coupon_campaign` ca ON ca.`coupon_campaign_id` = ccu.`coupon_campaign_id`
+            WHERE ccu.`project_id` = i_project_id
+              AND ccu.`confirmed_at` IS NULL
+              AND (i_game_user_id IS NULL OR ccu.`game_user_id` = i_game_user_id)
+              AND (i_campaign_id IS NULL OR ccu.`coupon_campaign_id` = i_campaign_id)
+            ORDER BY ccu.`created_at` ASC
+            LIMIT v_effective_limit OFFSET v_effective_offset
+        ) pg ON TRUE;
     END proc_block;
 END$$
 

@@ -32,7 +32,9 @@ RANDOM : 대량생성 → 비동기 처리 (generation_status: 대기 → 진행
 FIXED  : 관리자가 코드 1건을 직접 입력 → 동기 처리 (즉시 완료). 여러 사용자가 같은 코드를 공유하므로(캠페인당 코드 1건) 목록 등록 개념 자체가 없다
 ```
 
-**왜 FIXED는 캠페인당 코드 1건뿐인가**: FIXED 코드는 여러 사용자가 같은 코드를 공유한다. 총 사용 가능 수량은 이미 캠페인 레벨의 `usable_qty`/`used_qty`가, 동일 유저 재사용 한도는 `use_limit_per_user`가 각각 제어하므로, 코드 문자열 자체를 여러 개 두어야 할 이유가 없다(채널별로 다른 코드를 배포하고 싶다면 캠페인을 나누면 된다). 그래서 FIXED는 코드 목록 등록이 아니라 단일 코드 등록으로 설계한다. `requested_qty`도 FIXED에서는 "코드 개수"가 아니라 시스템이 항상 `1`로 고정해서, RANDOM과 동일한 "`generated_qty`==`requested_qty` → 완료" 판정 로직을 재사용하기 위한 용도일 뿐이다.
+**왜 FIXED는 캠페인당 코드 1건뿐인가**: FIXED 코드는 여러 사용자가 같은 코드를 공유한다. 총 사용 가능 수량은 이미 캠페인 레벨의 `usable_qty`/`used_qty`가, 동일 유저 재사용 한도는 `use_limit_per_user`가 각각 제어하므로, 코드 문자열 자체를 여러 개 두어야 할 이유가 없다(채널별로 다른 코드를 배포하고 싶다면 캠페인을 나누면 된다). 그래서 FIXED는 코드 목록 등록이 아니라 단일 코드 등록으로 설계한다.
+
+**`requested_qty`/`generated_qty`의 의미(2026-07-22 수정)**: FIXED에서도 이 두 컬럼은 RANDOM과 동일하게 "`generated_qty`==`requested_qty` → 완료" 판정 로직을 그대로 재사용하지만, 값 자체는 "코드 개수"가 아니라 **그 코드 1건이 지원할 총 사용가능 횟수**를 의미한다 — 처음엔 FIXED의 `requested_qty`를 시스템이 항상 `1`로 고정했으나, 그러면 [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.4의 `usable_qty<=generated_qty` 검증 때문에 `usable_qty`도 최대 `1`까지만 열 수 있어 FIXED 캠페인이 **전체 통틀어 딱 1번**만 소모 가능해지는 문제가 있었다. [06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md) 4.2는 "서로 다른 유저가 같은 FIXED 코드를 각자 독립적으로 reserve할 수 있다"고 명시하는데, S2S reserve 엔드포인트를 실제로 스모크 테스트하면서 이 모순이 발견됨 — 두 번째 유저의 reserve가 `used_qty<usable_qty` 조건을 못 넘어 33002(캠페인 사용 불가)로 막혔다. 해결책은 FIXED도 RANDOM처럼 `requested_qty`를 호출자가 직접 지정하게 하고, [3.1 Issue Codes](#31-issue-codes)의 FIXED 완료 처리에서 `generated_qty=requested_qty`로 맞추는 것 — 코드 물리적 행은 여전히 1건이지만, 그 값 자체를 늘려 `usable_qty`도 함께 늘어날 수 있게 했다.
 
 캠페인당 코드 발급 요청(job)은 **1회만 허용**한다(추가 발급/top-up 불가) — job과 campaign이 항상 1:1 관계이므로, 별도 진행상태 추적 테이블 없이 `coupon_campaign.generation_status`/`generation_error` 컬럼만으로 표현 가능하다.
 
@@ -84,7 +86,7 @@ flowchart TD
     F1 --> F2{"코드값 중복?
     (UNIQUE project_id+code_value)"}
     F2 -- Y --> F3["32001 중복 데이터, 즉시 실패 응답"]
-    F2 -- N --> F4["generated_qty=requested_qty=1,
+    F2 -- N --> F4["generated_qty=requested_qty,
     generation_status=완료"]
 ```
 

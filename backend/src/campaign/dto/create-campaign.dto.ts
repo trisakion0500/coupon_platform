@@ -7,7 +7,6 @@ import {
   Matches,
   MaxLength,
   Min,
-  ValidateIf,
 } from 'class-validator';
 import { IsAfter } from '../../common/validators/is-after.validator';
 
@@ -42,19 +41,14 @@ export class CreateCampaignDto {
   use_hyphen?: number;
 
   /**
-   * code_type=1(RANDOM)일 때만 필수(FIXED는 서버가 항상 1로 강제하므로 필수가 아니다) — 단
-   * FIXED에서도 값이 오면(무시될 필드라도) 타입 검증은 그대로 통과시킨다. 그냥 `@IsOptional()`로
-   * FIXED일 때 검증을 통째로 건너뛰면, 숫자가 아닌 값이 와도 DTO를 통과해 SP의
-   * `INT UNSIGNED` 파라미터 바인딩에서 500(DB 오류)으로 새 나갈 수 있다(2026-07-20 리뷰에서
-   * 발견) — ValidateIf 조건에 "값이 존재하는 경우"도 포함해 FIXED에서도 있는 값은 검증한다.
+   * RANDOM/FIXED 공통 필수(2026-07-22부터 — 이전엔 FIXED를 서버가 항상 1로 강제했으나, S2S
+   * reserve 스모크 테스트에서 그 강제 때문에 FIXED 캠페인이 전체 통틀어 딱 1번만 소모 가능한
+   * 문제가 발견돼 제거함). RANDOM은 발급할 코드 개수, FIXED는 단일 공유 코드가 지원할 총
+   * 사용가능 횟수를 의미한다(SP_CAMPAIGN_CREATE 수정1 참고).
    */
-  @ValidateIf(
-    (dto: CreateCampaignDto) =>
-      dto.code_type === 1 || dto.requested_qty !== undefined,
-  )
   @IsInt()
   @Min(1)
-  requested_qty?: number;
+  requested_qty!: number;
 
   @IsOptional()
   @IsInt()

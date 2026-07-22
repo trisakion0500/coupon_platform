@@ -9,6 +9,14 @@ BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_ISSUE
     -- 작성 : 2026.07.21 trisakion
+    -- 수정2: 2026.07.22 trisakion — FIXED 완료 UPDATE의 `generated_qty=1` 하드코딩을
+    --        `generated_qty=requested_qty`로 교체(SP_CAMPAIGN_CREATE 수정1과 짝). FIXED는
+    --        여전히 coupon_code 물리 행 1건만 만들지만, 캠페인 레벨의 requested_qty/
+    --        generated_qty는 이제 "코드 개수"가 아니라 "그 1건이 지원할 총 사용가능 횟수"를
+    --        의미한다 - 이전엔 강제로 1이라 usable_qty<=generated_qty 제약(17_CAMPAIGN_API.md
+    --        2.4) 때문에 FIXED 캠페인이 사실상 전체 통틀어 딱 1번만 소모 가능했다(S2S reserve
+    --        스모크 테스트에서 발견, 06_COUPON_USAGE_SCENARIO.md 4.2가 명시한 "서로 다른 유저가
+    --        각자 독립적으로 reserve 가능"과 모순).
     -- 수정1: 2026.07.21 trisakion — 리뷰에서 FIXED 동기 완료 UPDATE(구 코드: `SET generated_qty=1,
     --        generation_status=3 WHERE coupon_campaign_id=...`)에 `status<>4` 가드가 빠져있다는 걸
     --        발견함. 이 SP 호출이 INSERT까지 마친 뒤 COMMIT하기 전 그 짧은 순간에 다른 트랜잭션이
@@ -123,7 +131,7 @@ BEGIN
             END IF;
 
             UPDATE `coupon_campaign`
-            SET `generated_qty` = 1, `generation_status` = 3
+            SET `generated_qty` = `requested_qty`, `generation_status` = 3
             WHERE `coupon_campaign_id` = i_coupon_campaign_id
               AND `status` <> 4;
 

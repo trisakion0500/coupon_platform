@@ -9,6 +9,7 @@ import { envValidationSchema } from './common/config/env.validation';
 import { DatabaseModule } from './common/database/database.module';
 import { LogDatabaseModule } from './common/database/log-database.module';
 import { SessionCleanupModule } from './common/session-cleanup/session-cleanup.module';
+import { CouponUsageModule } from './coupon-usage/coupon-usage.module';
 import { HealthModule } from './health/health.module';
 import { ProjectModule } from './project/project.module';
 import { UserModule } from './user/user.module';
@@ -38,6 +39,7 @@ import { UserRoleModule } from './user-role/user-role.module';
     UserModule,
     UserRoleModule,
     CampaignModule,
+    CouponUsageModule,
   ],
 })
 export class AppModule {}
