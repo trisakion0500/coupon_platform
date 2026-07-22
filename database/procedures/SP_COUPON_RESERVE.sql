@@ -23,8 +23,20 @@ BEGIN
     --        4) 캠페인 사용 가능 조건부 UPDATE(`used_qty=used_qty+1 WHERE used_qty<usable_qty
     --           AND status=2 AND NOW() BETWEEN campaign_start AND campaign_end`) - 0건이면 33002
     --           (여기서 처음으로 명시적 트랜잭션을 ROLLBACK - RANDOM 코드 잠금도 함께 해제됨)
-    --        5) 사용자당 한도 갭락(`SELECT COUNT(*) ... FOR UPDATE`) - 초과 시 33003(ROLLBACK)
-    --        6) coupon_code_usage 생성(confirmed_at=NULL) + COMMIT
+    --        5) coupon_code_usage 먼저 INSERT(confirmed_at=NULL)
+    --        6) 사용자당 한도 재확인(`SELECT COUNT(*) ... FOR UPDATE`, 방금 넣은 5번 행 포함해서
+    --           카운트) - 한도 초과 시 33003(ROLLBACK, 5번 INSERT도 함께 취소) 아니면 COMMIT
+    --        5/6 순서를 "한도확인 -> INSERT"가 아니라 "INSERT -> 한도확인"으로 둔 이유(2026-07-22
+    --        감사 후 수정): 원래 순서(한도확인 SELECT...FOR UPDATE를 먼저 실행)는 완전히 동일한
+    --        요청(같은 코드+같은 유저)이 진짜 동시에 들어오면 두 트랜잭션이 아직 아무 행도 없는
+    --        같은 갭에 서로 호환되는 갭락을 동시에 얻은 뒤 둘 다 INSERT를 시도하면서 서로의
+    --        insert-intention lock과 충돌해 데드락(1213 -> 50001)이 나는 경로가 있었다(RANDOM은
+    --        3번의 코드 행 락이 먼저 걸려 이 경로를 안 타므로 FIXED 관련 경로에서만 발생, use_limit
+    --        값과 무관하게 발생 가능). INSERT를 먼저 하면 두 INSERT는 서로 락 경합 없이 독립적으로
+    --        들어가고 그 다음 FOR UPDATE 재확인이 상대방의 미커밋 행과 마주쳤을 때만 대기하므로
+    --        데드락 가능성이 크게 줄어들고, 설령 그 좁은 타이밍에 데드락이 나더라도 진 쪽이
+    --        재시도하면 이번엔 2번 멱등 체크가 이긴 쪽의 커밋된 행을 찾아 동일한 성공 응답을
+    --        재현하므로 데이터 정합성(한도 초과 없음)과 최종 재시도 수렴 모두 보장된다.
     --        RANDOM 코드 잠금(3)과 이후 단계(4/5/6)를 하나의 트랜잭션으로 묶기 위해 START
     --        TRANSACTION을 코드 조회 직후(멱등 체크 이후)에 연다 - FIXED는 3단계에 UPDATE가
     --        없지만 같은 트랜잭션 안에서 4/5/6이 처리되어도 무해하다(단순 SELECT 체크 후 그대로
@@ -118,23 +130,23 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        SELECT COUNT(*) INTO v_usage_count
-        FROM `coupon_code_usage`
-        WHERE `coupon_campaign_id` = v_coupon_campaign_id AND `game_user_id` = i_game_user_id
-        FOR UPDATE;
-
-        IF v_usage_count >= v_use_limit THEN
-            ROLLBACK;
-            SELECT 33003 AS RESULT;
-            LEAVE proc_block;
-        END IF;
-
         INSERT INTO `coupon_code_usage`
             (`coupon_code_id`, `coupon_campaign_id`, `project_id`, `game_user_id`, `confirmed_at`)
         VALUES
             (v_coupon_code_id, v_coupon_campaign_id, i_project_id, i_game_user_id, NULL);
 
         SET v_new_usage_id = LAST_INSERT_ID();
+
+        SELECT COUNT(*) INTO v_usage_count
+        FROM `coupon_code_usage`
+        WHERE `coupon_campaign_id` = v_coupon_campaign_id AND `game_user_id` = i_game_user_id
+        FOR UPDATE;
+
+        IF v_usage_count > v_use_limit THEN
+            ROLLBACK;
+            SELECT 33003 AS RESULT;
+            LEAVE proc_block;
+        END IF;
 
         COMMIT;
 
