@@ -22,6 +22,9 @@ BEGIN
     --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name과 스코핑/표시명용
     --        company_id(project 조인)/user_name/project_name을 추가했다(SP_USER_ROLE_CREATE와
     --        동일한 조인 패턴).
+    --        2026-07-22: before_json 캡처가 락 없는 별도 SELECT로 UPDATE보다 먼저 실행되던 문제를
+    --        전수감사에서 발견 - 캡처를 `SELECT ... FOR UPDATE`로 바꾸고 UPDATE와 같은 명시적
+    --        트랜잭션으로 묶는다(SP_COMPANY_UPDATE와 동일 수정).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -32,6 +35,7 @@ BEGIN
     BEGIN
         GET DIAGNOSTICS CONDITION 1
             sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        ROLLBACK;
         SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
     END;
 
@@ -53,17 +57,22 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        SELECT JSON_OBJECT(             -- before_json: UPDATE 직전 스냅샷
+        START TRANSACTION;
+
+        SELECT JSON_OBJECT(             -- before_json: UPDATE 직전 스냅샷, FOR UPDATE로 잠금
             'user_id', `user_id`, 'project_id', `project_id`, 'role_code', `role_code`,
             'status', `status`, 'created_at', `created_at`, 'updated_at', `updated_at`
         ) INTO v_before_json
-        FROM `user_role` WHERE `user_id` = i_user_id AND `project_id` = i_project_id;
+        FROM `user_role` WHERE `user_id` = i_user_id AND `project_id` = i_project_id
+        FOR UPDATE;
 
         UPDATE `user_role`
         SET
             `role_code` = COALESCE(i_role_code, `role_code`),
             `status`    = COALESCE(i_status, `status`)
         WHERE `user_id` = i_user_id AND `project_id` = i_project_id;
+
+        COMMIT;
 
         SELECT 0 AS RESULT;
         SELECT

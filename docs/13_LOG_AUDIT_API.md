@@ -105,7 +105,7 @@ after_json = 상태 변경 후 전체 Row
 | user_role | `POST /user-roles` | `SP_USER_ROLE_CREATE` | 10 CREATE |
 | user_role | `PATCH /user-roles/{user_id}/{project_id}` | `SP_USER_ROLE_UPDATE` | 20 UPDATE |
 
-각 SP는 UPDATE/STATUS_CHANGE 직전에 변경 전 행을 캡처해 `before_json`으로, CREATE/UPDATE/STATUS_CHANGE 완료 후 행을 `after_json`으로 결과 SELECT에 함께 반환한다(SP 내부 캡처 — TS 서비스 레이어가 별도로 조회하지 않고 SP가 반환한 값을 그대로 `SP_LOG_AUDIT_CREATE`에 전달). `requester_name`(`created_by_name` 스냅샷)도 JWT 페이로드에 `user_name`이 없어 SP가 `user` 테이블을 직접 조회해 채운다.
+각 SP는 UPDATE/STATUS_CHANGE 직전에 변경 전 행을 캡처해 `before_json`으로, CREATE/UPDATE/STATUS_CHANGE 완료 후 행을 `after_json`으로 결과 SELECT에 함께 반환한다(SP 내부 캡처 — TS 서비스 레이어가 별도로 조회하지 않고 SP가 반환한 값을 그대로 `SP_LOG_AUDIT_CREATE`에 전달). `requester_name`(`created_by_name` 스냅샷)도 JWT 페이로드에 `user_name`이 없어 SP가 `user` 테이블을 직접 조회해 채운다. `before_json` 캡처는 `SELECT ... FOR UPDATE`로 대상 행을 잠근 뒤 UPDATE까지 하나의 트랜잭션으로 처리한다(2026-07-22) — 캡처를 락 없는 별도 SELECT로 UPDATE보다 먼저 실행하면 그 사이 다른 트랜잭션이 같은 행을 커밋했을 때 실제 직전 상태가 아닌 더 오래된 상태가 로그에 남을 수 있어, 캡처 시점부터 행을 잠가 이 레이스 윈도우를 제거했다.
 
 ---
 

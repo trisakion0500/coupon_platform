@@ -30,6 +30,12 @@ BEGIN
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다
     --        (password_hash '***' 마스킹).
+    --        2026-07-22: before_json 캡처가 START TRANSACTION보다 먼저(락 없이) 실행되고 있어,
+    --        캡처 이후 UPDATE 이전에 다른 트랜잭션이 같은 행을 커밋하면 실제 직전 상태가 아닌
+    --        더 오래된 상태가 로그에 남는 문제를 전수감사에서 발견 - 캡처를 트랜잭션 내부로 옮기고
+    --        `FOR UPDATE`로 바꿔 캡처 시점부터 행을 잠근다(레이스 윈도우 제거). 1062 백스톱
+    --        핸들러도 같은 이유로 ROLLBACK을 추가했다(트랜잭션이 열린 채로 반환되면 커넥션 풀
+    --        재사용 시 다음 호출에 영향을 줄 수 있음).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -39,6 +45,7 @@ BEGIN
     -- email 유니크 제약 위반(경쟁 상태로 사전 체크를 통과한 경우의 백스톱) — mysql_errno 1062
     DECLARE EXIT HANDLER FOR 1062
     BEGIN
+        ROLLBACK;
         SELECT 32001 AS RESULT;
     END;
 
@@ -68,17 +75,18 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        SELECT JSON_OBJECT(
-            'user_id', `user_id`, 'company_id', `company_id`,
-            'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
-            'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
-            'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
-            'status', `status`, 'last_login_at', `last_login_at`,
-            'created_at', `created_at`, 'updated_at', `updated_at`
-        ) INTO v_before_json
-        FROM `user` WHERE `user_id` = i_user_id;
-
         START TRANSACTION;
+
+            SELECT JSON_OBJECT(
+                'user_id', `user_id`, 'company_id', `company_id`,
+                'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+                'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+                'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+                'status', `status`, 'last_login_at', `last_login_at`,
+                'created_at', `created_at`, 'updated_at', `updated_at`
+            ) INTO v_before_json
+            FROM `user` WHERE `user_id` = i_user_id
+            FOR UPDATE;
 
             UPDATE `user`
             SET

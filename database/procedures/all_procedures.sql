@@ -1806,11 +1806,12 @@ BEGIN
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
     --        02_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
-    --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다 - 캡처와
-    --        UPDATE 사이에 이론상 레이스 윈도우가 있지만(관리콘솔 저빈도 트래픽이라 실무 영향 미미),
-    --        TS 레이어가 별도로 조회하는 방식(레이스 + user_role 등 일부 도메인은 단건 조회 SP
-    --        자체가 없어 신규 필요)보다 원자적이라 이 방식을 택했다(02_DEV_CONVENTIONS.md 3.2와
-    --        같은 "DB가 최종 방어선/근원" 원칙).
+    --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다.
+    --        2026-07-22: before_json 캡처가 락 없는 별도 SELECT로 UPDATE보다 먼저 실행돼, 그 사이
+    --        다른 트랜잭션이 같은 행을 커밋하면 캡처된 before_json이 실제 직전 상태가 아닌 더
+    --        오래된 상태를 가리키는 문제를 전수감사에서 발견 - 캡처를 `SELECT ... FOR UPDATE`로
+    --        바꾸고 UPDATE와 같은 명시적 트랜잭션으로 묶어, 캡처 시점에 이미 해당 행을 잠가
+    --        UPDATE까지 원자적으로 처리한다(캡처와 UPDATE 사이 레이스 윈도우 자체를 제거).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -1820,6 +1821,7 @@ BEGIN
     -- company_code 유니크 제약 위반(경쟁 상태로 사전 체크를 통과한 경우의 백스톱) — mysql_errno 1062
     DECLARE EXIT HANDLER FOR 1062
     BEGIN
+        ROLLBACK;
         SELECT 32001 AS RESULT;
     END;
 
@@ -1827,6 +1829,7 @@ BEGIN
     BEGIN
         GET DIAGNOSTICS CONDITION 1
             sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        ROLLBACK;
         SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
     END;
 
@@ -1849,12 +1852,15 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        SELECT JSON_OBJECT(             -- before_json: UPDATE 직전 스냅샷(log_audit용)
+        START TRANSACTION;
+
+        SELECT JSON_OBJECT(             -- before_json: UPDATE 직전 스냅샷(log_audit용), FOR UPDATE로 잠금
             'company_id', `company_id`, 'company_code', `company_code`,
             'company_name', `company_name`, 'description', `description`,
             'status', `status`, 'created_at', `created_at`, 'updated_at', `updated_at`
         ) INTO v_before_json
-        FROM `company` WHERE `company_id` = i_company_id;
+        FROM `company` WHERE `company_id` = i_company_id
+        FOR UPDATE;
 
         UPDATE `company`
         SET
@@ -1863,6 +1869,8 @@ BEGIN
             `description`  = COALESCE(i_description, `description`),
             `status`       = COALESCE(i_status, `status`)
         WHERE `company_id` = i_company_id;
+
+        COMMIT;
 
         SELECT 0 AS RESULT;
         SELECT
@@ -2946,6 +2954,10 @@ BEGIN
     --        ROW_COUNT()=0 분기에서 어차피 LEAVE한다), 결과 SELECT에
     --        before_json/after_json/requester_name을 추가했다. password_hash는 '***'로 마스킹한다
     --        (13_LOG_AUDIT_API.md 2.4).
+    --        2026-07-22: before_json 캡처가 락 없는 별도 SELECT로 UPDATE보다 먼저 실행되던 문제를
+    --        전수감사에서 발견 - 캡처를 `SELECT ... FOR UPDATE`로 바꾸고 UPDATE와 같은 명시적
+    --        트랜잭션으로 묶는다. ROW_COUNT()=0(실패) 분기에서도 트랜잭션을 열어둔 채 반환하면
+    --        커넥션 풀 재사용 시 다음 호출에 영향을 줄 수 있어 ROLLBACK을 명시적으로 호출한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -2956,6 +2968,7 @@ BEGIN
     BEGIN
         GET DIAGNOSTICS CONDITION 1
             sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        ROLLBACK;
         SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
     END;
 
@@ -2965,6 +2978,8 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
+        START TRANSACTION;
+
         SELECT JSON_OBJECT(
             'user_id', `user_id`, 'company_id', `company_id`,
             'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
@@ -2973,7 +2988,8 @@ BEGIN
             'status', `status`, 'last_login_at', `last_login_at`,
             'created_at', `created_at`, 'updated_at', `updated_at`
         ) INTO v_before_json
-        FROM `user` WHERE `user_id` = i_user_id;
+        FROM `user` WHERE `user_id` = i_user_id
+        FOR UPDATE;
 
         UPDATE `user`
         SET `status` = 1
@@ -2985,8 +3001,11 @@ BEGIN
             ELSE
                 SELECT 30004 AS RESULT;
             END IF;
+            ROLLBACK;
             LEAVE proc_block;
         END IF;
+
+        COMMIT;
 
         SELECT 0 AS RESULT;
         SELECT
@@ -3227,6 +3246,9 @@ BEGIN
     --        (13_LOG_AUDIT_API.md 2.4 — 본인 비밀번호 변경도 user UPDATE 감사 로그 대상). 본인
     --        조회라 requester_name도 i_user_id 자신의 user_name이다. password_hash는 '***'로
     --        마스킹한다.
+    --        2026-07-22: before_json 캡처가 START TRANSACTION보다 먼저(락 없이) 실행되던 문제를
+    --        전수감사에서 발견 - 캡처를 트랜잭션 내부로 옮기고 `FOR UPDATE`로 바꿔 캡처 시점부터
+    --        UPDATE까지 원자적으로 처리한다(SP_USER_UPDATE/PASSWORD_RESET과 동일 수정).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -3241,17 +3263,18 @@ BEGIN
         SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
     END;
 
-    SELECT JSON_OBJECT(
-        'user_id', `user_id`, 'company_id', `company_id`,
-        'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
-        'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
-        'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
-        'status', `status`, 'last_login_at', `last_login_at`,
-        'created_at', `created_at`, 'updated_at', `updated_at`
-    ) INTO v_before_json
-    FROM `user` WHERE `user_id` = i_user_id;
-
     START TRANSACTION;
+
+        SELECT JSON_OBJECT(
+            'user_id', `user_id`, 'company_id', `company_id`,
+            'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+            'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+            'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+            'status', `status`, 'last_login_at', `last_login_at`,
+            'created_at', `created_at`, 'updated_at', `updated_at`
+        ) INTO v_before_json
+        FROM `user` WHERE `user_id` = i_user_id
+        FOR UPDATE;
 
         UPDATE `user`
         SET `password_hash` = i_new_password_hash
@@ -3306,6 +3329,9 @@ BEGIN
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다
     --        (password_hash는 변경 전/후 모두 '***'로 마스킹 — 13_LOG_AUDIT_API.md 2.4).
+    --        2026-07-22: before_json 캡처가 START TRANSACTION보다 먼저(락 없이) 실행되던 문제를
+    --        전수감사에서 발견 - 캡처를 트랜잭션 내부로 옮기고 `FOR UPDATE`로 바꿔 캡처 시점부터
+    --        UPDATE까지 원자적으로 처리한다(SP_USER_UPDATE와 동일 수정).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -3331,17 +3357,18 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        SELECT JSON_OBJECT(
-            'user_id', `user_id`, 'company_id', `company_id`,
-            'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
-            'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
-            'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
-            'status', `status`, 'last_login_at', `last_login_at`,
-            'created_at', `created_at`, 'updated_at', `updated_at`
-        ) INTO v_before_json
-        FROM `user` WHERE `user_id` = i_user_id;
-
         START TRANSACTION;
+
+            SELECT JSON_OBJECT(
+                'user_id', `user_id`, 'company_id', `company_id`,
+                'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+                'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+                'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+                'status', `status`, 'last_login_at', `last_login_at`,
+                'created_at', `created_at`, 'updated_at', `updated_at`
+            ) INTO v_before_json
+            FROM `user` WHERE `user_id` = i_user_id
+            FOR UPDATE;
 
             UPDATE `user`
             SET `password_hash` = i_new_password_hash
@@ -3393,6 +3420,9 @@ BEGIN
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 SP_USER_APPROVE와 동일하게 UPDATE 직전
     --        v_before_json 캡처 + 결과 SELECT에 before_json/after_json/requester_name 추가
     --        (password_hash '***' 마스킹).
+    --        2026-07-22: SP_USER_APPROVE와 동일하게 before_json 캡처를 `SELECT ... FOR UPDATE`로
+    --        바꾸고 UPDATE와 같은 명시적 트랜잭션으로 묶어 캡처-UPDATE 사이 레이스 윈도우를 제거,
+    --        ROW_COUNT()=0(실패) 분기에서도 ROLLBACK을 명시적으로 호출한다(전수감사에서 발견).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -3403,6 +3433,7 @@ BEGIN
     BEGIN
         GET DIAGNOSTICS CONDITION 1
             sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        ROLLBACK;
         SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
     END;
 
@@ -3412,6 +3443,8 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
+        START TRANSACTION;
+
         SELECT JSON_OBJECT(
             'user_id', `user_id`, 'company_id', `company_id`,
             'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
@@ -3420,7 +3453,8 @@ BEGIN
             'status', `status`, 'last_login_at', `last_login_at`,
             'created_at', `created_at`, 'updated_at', `updated_at`
         ) INTO v_before_json
-        FROM `user` WHERE `user_id` = i_user_id;
+        FROM `user` WHERE `user_id` = i_user_id
+        FOR UPDATE;
 
         UPDATE `user`
         SET `status` = 2
@@ -3432,8 +3466,11 @@ BEGIN
             ELSE
                 SELECT 30004 AS RESULT;
             END IF;
+            ROLLBACK;
             LEAVE proc_block;
         END IF;
+
+        COMMIT;
 
         SELECT 0 AS RESULT;
         SELECT
@@ -3693,6 +3730,9 @@ BEGIN
     --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name과 스코핑/표시명용
     --        company_id(project 조인)/user_name/project_name을 추가했다(SP_USER_ROLE_CREATE와
     --        동일한 조인 패턴).
+    --        2026-07-22: before_json 캡처가 락 없는 별도 SELECT로 UPDATE보다 먼저 실행되던 문제를
+    --        전수감사에서 발견 - 캡처를 `SELECT ... FOR UPDATE`로 바꾸고 UPDATE와 같은 명시적
+    --        트랜잭션으로 묶는다(SP_COMPANY_UPDATE와 동일 수정).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -3703,6 +3743,7 @@ BEGIN
     BEGIN
         GET DIAGNOSTICS CONDITION 1
             sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        ROLLBACK;
         SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
     END;
 
@@ -3724,17 +3765,22 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        SELECT JSON_OBJECT(             -- before_json: UPDATE 직전 스냅샷
+        START TRANSACTION;
+
+        SELECT JSON_OBJECT(             -- before_json: UPDATE 직전 스냅샷, FOR UPDATE로 잠금
             'user_id', `user_id`, 'project_id', `project_id`, 'role_code', `role_code`,
             'status', `status`, 'created_at', `created_at`, 'updated_at', `updated_at`
         ) INTO v_before_json
-        FROM `user_role` WHERE `user_id` = i_user_id AND `project_id` = i_project_id;
+        FROM `user_role` WHERE `user_id` = i_user_id AND `project_id` = i_project_id
+        FOR UPDATE;
 
         UPDATE `user_role`
         SET
             `role_code` = COALESCE(i_role_code, `role_code`),
             `status`    = COALESCE(i_status, `status`)
         WHERE `user_id` = i_user_id AND `project_id` = i_project_id;
+
+        COMMIT;
 
         SELECT 0 AS RESULT;
         SELECT
@@ -4111,6 +4157,12 @@ BEGIN
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다
     --        (password_hash '***' 마스킹).
+    --        2026-07-22: before_json 캡처가 START TRANSACTION보다 먼저(락 없이) 실행되고 있어,
+    --        캡처 이후 UPDATE 이전에 다른 트랜잭션이 같은 행을 커밋하면 실제 직전 상태가 아닌
+    --        더 오래된 상태가 로그에 남는 문제를 전수감사에서 발견 - 캡처를 트랜잭션 내부로 옮기고
+    --        `FOR UPDATE`로 바꿔 캡처 시점부터 행을 잠근다(레이스 윈도우 제거). 1062 백스톱
+    --        핸들러도 같은 이유로 ROLLBACK을 추가했다(트랜잭션이 열린 채로 반환되면 커넥션 풀
+    --        재사용 시 다음 호출에 영향을 줄 수 있음).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -4120,6 +4172,7 @@ BEGIN
     -- email 유니크 제약 위반(경쟁 상태로 사전 체크를 통과한 경우의 백스톱) — mysql_errno 1062
     DECLARE EXIT HANDLER FOR 1062
     BEGIN
+        ROLLBACK;
         SELECT 32001 AS RESULT;
     END;
 
@@ -4149,17 +4202,18 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        SELECT JSON_OBJECT(
-            'user_id', `user_id`, 'company_id', `company_id`,
-            'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
-            'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
-            'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
-            'status', `status`, 'last_login_at', `last_login_at`,
-            'created_at', `created_at`, 'updated_at', `updated_at`
-        ) INTO v_before_json
-        FROM `user` WHERE `user_id` = i_user_id;
-
         START TRANSACTION;
+
+            SELECT JSON_OBJECT(
+                'user_id', `user_id`, 'company_id', `company_id`,
+                'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
+                'password_hash', '***', 'user_name', `user_name`, 'email', `email`,
+                'phone_number', `phone_number`, 'department', `department`, 'position', `position`,
+                'status', `status`, 'last_login_at', `last_login_at`,
+                'created_at', `created_at`, 'updated_at', `updated_at`
+            ) INTO v_before_json
+            FROM `user` WHERE `user_id` = i_user_id
+            FOR UPDATE;
 
             UPDATE `user`
             SET

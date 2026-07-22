@@ -21,6 +21,10 @@ BEGIN
     --        ROW_COUNT()=0 분기에서 어차피 LEAVE한다), 결과 SELECT에
     --        before_json/after_json/requester_name을 추가했다. password_hash는 '***'로 마스킹한다
     --        (13_LOG_AUDIT_API.md 2.4).
+    --        2026-07-22: before_json 캡처가 락 없는 별도 SELECT로 UPDATE보다 먼저 실행되던 문제를
+    --        전수감사에서 발견 - 캡처를 `SELECT ... FOR UPDATE`로 바꾸고 UPDATE와 같은 명시적
+    --        트랜잭션으로 묶는다. ROW_COUNT()=0(실패) 분기에서도 트랜잭션을 열어둔 채 반환하면
+    --        커넥션 풀 재사용 시 다음 호출에 영향을 줄 수 있어 ROLLBACK을 명시적으로 호출한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -31,6 +35,7 @@ BEGIN
     BEGIN
         GET DIAGNOSTICS CONDITION 1
             sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        ROLLBACK;
         SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
     END;
 
@@ -40,6 +45,8 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
+        START TRANSACTION;
+
         SELECT JSON_OBJECT(
             'user_id', `user_id`, 'company_id', `company_id`,
             'requested_project_id', `requested_project_id`, 'login_id', `login_id`,
@@ -48,7 +55,8 @@ BEGIN
             'status', `status`, 'last_login_at', `last_login_at`,
             'created_at', `created_at`, 'updated_at', `updated_at`
         ) INTO v_before_json
-        FROM `user` WHERE `user_id` = i_user_id;
+        FROM `user` WHERE `user_id` = i_user_id
+        FOR UPDATE;
 
         UPDATE `user`
         SET `status` = 1
@@ -60,8 +68,11 @@ BEGIN
             ELSE
                 SELECT 30004 AS RESULT;
             END IF;
+            ROLLBACK;
             LEAVE proc_block;
         END IF;
+
+        COMMIT;
 
         SELECT 0 AS RESULT;
         SELECT

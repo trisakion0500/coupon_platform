@@ -24,11 +24,12 @@ BEGIN
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
     --        02_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
-    --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다 - 캡처와
-    --        UPDATE 사이에 이론상 레이스 윈도우가 있지만(관리콘솔 저빈도 트래픽이라 실무 영향 미미),
-    --        TS 레이어가 별도로 조회하는 방식(레이스 + user_role 등 일부 도메인은 단건 조회 SP
-    --        자체가 없어 신규 필요)보다 원자적이라 이 방식을 택했다(02_DEV_CONVENTIONS.md 3.2와
-    --        같은 "DB가 최종 방어선/근원" 원칙).
+    --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다.
+    --        2026-07-22: before_json 캡처가 락 없는 별도 SELECT로 UPDATE보다 먼저 실행돼, 그 사이
+    --        다른 트랜잭션이 같은 행을 커밋하면 캡처된 before_json이 실제 직전 상태가 아닌 더
+    --        오래된 상태를 가리키는 문제를 전수감사에서 발견 - 캡처를 `SELECT ... FOR UPDATE`로
+    --        바꾸고 UPDATE와 같은 명시적 트랜잭션으로 묶어, 캡처 시점에 이미 해당 행을 잠가
+    --        UPDATE까지 원자적으로 처리한다(캡처와 UPDATE 사이 레이스 윈도우 자체를 제거).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -38,6 +39,7 @@ BEGIN
     -- company_code 유니크 제약 위반(경쟁 상태로 사전 체크를 통과한 경우의 백스톱) — mysql_errno 1062
     DECLARE EXIT HANDLER FOR 1062
     BEGIN
+        ROLLBACK;
         SELECT 32001 AS RESULT;
     END;
 
@@ -45,6 +47,7 @@ BEGIN
     BEGIN
         GET DIAGNOSTICS CONDITION 1
             sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        ROLLBACK;
         SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
     END;
 
@@ -67,12 +70,15 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        SELECT JSON_OBJECT(             -- before_json: UPDATE 직전 스냅샷(log_audit용)
+        START TRANSACTION;
+
+        SELECT JSON_OBJECT(             -- before_json: UPDATE 직전 스냅샷(log_audit용), FOR UPDATE로 잠금
             'company_id', `company_id`, 'company_code', `company_code`,
             'company_name', `company_name`, 'description', `description`,
             'status', `status`, 'created_at', `created_at`, 'updated_at', `updated_at`
         ) INTO v_before_json
-        FROM `company` WHERE `company_id` = i_company_id;
+        FROM `company` WHERE `company_id` = i_company_id
+        FOR UPDATE;
 
         UPDATE `company`
         SET
@@ -81,6 +87,8 @@ BEGIN
             `description`  = COALESCE(i_description, `description`),
             `status`       = COALESCE(i_status, `status`)
         WHERE `company_id` = i_company_id;
+
+        COMMIT;
 
         SELECT 0 AS RESULT;
         SELECT
