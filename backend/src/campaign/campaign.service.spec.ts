@@ -661,6 +661,48 @@ describe('CampaignService', () => {
     });
   });
 
+  describe('listUsages', () => {
+    it('strips total_count and builds a paginated result', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({
+        result: 0,
+        data: [
+          {
+            coupon_code_usage_id: 9000,
+            code_value: '23A4-B7C9-DEF2',
+            game_user_id: 'player_1001',
+            confirmed_at: '2026-07-18 10:00:05',
+            created_at: '2026-07-18 10:00:00',
+            total_count: 1,
+          },
+        ],
+      });
+
+      const result = await service.listUsages(
+        100,
+        { page: 1, page_size: 20 },
+        { userId: 1 },
+      );
+
+      expect(result.total_count).toBe(1);
+      expect(result.items[0].coupon_code_usage_id).toBe(9000);
+      expect(result.items[0].game_user_id).toBe('player_1001');
+    });
+
+    it('throws CAMPAIGN_NOT_FOUND on 31004', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 31004 });
+      await expect(
+        service.listUsages(999, { page: 1, page_size: 20 }, { userId: 1 }),
+      ).rejects.toMatchObject({ resultCode: ResultCode.CAMPAIGN_NOT_FOUND });
+    });
+
+    it('throws PERMISSION_DENIED on 20001', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(
+        service.listUsages(100, { page: 1, page_size: 20 }, { userId: 2 }),
+      ).rejects.toMatchObject({ resultCode: ResultCode.PERMISSION_DENIED });
+    });
+  });
+
   describe('generateRandomCodes (background loop)', () => {
     /** private 메서드지만 fire-and-forget 루프의 재시도/종료 로직 자체를 검증해야 한다. */
     const runLoop = (

@@ -691,6 +691,12 @@ GET /campaigns/{coupon_campaign_id}/usages
 | page          | Y        | |
 | page_size     | Y        | 20/30/50/100 중 선택. 기본 20 |
 
+### Sorting
+
+```sql
+ORDER BY created_at DESC
+```
+
 ### Response
 
 페이지네이션 응답 형식([08_API_COMMON.md](./08_API_COMMON.md) 2장 참고).

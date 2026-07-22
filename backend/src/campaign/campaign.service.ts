@@ -17,6 +17,7 @@ import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { IssueCodesDto } from './dto/issue-codes.dto';
 import { RejectCampaignDto } from './dto/reject-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
+import { UsageListQueryDto } from './dto/usage-list-query.dto';
 
 /**
  * RANDOM 코드값 생성 규칙(04_DATABASE_SCHEMA.md 6장) —
@@ -166,6 +167,24 @@ export interface CodeListItem {
   coupon_code_id: number;
   code_value: string;
   status: number;
+  created_at: string;
+}
+
+/** SP_CAMPAIGN_USAGE_LIST 반환 행 — 사용이력 목록용 컬럼 + total_count. */
+interface UsageListRow {
+  coupon_code_usage_id: number | null;
+  code_value: string;
+  game_user_id: string;
+  confirmed_at: string | null;
+  created_at: string;
+  total_count: number;
+}
+
+export interface UsageListItem {
+  coupon_code_usage_id: number;
+  code_value: string;
+  game_user_id: string;
+  confirmed_at: string | null;
   created_at: string;
 }
 
@@ -687,6 +706,55 @@ export class CampaignService {
         coupon_code_id: row.coupon_code_id,
         code_value: row.code_value,
         status: row.status,
+        created_at: row.created_at,
+      }));
+
+    return buildPaginatedResult(query, totalCount, items);
+  }
+
+  /**
+   * 캠페인별 쿠폰 사용 이력 조회(17_CAMPAIGN_API.md 4.1) — 조회 전용, 승인상태/캠페인 종료여부와
+   * 무관(1.3 차단목록에 없음). game_user_id/confirmed 둘 다 선택 필터.
+   */
+  async listUsages(
+    campaignId: number,
+    query: UsageListQueryDto,
+    requester: CampaignRequester,
+  ): Promise<PaginatedResult<UsageListItem>> {
+    const offset = (query.page - 1) * query.page_size;
+    const { result, data } = await this.spExecutor.callProcedure<
+      UsageListRow[]
+    >('SP_CAMPAIGN_USAGE_LIST', [
+      campaignId,
+      query.game_user_id ?? null,
+      query.confirmed ?? null,
+      query.page_size,
+      offset,
+      requester.userId,
+    ]);
+
+    if (result === 31004) {
+      throw new BusinessException(ResultCode.CAMPAIGN_NOT_FOUND);
+    }
+    if (result === 20001) {
+      throw new BusinessException(ResultCode.PERMISSION_DENIED);
+    }
+    if (result !== 0) {
+      throw new BusinessException(ResultCode.INTERNAL_ERROR);
+    }
+
+    const rows = data ?? [];
+    const totalCount = rows[0]?.total_count ?? 0;
+    const items: UsageListItem[] = rows
+      .filter(
+        (row): row is UsageListRow & { coupon_code_usage_id: number } =>
+          row.coupon_code_usage_id !== null,
+      )
+      .map((row) => ({
+        coupon_code_usage_id: row.coupon_code_usage_id,
+        code_value: row.code_value,
+        game_user_id: row.game_user_id,
+        confirmed_at: row.confirmed_at,
         created_at: row.created_at,
       }));
 

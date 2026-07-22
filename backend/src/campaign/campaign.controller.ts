@@ -27,9 +27,11 @@ import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { IssueCodesDto } from './dto/issue-codes.dto';
 import { RejectCampaignDto } from './dto/reject-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
+import { UsageListQueryDto } from './dto/usage-list-query.dto';
 
 /**
- * 17_CAMPAIGN_API.md 2장(Campaign) 7개 + 3장(Coupon Code Issuance) 4개 엔드포인트.
+ * 17_CAMPAIGN_API.md 2장(Campaign) 7개 + 3장(Coupon Code Issuance) 4개 + 4장(Coupon Usage
+ * History) 1개 엔드포인트.
  * company/project/user 도메인과 달리 SUPER_ADMIN/DEVELOPER/MANAGER/OPERATOR 전부 project_id
  * 단위로만 스코핑하므로(1.2), 승인/반려를 제외한 나머지는 4개 role 전부를 컨트롤러 레벨에서
  * 허용하고 실제 프로젝트 배정 재검증은 SP가 담당한다. 승인/반려는 OPERATOR가 원천적으로
@@ -224,5 +226,24 @@ export class CampaignController {
       campaignId,
       req.user!.userId,
     );
+  }
+
+  /** 캠페인별 쿠폰 사용 이력 조회(17_CAMPAIGN_API.md 4.1) — 조회 전용, 승인/종료여부 무관. */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    RoleCode.SUPER_ADMIN,
+    RoleCode.DEVELOPER,
+    RoleCode.MANAGER,
+    RoleCode.OPERATOR,
+  )
+  @Get(':coupon_campaign_id/usages')
+  listUsages(
+    @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
+    @Query() query: UsageListQueryDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.campaignService.listUsages(campaignId, query, {
+      userId: req.user!.userId,
+    });
   }
 }
