@@ -45,7 +45,12 @@ describe('CouponUsageService', () => {
         data: [reserveRow],
       });
 
-      const result = await service.reserve(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10');
+      const result = await service.reserve(
+        10,
+        '23A4-B7C9-DEF2',
+        'player_1001',
+        '203.0.113.10',
+      );
 
       expect(result).toEqual(reserveRow);
       expect(logSpExecutor.logCall).toHaveBeenCalledWith(
@@ -113,12 +118,16 @@ describe('CouponUsageService', () => {
 
       await expect(
         service.reserve(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10'),
-      ).rejects.toMatchObject({ resultCode: ResultCode.USER_USE_LIMIT_EXCEEDED });
+      ).rejects.toMatchObject({
+        resultCode: ResultCode.USER_USE_LIMIT_EXCEEDED,
+      });
     });
 
     it('logs campaign_id=null when the enrichment lookup itself fails', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 33001 });
-      spExecutor.callProcedure.mockRejectedValueOnce(new Error('connection refused'));
+      spExecutor.callProcedure.mockRejectedValueOnce(
+        new Error('connection refused'),
+      );
 
       await expect(
         service.reserve(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10'),
@@ -140,7 +149,12 @@ describe('CouponUsageService', () => {
         data: [confirmRow],
       });
 
-      const result = await service.confirm(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10');
+      const result = await service.confirm(
+        10,
+        '23A4-B7C9-DEF2',
+        'player_1001',
+        '203.0.113.10',
+      );
 
       expect(result).toEqual({
         coupon_code_usage_id: 9000,

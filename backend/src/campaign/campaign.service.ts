@@ -341,21 +341,18 @@ export class CampaignService {
   ): Promise<CampaignRow> {
     const { result, data } = await this.spExecutor.callProcedure<
       CampaignActionRow[]
-    >(
-      'SP_CAMPAIGN_CREATE',
-      [
-        dto.project_id,
-        dto.name,
-        dto.campaign_start,
-        dto.campaign_end,
-        dto.code_type,
-        dto.use_hyphen ?? 1,
-        dto.requested_qty,
-        dto.use_limit_per_user ?? 1,
-        JSON.stringify(dto.reward_data),
-        requesterUserId,
-      ],
-    );
+    >('SP_CAMPAIGN_CREATE', [
+      dto.project_id,
+      dto.name,
+      dto.campaign_start,
+      dto.campaign_end,
+      dto.code_type,
+      dto.use_hyphen ?? 1,
+      dto.requested_qty,
+      dto.use_limit_per_user ?? 1,
+      JSON.stringify(dto.reward_data),
+      requesterUserId,
+    ]);
 
     if (result === 31002) {
       throw new BusinessException(ResultCode.PROJECT_NOT_FOUND);
@@ -454,20 +451,17 @@ export class CampaignService {
   ): Promise<CampaignRow> {
     const { result, data } = await this.spExecutor.callProcedure<
       CampaignActionRow[]
-    >(
-      'SP_CAMPAIGN_UPDATE',
-      [
-        campaignId,
-        dto.edit_count,
-        dto.name ?? null,
-        dto.campaign_start ?? null,
-        dto.campaign_end ?? null,
-        dto.use_limit_per_user ?? null,
-        dto.usable_qty ?? null,
-        dto.reward_data ? JSON.stringify(dto.reward_data) : null,
-        requesterUserId,
-      ],
-    );
+    >('SP_CAMPAIGN_UPDATE', [
+      campaignId,
+      dto.edit_count,
+      dto.name ?? null,
+      dto.campaign_start ?? null,
+      dto.campaign_end ?? null,
+      dto.use_limit_per_user ?? null,
+      dto.usable_qty ?? null,
+      dto.reward_data ? JSON.stringify(dto.reward_data) : null,
+      requesterUserId,
+    ]);
 
     if (result === 31004) {
       throw new BusinessException(ResultCode.CAMPAIGN_NOT_FOUND);
@@ -500,10 +494,12 @@ export class CampaignService {
   ): Promise<CampaignRow> {
     const { result, data } = await this.spExecutor.callProcedure<
       CampaignActionRow[]
-    >(
-      'SP_CAMPAIGN_CHANGE_STATUS',
-      [campaignId, dto.edit_count, dto.status, requesterUserId],
-    );
+    >('SP_CAMPAIGN_CHANGE_STATUS', [
+      campaignId,
+      dto.edit_count,
+      dto.status,
+      requesterUserId,
+    ]);
 
     if (result === 31004) {
       throw new BusinessException(ResultCode.CAMPAIGN_NOT_FOUND);
@@ -537,10 +533,7 @@ export class CampaignService {
   ): Promise<CampaignRow> {
     const { result, data } = await this.spExecutor.callProcedure<
       CampaignActionRow[]
-    >(
-      'SP_CAMPAIGN_APPROVE',
-      [campaignId, dto.edit_count, requesterUserId],
-    );
+    >('SP_CAMPAIGN_APPROVE', [campaignId, dto.edit_count, requesterUserId]);
 
     if (result === 31004) {
       throw new BusinessException(ResultCode.CAMPAIGN_NOT_FOUND);
@@ -574,10 +567,12 @@ export class CampaignService {
   ): Promise<CampaignRow> {
     const { result, data } = await this.spExecutor.callProcedure<
       CampaignActionRow[]
-    >(
-      'SP_CAMPAIGN_REJECT',
-      [campaignId, dto.edit_count, dto.reject_reason, requesterUserId],
-    );
+    >('SP_CAMPAIGN_REJECT', [
+      campaignId,
+      dto.edit_count,
+      dto.reject_reason,
+      requesterUserId,
+    ]);
 
     if (result === 31004) {
       throw new BusinessException(ResultCode.CAMPAIGN_NOT_FOUND);
@@ -873,7 +868,9 @@ export class CampaignService {
     const rows = data ?? [];
     const totalCount = rows[0]?.total_count ?? 0;
     const items: CampaignLogListItem[] = rows
-      .filter((row): row is CampaignLogListRow & { idx: number } => row.idx !== null)
+      .filter(
+        (row): row is CampaignLogListRow & { idx: number } => row.idx !== null,
+      )
       .map((row) => ({
         idx: row.idx,
         action: row.action!,

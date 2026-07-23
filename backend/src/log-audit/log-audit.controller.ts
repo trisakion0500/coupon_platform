@@ -29,10 +29,7 @@ export class LogAuditController {
   constructor(private readonly logAuditService: LogAuditService) {}
 
   @Get()
-  list(
-    @Query() query: LogAuditListQueryDto,
-    @Req() req: AuthenticatedRequest,
-  ) {
+  list(@Query() query: LogAuditListQueryDto, @Req() req: AuthenticatedRequest) {
     const { roleCode, companyId } = req.user!;
     return this.logAuditService.list(query, { roleCode, companyId });
   }

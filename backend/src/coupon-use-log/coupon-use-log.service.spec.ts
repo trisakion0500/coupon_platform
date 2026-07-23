@@ -30,10 +30,7 @@ describe('CouponUseLogService', () => {
     it('throws PERMISSION_DENIED when SP_PROJECT_CHECK_ACCESS rejects (20001)', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
       await expect(
-        service.list(
-          { project_id: 10, page: 1, page_size: 20 },
-          { userId: 2 },
-        ),
+        service.list({ project_id: 10, page: 1, page_size: 20 }, { userId: 2 }),
       ).rejects.toMatchObject({ resultCode: ResultCode.PERMISSION_DENIED });
       expect(logSpExecutor.callProcedure).not.toHaveBeenCalled();
     });

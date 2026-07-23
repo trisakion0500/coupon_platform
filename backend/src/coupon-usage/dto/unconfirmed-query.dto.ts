@@ -1,5 +1,12 @@
 import { Transform } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { PAGE_SIZE_OPTIONS } from '../../common/response/pagination';
 import type { PageSize } from '../../common/response/pagination';
 

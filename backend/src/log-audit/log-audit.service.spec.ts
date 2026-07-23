@@ -107,7 +107,10 @@ describe('LogAuditService', () => {
         data: [{ ...row, idx: null, total_count: 5 }],
       });
 
-      const result = await service.list({ page: 10, page_size: 20 }, superAdmin);
+      const result = await service.list(
+        { page: 10, page_size: 20 },
+        superAdmin,
+      );
 
       expect(result.total_count).toBe(5);
       expect(result.items).toEqual([]);
@@ -167,9 +170,9 @@ describe('LogAuditService', () => {
         data: [{ ...detailRow, company_id: 2 }],
       });
 
-      await expect(
-        service.getById(1001, developer),
-      ).resolves.toMatchObject({ company_id: 2 });
+      await expect(service.getById(1001, developer)).resolves.toMatchObject({
+        company_id: 2,
+      });
     });
 
     it('rejects DEVELOPER viewing a log entry from another company', async () => {

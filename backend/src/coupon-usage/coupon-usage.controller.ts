@@ -1,4 +1,14 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import type { S2sRequest } from '../common/s2s-auth/s2s-auth.guard';
 import { S2sAuthGuard } from '../common/s2s-auth/s2s-auth.guard';
 import { CouponUsageService } from './coupon-usage.service';

@@ -68,7 +68,10 @@ export class SpExecutorService implements OnModuleDestroy {
    * @param fn - 락을 획득했을 때만 실행할 작업
    * @returns 락을 획득해 `fn`을 실행했으면 true, 다른 인스턴스가 이미 실행 중이라 건너뛰었으면 false
    */
-  async runExclusive(lockName: string, fn: () => Promise<void>): Promise<boolean> {
+  async runExclusive(
+    lockName: string,
+    fn: () => Promise<void>,
+  ): Promise<boolean> {
     const conn = await this.pool.getConnection();
     try {
       const [rows] = await conn.query('SELECT GET_LOCK(?, 0) AS acquired', [

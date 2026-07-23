@@ -1,6 +1,7 @@
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -17,7 +18,9 @@ async function bootstrap() {
   // rawBody: true — S2S HMAC 서명 검증(07_AUTH_SECURITY.md 2.3)이 파싱 후 재직렬화가 아니라
   // 원문 그대로의 바디를 서명 대상으로 요구하기 때문에, Nest가 body-parser의 verify 콜백으로
   // request.rawBody를 채워주도록 켠다.
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
 
   // SIGTERM/SIGINT(스케일아웃 환경의 롤링 배포/오토스케일 축소가 항상 보냄) 수신 시 Nest가
   // onModuleDestroy 라이프사이클 훅을 호출하도록 등록 — 이게 없으면 SpExecutorService/

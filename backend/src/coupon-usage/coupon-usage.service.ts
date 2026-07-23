@@ -66,7 +66,8 @@ export interface UnconfirmedItem {
 }
 
 /** GET /v1/coupons/unconfirmed 응답 — 특정유저 모드는 items만, 전체유저 모드는 페이지네이션 포함. */
-export type UnconfirmedResult = { items: UnconfirmedItem[] } | PaginatedResult<UnconfirmedItem>;
+export type UnconfirmedResult =
+  { items: UnconfirmedItem[] } | PaginatedResult<UnconfirmedItem>;
 
 /** RESERVE 실패 result 코드 -> log_coupon_use.result_type(18_COUPON_USAGE_API.md 4장). */
 const RESERVE_LOG_TYPE_MAP: Record<number, number> = {
@@ -111,10 +112,9 @@ export class CouponUsageService {
     gameUserId: string,
     callerIp: string | null,
   ): Promise<ReserveResult> {
-    const { result, data } = await this.spExecutor.callProcedure<ReserveResult[]>(
-      'SP_COUPON_RESERVE',
-      [projectId, codeValue, gameUserId],
-    );
+    const { result, data } = await this.spExecutor.callProcedure<
+      ReserveResult[]
+    >('SP_COUPON_RESERVE', [projectId, codeValue, gameUserId]);
 
     if (result === 0 && data?.[0]) {
       const row = data[0];
@@ -145,16 +145,22 @@ export class CouponUsageService {
       callerIp,
     );
 
-    if (result === ResultCode.COUPON_CODE_NOT_FOUND) {
+    // SpCallResult.result는 여러 도메인이 공유하는 SP 호출 유틸의 반환 타입이라 plain number다
+    // (02_DEV_CONVENTIONS.md 3.4) — ResultCode(숫자 enum)와 직접 비교하면
+    // no-unsafe-enum-comparison에 걸려 여기서만 지역적으로 단언한다.
+    const resultCode: ResultCode = result;
+    if (resultCode === ResultCode.COUPON_CODE_NOT_FOUND) {
       throw new BusinessException(ResultCode.COUPON_CODE_NOT_FOUND);
     }
-    if (result === ResultCode.COUPON_CODE_ALREADY_USED_OR_STOPPED) {
-      throw new BusinessException(ResultCode.COUPON_CODE_ALREADY_USED_OR_STOPPED);
+    if (resultCode === ResultCode.COUPON_CODE_ALREADY_USED_OR_STOPPED) {
+      throw new BusinessException(
+        ResultCode.COUPON_CODE_ALREADY_USED_OR_STOPPED,
+      );
     }
-    if (result === ResultCode.CAMPAIGN_NOT_USABLE) {
+    if (resultCode === ResultCode.CAMPAIGN_NOT_USABLE) {
       throw new BusinessException(ResultCode.CAMPAIGN_NOT_USABLE);
     }
-    if (result === ResultCode.USER_USE_LIMIT_EXCEEDED) {
+    if (resultCode === ResultCode.USER_USE_LIMIT_EXCEEDED) {
       throw new BusinessException(ResultCode.USER_USE_LIMIT_EXCEEDED);
     }
     throw new BusinessException(ResultCode.INTERNAL_ERROR);
@@ -210,10 +216,12 @@ export class CouponUsageService {
       callerIp,
     );
 
-    if (result === ResultCode.COUPON_CODE_NOT_FOUND) {
+    // reserve()와 동일한 이유(no-unsafe-enum-comparison) — 여기서만 지역적으로 단언한다.
+    const resultCode: ResultCode = result;
+    if (resultCode === ResultCode.COUPON_CODE_NOT_FOUND) {
       throw new BusinessException(ResultCode.COUPON_CODE_NOT_FOUND);
     }
-    if (result === ResultCode.USAGE_NOT_FOUND) {
+    if (resultCode === ResultCode.USAGE_NOT_FOUND) {
       throw new BusinessException(ResultCode.USAGE_NOT_FOUND);
     }
     throw new BusinessException(ResultCode.INTERNAL_ERROR);
@@ -232,12 +240,17 @@ export class CouponUsageService {
   ): Promise<UnconfirmedResult> {
     const isSpecificUserMode = query.game_user_id !== undefined;
 
-    if (!isSpecificUserMode && (query.page === undefined || query.page_size === undefined)) {
+    if (
+      !isSpecificUserMode &&
+      (query.page === undefined || query.page_size === undefined)
+    ) {
       throw new BusinessException(ResultCode.REQUIRED_FIELD_MISSING);
     }
 
     const pageSize = isSpecificUserMode ? null : query.page_size!;
-    const offset = isSpecificUserMode ? null : (query.page! - 1) * query.page_size!;
+    const offset = isSpecificUserMode
+      ? null
+      : (query.page! - 1) * query.page_size!;
 
     const { result, data } = await this.spExecutor.callProcedure<
       UnconfirmedRow[]
@@ -287,11 +300,14 @@ export class CouponUsageService {
    * 조회라 실패해도(레이스로 그 사이 코드가 사라지는 등) 에러를 전파하지 않고 NULL로 남긴다.
    */
   private async resolveCampaignIdForLog(
-    resultCode: number,
+    resultCode: ResultCode,
     projectId: number,
     codeValue: string,
   ): Promise<number | null> {
-    if (resultCode === 0 || resultCode === ResultCode.COUPON_CODE_NOT_FOUND) {
+    if (
+      resultCode === ResultCode.SUCCESS ||
+      resultCode === ResultCode.COUPON_CODE_NOT_FOUND
+    ) {
       return null;
     }
 
