@@ -223,7 +223,37 @@ npm run test
 
 # 6. 프론트엔드
 
-프론트엔드는 아직 착수 전이다(`CLAUDE.md` 남은 TODO 참고). 착수 시 본 장에 설정 방법을 추가한다.
+구조 스캐폴딩 + 로그인/내 계정 화면까지 구현 완료(나머지 화면은 stub, `README.md` "현재 상태" 참고).
+
+## 6.1 패키지 설치
+
+```bash
+cd frontend
+npm install
+```
+
+## 6.2 환경변수 설정
+
+`frontend/.env.example`을 복사해 `frontend/.env`를 만든다.
+
+```bash
+cp .env.example .env
+```
+
+```env
+VITE_API_BASE_URL=http://localhost:3210
+VITE_APP_NAME=Coupon Platform
+```
+
+`VITE_API_BASE_URL`은 백엔드 `.env`의 `PORT` 값과 일치해야 하고, 백엔드 `CORS_ALLOWED_ORIGINS`(`01_TECH_STACK.md` 참고)에 프론트엔드 오리진(`http://localhost:5173`, Vite 기본 포트)이 등록돼 있어야 API 호출이 CORS에 막히지 않는다.
+
+## 6.3 실행
+
+```bash
+npm run dev
+```
+
+`http://localhost:5173`에서 확인한다. 백엔드가 먼저 떠 있어야 로그인 등 API 연동 화면이 정상 동작한다(4.3 참고). 시드 계정(`sa`/`dev`/`mgr`/`op`, pw `1234`)으로 로그인해 확인하되, `GET /auth/me` 조회가 필요한 화면(내 계정 등)을 테스트하려면 4.2.1(`npm run fix-seed-phone`)을 먼저 실행해야 한다 — 안 하면 `phone_number` 복호화 실패로 500이 난다.
 
 ---
 

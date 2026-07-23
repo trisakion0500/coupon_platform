@@ -102,7 +102,7 @@ RANDOM 대량생성 전용이다. FIXED는 코드 1건을 동기로 즉시 INSER
 
 이 재시도는 CLAUDE.md의 "로그 실패는 메인 트랜잭션을 막지 않는다"는 원칙과는 성격이 다르다 — 로그는 "실패해도 무시"가 목적이지만, 코드 생성 재시도는 코드 발급 자체가 메인 작업이므로 "일시 실패 시 재시도해서 성공률을 높이는" 것이 목적이다.
 
-**응답 유실(lost ack)에도 `generated_qty`가 `requested_qty`를 넘지 않는 이유**: 코드 INSERT + COMMIT까지는 DB에서 성공했는데 그 응답이 앱에 전달되지 못하면(커넥션 순간 단절 등), 앱의 로컬 진행 카운터가 실제 DB 값보다 뒤처진 채로 코드 생성을 한 번 더 시도할 수 있다. `SP_CAMPAIGN_CODE_GENERATE_ONE`은 실제로 코드를 INSERT하기 전에 "`generated_qty = generated_qty + 1 WHERE generated_qty < requested_qty AND generation_status = 2 AND status <> 4`" 조건부 UPDATE로 슬롯을 먼저 예약한다(02_DEV_CONVENTIONS.md 4장 "조건부 갱신 우선") — 이미 목표에 도달했으면 이 예약 자체가 실패해 코드를 아예 만들지 않고 현재 값만 그대로 반환한다. 코드값 충돌(1062)이 나면 방금 예약한 슬롯까지 같은 트랜잭션 ROLLBACK 한 번으로 함께 되돌린다. 이 순서(예약 → 생성) 덕분에 이 SP는 몇 번을 더 호출해도 안전한, 사실상 멱등한 "생성 1건, 단 상한 이내" 동작이 되어 앱(`campaign.service.ts`)의 재시도 루프 코드는 전혀 손댈 필요가 없다.
+**응답 유실(lost ack)에도 `generated_qty`가 `requested_qty`를 넘지 않는 이유**: 코드 INSERT + COMMIT까지는 DB에서 성공했는데 그 응답이 앱에 전달되지 못하면(커넥션 순간 단절 등), 앱의 로컬 진행 카운터가 실제 DB 값보다 뒤처진 채로 코드 생성을 한 번 더 시도할 수 있다. `SP_CAMPAIGN_CODE_GENERATE_ONE`은 실제로 코드를 INSERT하기 전에 "`generated_qty = generated_qty + 1 WHERE generated_qty < requested_qty AND generation_status = 2 AND status <> 4`" 조건부 UPDATE로 슬롯을 먼저 예약한다(02_DEV_CONVENTIONS.md 4장 "조건부 갱신 우선") — 이미 목표에 도달했으면 이 예약 자체가 실패해 코드를 아예 만들지 않고 현재 값만 그대로 반환한다. 코드값 충돌(1062)이 나면 방금 예약한 슬롯까지 같은 트랜잭션 ROLLBACK 한 번으로 함께 되돌린다. 이 순서(예약 → 생성) 덕분에 이 SP는 몇 번을 더 호출해도 안전한, 사실상 멱등한 "생성 1건, 단 상한 이내" 동작이 되어 앱(`campaign-code.service.ts`)의 재시도 루프 코드는 전혀 손댈 필요가 없다.
 
 ## 2.3 수동 재시도
 

@@ -130,7 +130,7 @@
 | `CODE_GENERATION_MAX_DB_RETRIES`       | `5`    | RANDOM 코드 대량생성 백그라운드 루프에서 DB 일시 오류(커넥션 단절, 락 대기 타임아웃 등)가 발생했을 때 재시도할 최대 횟수. 소진되면 `generation_status=4`(실패)로 전이한다(`05_COUPON_ISSUANCE_SCENARIO.md` 2.2) |
 | `CODE_GENERATION_RETRY_BASE_DELAY_MS`  | `200`  | 위 재시도의 exponential backoff 기준 지연(ms) — 시도마다 2배씩 늘어나고 여기에 jitter(0.5~1.0배)를 곱한다 |
 
-코드값 충돌(nanoid 우연 중복, MySQL 1062)은 이 두 변수와 무관하게 지연 없이 무제한 즉시 재시도한다 — 단순 값 재추첨이라 DB 일시 오류와 성격이 다르기 때문(`05_COUPON_ISSUANCE_SCENARIO.md` 2.2 표 참고). `CampaignService`(`backend/src/campaign/campaign.service.ts`)의 `generateRandomCodes` 백그라운드 루프가 실제로 이 값들을 읽어 적용한다.
+코드값 충돌(nanoid 우연 중복, MySQL 1062)은 이 두 변수와 무관하게 지연 없이 무제한 즉시 재시도한다 — 단순 값 재추첨이라 DB 일시 오류와 성격이 다르기 때문(`05_COUPON_ISSUANCE_SCENARIO.md` 2.2 표 참고). `CampaignCodeService`(`backend/src/campaign/campaign-code.service.ts`, 2026-07-24 `CampaignService`에서 코드발급 로직만 분리)의 `generateRandomCodes` 백그라운드 루프가 실제로 이 값들을 읽어 적용한다.
 
 ### 진행중 정체 캠페인 수동 복구(Abort) + 감지 모니터링
 
@@ -140,3 +140,16 @@
 | `CODE_GENERATION_STALE_MONITOR_CRON` | `*/5 * * * *` | 위와 동일한 정체 판정 임계값으로 `SP_CAMPAIGN_CODE_GENERATION_STALE_LIST`를 주기 조회해 서버 로그로 경고만 남기는 감지 전용 크론 주기(`CodeGenerationStaleMonitorService`, 스케일아웃 점검 5번, 2026-07-23) — 자동 복구는 하지 않는다 |
 
 이 임계값은 별도로 독립된 값이 아니라 위 `CODE_GENERATION_MAX_DB_RETRIES`/`CODE_GENERATION_RETRY_BASE_DELAY_MS`에서 계산한다 — 정상적으로 살아있는 루프가 DB 일시 오류 재시도로 만들 수 있는 이론상 최대 무진행 구간(`baseDelay × (2^retries − 1)`)에 이 배율을 곱한 값을 임계값(초)으로 쓴다(`computeCodeGenerationStaleThresholdSec`, `backend/src/common/config/code-generation-stale-threshold.util.ts` — 원래 `CampaignService`에만 있던 계산을 `POST /codes/abort`와 감지 크론이 공유하도록 공용 유틸로 추출). 재시도 설정이 바뀌면 이 임계값도 자동으로 같이 늘어나므로, 세 설정을 별도로 맞춰줄 필요가 없다.
+
+---
+
+## Frontend 환경변수
+
+위 "환경변수 관리 항목"과 달리 Joi로 검증되지 않는다 — Vite가 빌드/실행 시점에 `frontend/.env`에서 읽어 `import.meta.env`로 주입하는 값이며, 값이 없거나 틀려도 프론트 자체는 기동된다(API 호출이 실패할 뿐).
+
+| 변수                 | 기본값(`.env.example`)     | 용도 |
+| -------------------- | --------------------------- | ---- |
+| `VITE_API_BASE_URL`  | `http://localhost:3210`     | 백엔드 API 서버 주소(`frontend/src/api/client.ts`의 axios `baseURL`). 백엔드 `.env`의 `PORT`와 일치해야 한다 |
+| `VITE_APP_NAME`      | `Coupon Platform`           | 헤더 로고/로그인 화면 타이틀에 노출하는 앱 이름(`16_LAYOUT.md` 2장/5장) |
+
+프론트 개발 서버(기본 `http://localhost:5173`)는 백엔드 `CORS_ALLOWED_ORIGINS`에 등록돼 있어야 API 호출이 CORS에 막히지 않는다. 로컬 개발 환경 설정 절차는 `19_DEV_SETUP.md` 6장 참고.

@@ -28,7 +28,7 @@
 
 - **인터셉터 등록 순서가 중요하다**: `ResponseInterceptor`를 먼저, `TimeoutInterceptor`를 나중에 등록해야 한다 — Nest의 인터셉터는 등록 순서대로 바깥→안쪽으로 감싸므로, 나중에 등록한 쪽이 컨트롤러 실행에 더 가깝다. `TimeoutInterceptor`가 컨트롤러 핸들러의 Observable에 직접 `timeout()`을 걸어야 하므로 안쪽에 있어야 하고, `ResponseInterceptor`는 성공 응답만 `map()`으로 감싸 오류를 그대로 통과시키므로 바깥에서 타임아웃 예외를 가로막지 않는다.
 - **타임아웃은 "클라이언트에게 실패를 알림"일 뿐 "DB 작업 취소"가 아니다** — RxJS `timeout()`은 구독을 취소할 뿐, 이미 던져진 SP 호출(mysql2 쿼리)을 서버 사이드에서 강제 종료하지 못한다. 즉 408 응답이 나간 뒤에도 해당 SP는 계속 실행되다 커밋될 수 있다. `POST /v1/coupons/reserve`처럼 상태를 바꾸는 API가 이미 멱등하게 설계된 것(`06_COUPON_USAGE_SCENARIO.md` 1.2)이 이 한계에 대한 실질적 방어선이다 — 새 쓰기 API를 추가할 때도 "타임아웃 이후 커밋될 수 있다"는 전제 하에 재시도 안전성을 갖추도록 한다.
-- RANDOM 코드 대량생성(`CampaignService.generateRandomCodes`)처럼 컨트롤러 응답과 분리된 fire-and-forget 백그라운드 작업은 이 인터셉터가 감싸는 Observable 범위 밖이라 타임아웃 대상이 아니다.
+- RANDOM 코드 대량생성(`CampaignCodeService.generateRandomCodes`)처럼 컨트롤러 응답과 분리된 fire-and-forget 백그라운드 작업은 이 인터셉터가 감싸는 Observable 범위 밖이라 타임아웃 대상이 아니다.
 
 ---
 
@@ -253,7 +253,7 @@ throw new BusinessException(ResultCode.PROJECT_NOT_FOUND);
 - 호출부마다 "혹시 50001 아닌가"를 따로 확인할 필요가 없어, 그 확인이 누락되어 시스템 오류가 엉뚱한 비즈니스 실패(예: 로그인 실패, 세션 무효)로 잘못 분류되는 사고를 원천 차단한다(2026-07-19 리뷰에서 이 누락 패턴이 여러 곳에서 발견된 뒤 도입)
 - 로그 적재처럼 실패를 절대 밖으로 던지면 안 되는 곳(`LogSpExecutorService.logCall`)은 이 예외를 그냥 try/catch로 잡아 삼키면 되므로 호환에 문제없다
 
-**예외(2026-07-21 추가)**: `BusinessException`은 던져질 때 `sqlDiagnostics`(`{sqlState, errorNo}`)를 함께 실을 수 있다 — HTTP 응답 바디(`{result, message}`)에는 절대 포함되지 않고, 예외 인스턴스 자체에만 붙어 있다. 이건 위 원칙(호출부는 특정 비즈니스 코드만 신경 쓴다)을 깨는 게 아니라, "재시도 가능한 시스템 오류인지"까지 스스로 판단해야 하는 극히 드문 내부 호출부(코드 발급 백그라운드 루프의 `CampaignService.generateRandomCodes` — `05_COUPON_ISSUANCE_SCENARIO.md` 2.2 "재시도 가능 에러만 대상, 4xx류 등은 즉시 실패 처리")를 위해 열어둔 좁은 탈출구다. 대부분의 호출부는 여전히 `if (result !== 0) throw` 패턴만으로 충분하고 이 필드를 알 필요가 없다.
+**예외(2026-07-21 추가)**: `BusinessException`은 던져질 때 `sqlDiagnostics`(`{sqlState, errorNo}`)를 함께 실을 수 있다 — HTTP 응답 바디(`{result, message}`)에는 절대 포함되지 않고, 예외 인스턴스 자체에만 붙어 있다. 이건 위 원칙(호출부는 특정 비즈니스 코드만 신경 쓴다)을 깨는 게 아니라, "재시도 가능한 시스템 오류인지"까지 스스로 판단해야 하는 극히 드문 내부 호출부(코드 발급 백그라운드 루프의 `CampaignCodeService.generateRandomCodes` — `05_COUPON_ISSUANCE_SCENARIO.md` 2.2 "재시도 가능 에러만 대상, 4xx류 등은 즉시 실패 처리")를 위해 열어둔 좁은 탈출구다. 대부분의 호출부는 여전히 `if (result !== 0) throw` 패턴만으로 충분하고 이 필드를 알 필요가 없다.
 
 # 8. 의존성 버전 관리
 
