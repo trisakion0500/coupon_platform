@@ -13,7 +13,7 @@
 | S2S Authentication | API Key + HMAC-SHA256 요청 서명 — 게임서버 → 쿠폰서버, Secret은 AES-256-CBC 가역 암호화 저장(단방향 해시 아님), Timestamp+Nonce로 재전송 방지, grace period 방식 재발급 |
 | Password Hash   | bcrypt (rounds=12)                                          |
 | API Style       | REST + JSON                                                 |
-| Logging         | log_audit (감사 로그) + application log (log4js)            |
+| Logging         | log_audit (감사 로그) + application log (log4js, 전 요청/응답 상세 기록 + 민감정보 마스킹 — `02_DEV_CONVENTIONS.md` 1.1) |
 | S2S Call        | HTTP/HTTPS POST (JSON Payload)                              |
 
 ---

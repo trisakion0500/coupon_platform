@@ -14,6 +14,14 @@
 - 로그 조회에 필요한 참조 정보는 조인 없이 볼 수 있도록 스냅샷 컬럼(예: `created_by_name`)으로 미리 비정규화해둔다
 - **로그 기록은 메인 트랜잭션과 같은 DB 커넥션/트랜잭션에 절대 묶이지 않는다** — 물리적으로 다른 DB라 애초에 같은 트랜잭션으로 묶을 수도 없다(분산 트랜잭션/XA 사용 안 함). 메인 SP가 커밋된 뒤 별도 커넥션으로 로그 기록을 시도하고, 그 시도가 실패해도 메인 트랜잭션을 재시도·롤백시키지 않는다(강한 결합 금지) — 백엔드에서는 `SpExecutorService`(메인 DB)와 별개인 `LogSpExecutorService`(로그 DB, 별도 커넥션 풀)로 이 원칙을 구조적으로 강제한다
 
+## 1.1 애플리케이션 로그(HTTP 요청/응답) 상세 기록 및 민감정보 마스킹
+
+위 항목들은 DB 로그 테이블(`log_audit` 등) 얘기고, 이 절은 log4js가 남기는 **애플리케이션 로그**(`logs/app.log`) 얘기다. 원래는 500 이상 오류만 `METHOD URL -> STATUS`로 남고 요청/응답 바디는 전혀 기록되지 않았다(2026-07-23 보완) — `RequestResponseLoggingMiddleware`(`backend/src/common/logging/request-response-logging.middleware.ts`, `AppModule.configure()`로 전 라우트에 적용)가 성공/실패 무관하게 모든 요청을 `REQ`(요청)/`RES`(응답) 두 줄로 남기고, 같은 요청의 두 줄을 8자리 요청 ID로 짝지어준다.
+
+- 요청 바디/응답 바디는 응답이 어느 경로(`ResponseInterceptor`의 성공 응답이든 `HttpExceptionFilter`의 오류 응답이든)로 만들어지든 결국 Express의 `res.json`/`res.send`를 거치므로, 이 두 메서드만 감싸면 전 경로를 빠짐없이 포착할 수 있다.
+- **민감정보는 `maskSensitiveData`(`backend/src/common/logging/sensitive-data-masker.util.ts`)로 재귀 마스킹한 뒤 남긴다** — `password`/`new_password`/`old_password`/`password_hash`/`phone_number`/`access_token`/`refresh_token`/`api_secret`/`api_secret_prev`/`Authorization`/`X-API-Signature` 키(대소문자 무시)는 중첩 깊이·배열 안 여부와 무관하게 값을 `***`로 치환한다. 새 도메인에 비밀값(새 토큰 종류, 새 비밀번호 필드 등)이 추가되면 이 목록에도 반드시 함께 추가할 것 — 로그가 사후에 새는 것보다 코드리뷰 시점에 놓치지 않는 게 안전하다.
+- 대량 목록 응답 등으로 로그 한 줄이 지나치게 길어지는 것을 막기 위해 바디 문자열은 5000자에서 잘라 `...(truncated)`를 붙인다.
+
 ---
 
 # 2. 코드 모듈화 원칙

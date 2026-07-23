@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { CampaignModule } from './campaign/campaign.module';
@@ -9,6 +9,7 @@ import { CodeGenerationStaleMonitorModule } from './common/code-generation-stale
 import { envValidationSchema } from './common/config/env.validation';
 import { DatabaseModule } from './common/database/database.module';
 import { LogDatabaseModule } from './common/database/log-database.module';
+import { RequestResponseLoggingMiddleware } from './common/logging/request-response-logging.middleware';
 import { NonceCleanupModule } from './common/nonce-cleanup/nonce-cleanup.module';
 import { SessionCleanupModule } from './common/session-cleanup/session-cleanup.module';
 import { CouponUsageModule } from './coupon-usage/coupon-usage.module';
@@ -50,4 +51,9 @@ import { UserRoleModule } from './user-role/user-role.module';
     LogAuditModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  /** 모든 라우트에 요청/응답 상세 로깅을 적용한다(02_DEV_CONVENTIONS.md 1.1). */
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestResponseLoggingMiddleware).forRoutes('*');
+  }
+}
