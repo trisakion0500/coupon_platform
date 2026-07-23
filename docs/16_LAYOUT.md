@@ -141,10 +141,10 @@ MainLayout, AdminLayout에서 동일하게 사용한다.
 
 # 6. Footer
 
-MainLayout, AdminLayout 하단 공통.
+MainLayout, AdminLayout 하단 공통. 저작권 문구/버전/문의 이메일은 하드코딩이 아니라 각각 `VITE_FOOTER_COPYRIGHT`/`VITE_APP_VERSION`/`VITE_SUPPORT_EMAIL` env로 관리한다(`01_TECH_STACK.md` "Frontend 환경변수").
 
 ```
-© 2026 Coupon Platform  |  v1.0.0  |  문의: support@example.com
+© 2026 Coupon Platform  |  v1.0.0  |  문의: trisakion@gmail.com
 ```
 
 ---
