@@ -1,8 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as cron from 'node-cron';
 import { computeCodeGenerationStaleThresholdSec } from '../config/code-generation-stale-threshold.util';
 import { SpExecutorService } from '../database/sp-executor.service';
+import { getCodeGenerationStaleLogger } from '../logging/log4js-logger.service';
 
 /** SP_CAMPAIGN_CODE_GENERATION_STALE_LIST 반환 행. */
 interface StaleGenerationRow {
@@ -33,7 +34,10 @@ interface StaleGenerationRow {
  */
 @Injectable()
 export class CodeGenerationStaleMonitorService implements OnModuleInit {
-  private readonly logger = new Logger(CodeGenerationStaleMonitorService.name);
+  // 일반 NestJS Logger(-> app.log)가 아니라 전용 카테고리(logs/code-generation-stale.log)로
+  // 직접 로깅한다 — 운영자가 액션을 취해야 하는 경고라 일반 앱 로그와 분리해 별도로
+  // tail/알림 연동할 수 있게 한다(2026-07-23, 스케일아웃 점검 5번 후속).
+  private readonly logger = getCodeGenerationStaleLogger();
 
   private readonly maxGenerationDbRetries: number;
   private readonly generationRetryBaseDelayMs: number;
