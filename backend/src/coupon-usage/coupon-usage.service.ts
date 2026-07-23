@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { LogSpExecutorService } from '../common/database/log-sp-executor.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
 import { BusinessException } from '../common/response/business.exception';
-import { PaginatedResult } from '../common/response/pagination';
+import {
+  buildPaginatedResult,
+  PaginatedResult,
+} from '../common/response/pagination';
 import { ResultCode } from '../common/response/result-code.enum';
 import { UnconfirmedQueryDto } from './dto/unconfirmed-query.dto';
 
@@ -281,15 +284,17 @@ export class CouponUsageService {
       }));
 
     if (isSpecificUserMode) {
+      // 특정유저 모드는 18_COUPON_USAGE_API.md 3장상 페이지네이션 필드 자체가 없는 응답
+      // 셰이프라(page/query.page_size가 애초에 없음) buildPaginatedResult를 쓸 수 없다 —
+      // 다른 목록 API와 다른 셰이프인 게 의도된 설계이지 통일 누락이 아니다.
       return { items };
     }
 
-    return {
-      page: query.page!,
-      page_size: query.page_size!,
-      total_count: rows[0]?.total_count ?? 0,
+    return buildPaginatedResult(
+      { page: query.page!, page_size: query.page_size! },
+      rows[0]?.total_count ?? 0,
       items,
-    };
+    );
   }
 
   /**
