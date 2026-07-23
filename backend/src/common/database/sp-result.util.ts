@@ -31,7 +31,7 @@ export interface SpCallResult<TData = unknown> {
  *   특정 비즈니스 실패로 착각해 잘못 분류할 수 없다(2026-07-19 리뷰에서 흩어진 50001 체크가
  *   누락된 호출부를 여러 곳 발견한 뒤, 참고 구현체의 `callSP` 패턴을 그대로 적용). SQL_STATE/
  *   ERROR_NO는 던지는 예외의 `sqlDiagnostics`에도 실어 보낸다(HTTP 응답 바디에는 안 실림) —
- *   `CampaignService.generateRandomCodes`처럼 재시도 가능한 에러(deadlock/lock wait timeout)와
+ *   `CampaignCodeService.generateRandomCodes`처럼 재시도 가능한 에러(deadlock/lock wait timeout)와
  *   그렇지 않은 에러를 구분해야 하는 극히 드문 내부 호출부를 위한 것으로, 대부분의 호출부는 이
  *   필드를 알 필요도 없고 봐서도 안 된다(05_COUPON_ISSUANCE_SCENARIO.md 2.2, 2026-07-21 추가).
  *
@@ -72,7 +72,7 @@ export async function callStoredProcedure<TData = unknown>(
         `ERROR_NO=${errorNo} MESSAGE=${String(firstRow.ERROR_MESSAGE)}`,
     );
     // sqlState/errorNo는 HTTP 응답 바디에는 실리지 않는다(BusinessException 생성자 참고) —
-    // CampaignService의 RANDOM 코드 생성 재시도 루프처럼 재시도 가능 여부를 직접 판단해야 하는
+    // CampaignCodeService의 RANDOM 코드 생성 재시도 루프처럼 재시도 가능 여부를 직접 판단해야 하는
     // 극히 드문 내부 호출부만을 위한 것이다.
     throw new BusinessException(ResultCode.DATABASE_ERROR, undefined, {
       sqlState,

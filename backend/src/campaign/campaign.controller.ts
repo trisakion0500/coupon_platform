@@ -18,6 +18,7 @@ import type { AuthenticatedRequest } from '../common/jwt-auth/jwt-auth.guard';
 import { RoleCode } from '../common/roles/role-code.enum';
 import { Roles } from '../common/roles/roles.decorator';
 import { RolesGuard } from '../common/roles/roles.guard';
+import { CampaignCodeService } from './campaign-code.service';
 import { CampaignService } from './campaign.service';
 import { ApproveCampaignDto } from './dto/approve-campaign.dto';
 import { CampaignLogListQueryDto } from './dto/campaign-log-list-query.dto';
@@ -46,7 +47,10 @@ import { UsageListQueryDto } from './dto/usage-list-query.dto';
  */
 @Controller('campaigns')
 export class CampaignController {
-  constructor(private readonly campaignService: CampaignService) {}
+  constructor(
+    private readonly campaignService: CampaignService,
+    private readonly campaignCodeService: CampaignCodeService,
+  ) {}
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
@@ -167,7 +171,7 @@ export class CampaignController {
     @Req() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.campaignService.issueCodes(
+    const result = await this.campaignCodeService.issueCodes(
       campaignId,
       dto,
       req.user!.userId,
@@ -189,7 +193,10 @@ export class CampaignController {
     @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.campaignService.retryCodeIssuance(campaignId, req.user!.userId);
+    return this.campaignCodeService.retryCodeIssuance(
+      campaignId,
+      req.user!.userId,
+    );
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -205,7 +212,7 @@ export class CampaignController {
     @Query() query: CodeListQueryDto,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.campaignService.listCodes(campaignId, query, {
+    return this.campaignCodeService.listCodes(campaignId, query, {
       userId: req.user!.userId,
     });
   }
@@ -223,7 +230,7 @@ export class CampaignController {
     @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.campaignService.abortCodeGeneration(
+    return this.campaignCodeService.abortCodeGeneration(
       campaignId,
       req.user!.userId,
     );
