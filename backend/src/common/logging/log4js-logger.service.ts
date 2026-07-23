@@ -4,24 +4,46 @@ import * as log4js from 'log4js';
 log4js.configure({
   appenders: {
     console: { type: 'console' },
+    // 크기 기반(maxLogSize/backups)이 아니라 날짜 기반(dateFile)으로 매일 자정 새 파일로
+    // 넘어간다(2026-07-23) — 파일 하나가 무한정 쌓이던 문제를 해결하고, 날짜별로 파일이 나뉘어
+    // 있어야 "어제/특정 날짜 로그만" 찾기도 쉽다. alwaysIncludePattern을 기본값(false)으로 둬서
+    // 오늘 로그는 그냥 `app.log`이고, 자정에 회전되는 순간 지난 로그만 `app.2026-07-23.log`처럼
+    // keepFileExt로 날짜가 확장자 앞에 붙는 이름으로 바뀐다(`app.log.2026-07-23`가 아니라) —
+    // "지금 쓰고 있는 파일"과 "지난 날짜 파일"을 이름만으로 구분하려는 의도.
     file: {
-      type: 'file',
+      type: 'dateFile',
       filename: 'logs/app.log',
-      maxLogSize: 10 * 1024 * 1024,
-      backups: 5,
+      pattern: 'yyyy-MM-dd',
+      keepFileExt: true,
+    },
+    // ERROR 레벨만 걸러 별도 파일로도 남긴다(2026-07-23) — app.log는 info 이상 전부 섞여 있어
+    // 장애 조사 시 에러만 빠르게 훑어보기 어렵다. errorFile 자체에 바로 로그를 쓰지 않고
+    // logLevelFilter로 감싸는 이유는 이 필터가 하는 일이 "받은 이벤트 중 error 이상만
+    // errorFile로 통과시키는 것"이기 때문 — default 카테고리는 여전히 file(app.log)에도 그대로
+    // 쓰므로 error.log는 복제본이지 대체가 아니다(app.log만 봐도 시간순 전체 맥락은 유지됨).
+    errorFile: {
+      type: 'dateFile',
+      filename: 'logs/error.log',
+      pattern: 'yyyy-MM-dd',
+      keepFileExt: true,
+    },
+    errorOnly: {
+      type: 'logLevelFilter',
+      appender: 'errorFile',
+      level: 'error',
     },
     // 정체 코드생성 job 감지 경고(CodeGenerationStaleMonitorService) 전용 — 일반 app.log에
     // 묻히면 운영자가 놓치기 쉬운 액션 필요 경고라 별도 파일로 분리한다(2026-07-23, 스케일아웃
     // 점검 5번 후속). 운영 환경에서 이 파일만 별도로 tail/알림 연동하기 위함.
     codeGenerationStaleFile: {
-      type: 'file',
+      type: 'dateFile',
       filename: 'logs/code-generation-stale.log',
-      maxLogSize: 10 * 1024 * 1024,
-      backups: 5,
+      pattern: 'yyyy-MM-dd',
+      keepFileExt: true,
     },
   },
   categories: {
-    default: { appenders: ['console', 'file'], level: 'info' },
+    default: { appenders: ['console', 'file', 'errorOnly'], level: 'info' },
     'code-generation-stale': {
       appenders: ['console', 'codeGenerationStaleFile'],
       level: 'warn',
