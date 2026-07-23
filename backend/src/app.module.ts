@@ -8,6 +8,7 @@ import { AuditLogModule } from './common/audit-log/audit-log.module';
 import { envValidationSchema } from './common/config/env.validation';
 import { DatabaseModule } from './common/database/database.module';
 import { LogDatabaseModule } from './common/database/log-database.module';
+import { NonceCleanupModule } from './common/nonce-cleanup/nonce-cleanup.module';
 import { SessionCleanupModule } from './common/session-cleanup/session-cleanup.module';
 import { CouponUsageModule } from './coupon-usage/coupon-usage.module';
 import { CouponUseLogModule } from './coupon-use-log/coupon-use-log.module';
@@ -34,6 +35,7 @@ import { UserRoleModule } from './user-role/user-role.module';
     AuditLogModule,
     SessionCleanupModule,
     ApiSecretCleanupModule,
+    NonceCleanupModule,
     HealthModule,
     AuthModule,
     CompanyModule,
