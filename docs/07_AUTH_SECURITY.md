@@ -242,14 +242,17 @@ URL 패턴 : /v1/coupons/reserve, /v1/coupons/confirm 등
 
 `POST /v1/coupons/{code}/reserve`/`confirm`에 **프로젝트(API Key) 기준** 요청 제한을 적용한다 — 목적은 오남용 방지가 아니라 **인프라 보호**(특정 게임서버의 비정상 트래픽 폭주로부터 서버 전체를 지키는 것)다. README "향후 개선사항"에 있던 "프로젝트 단위 + 프로젝트·유저 단위 이중 적용" 검토 중 프로젝트 단위만 채택했다(2026-07-23) — 유저 단위 오남용 방지는 별도 논의로 보류.
 
+알고리즘은 고정 윈도우(1.4 로그인 리미터와 동일한 `express-rate-limit`)로 시작했다가 **토큰 버킷**으로 교체했다(2026-07-24) — 고정 윈도우는 윈도우 경계에서 이전 윈도우의 마지막 순간과 다음 윈도우의 첫 순간에 각각 최대치를 허용해, 아주 짧은 시간 안에 설정값의 거의 2배(예: 600회/분 설정에서 window 경계 전후로 순간 1200회에 가깝게)가 몰릴 수 있는 구조적 약점이 있다. 토큰 버킷은 버킷 용량(capacity)이 항상 그 시점의 절대 상한이라 이 문제가 없고, 대신 정상상태에서는 초당 일정하게 채워지는 토큰(refill)만큼만 지속 처리율을 허용해 순간 버스트와 평균 처리율을 분리해서 제어할 수 있다.
+
 ```text
-기준   : X-API-Key 헤더값당 windowMs 동안 max회 (기본 1분/600회, COUPON_USAGE_RATE_LIMIT_WINDOW_MS/COUPON_USAGE_RATE_LIMIT_MAX)
+기준   : X-API-Key 헤더값당 토큰 버킷 — 용량(capacity) 개까지 순간 버스트 허용, 이후 초당 refill개씩 회복
+         (기본 용량 600 / 초당 10, COUPON_USAGE_RATE_LIMIT_BUCKET_CAPACITY/COUPON_USAGE_RATE_LIMIT_REFILL_PER_SEC)
 대상   : POST /v1/coupons/{code}/reserve, POST /v1/coupons/{code}/confirm (GET /v1/coupons/unconfirmed 제외 — 조회 API라 상대적으로 저위험)
-초과 시 : 429 Too Many Requests
-저장소 : in-memory (1.4 로그인 리미터와 동일한 express-rate-limit 선택 — 스케일아웃 시 인스턴스별로 카운터가 나뉘어 실효 한도가 인스턴스 수배로 늘어나는 한계는 인지하고 감수)
+초과 시 : 429 Too Many Requests (Retry-After 헤더에 최소 대기 초 포함)
+저장소 : in-memory (프로젝트 API Key별 버킷을 Map에 보관, 로그인 리미터와 동일하게 스케일아웃 시 인스턴스별로 버킷이 나뉘어 실효 한도가 인스턴스 수배로 늘어나는 한계는 인지하고 감수)
 ```
 
-`X-API-Key` 헤더값을 그대로 카운터 키로 쓴다 — 미들웨어는 가드보다 먼저 실행되어 서명/nonce 검증 전이지만, 프로젝트별로 카운터를 나누는 목적에는 이 값으로 충분하다(1.4의 IP 기준 리미터가 IP 소유권을 검증하지 않는 것과 같은 성격). 헤더가 없으면 IP로 폴백해 리미터 자체가 죽지 않게만 한다.
+`X-API-Key` 헤더값을 그대로 버킷 키로 쓴다 — 미들웨어는 가드보다 먼저 실행되어 서명/nonce 검증 전이지만, 프로젝트별로 버킷을 나누는 목적에는 이 값으로 충분하다(1.4의 IP 기준 리미터가 IP 소유권을 검증하지 않는 것과 같은 성격). 헤더가 없으면 IP로 폴백해 리미터 자체가 죽지 않게만 한다.
 
 ---
 
