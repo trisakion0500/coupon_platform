@@ -5,6 +5,7 @@ import { CampaignModule } from './campaign/campaign.module';
 import { CompanyModule } from './company/company.module';
 import { ApiSecretCleanupModule } from './common/api-secret-cleanup/api-secret-cleanup.module';
 import { AuditLogModule } from './common/audit-log/audit-log.module';
+import { CodeGenerationStaleMonitorModule } from './common/code-generation-stale-monitor/code-generation-stale-monitor.module';
 import { envValidationSchema } from './common/config/env.validation';
 import { DatabaseModule } from './common/database/database.module';
 import { LogDatabaseModule } from './common/database/log-database.module';
@@ -36,6 +37,7 @@ import { UserRoleModule } from './user-role/user-role.module';
     SessionCleanupModule,
     ApiSecretCleanupModule,
     NonceCleanupModule,
+    CodeGenerationStaleMonitorModule,
     HealthModule,
     AuthModule,
     CompanyModule,

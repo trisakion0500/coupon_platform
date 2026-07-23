@@ -139,6 +139,8 @@ POST /campaigns/{id}/codes/abort
 - 되돌리기 전용이라 `edit_count`/`log_coupon_campaign` 둘 다 대상이 아니다(코드 발급은 그 두 축과 독립).
 - 살아있는 job이 실수로 abort된 경우까지 대비해, `SP_CAMPAIGN_CODE_GENERATE_ONE`의 슬롯 예약 조건부 UPDATE에도 `generation_status=2`를 함께 걸어둔다 — abort로 상태가 바뀐 뒤에는 그 뒤로 좀비 상태로 남아있을 루프가 코드를 더 만들 수 없고, 자신의 job이 빼앗겼음을 감지해 스스로 멈춘다(2.2의 상한 가드와 같은 방식).
 
+**감지 자동화(2026-07-23, 스케일아웃 점검)**: 위 복구 자체는 이미 DB 상태 기반이라 어느 서버 인스턴스가 처리해도 안전하지만, "정체됐다는 사실을 누가 알아채는가"는 지금까지 관리자가 화면을 보다가 우연히 발견하는 수동 방식이었다 — 레플리카를 여러 대 띄우고 롤링 배포가 잦아지는 스케일아웃 환경일수록 이 상황 자체는 더 자주 생기므로, 이 격차가 함께 커진다. `CodeGenerationStaleMonitorService`가 `CODE_GENERATION_STALE_MONITOR_CRON`(기본 5분) 주기로 위와 완전히 동일한 정체 판정 조건을 조회 전용 `SP_CAMPAIGN_CODE_GENERATION_STALE_LIST`로 확인해 서버 로그에 경고만 남긴다 — **상태를 바꾸지 않는다.** "정체됐다고 시스템이 자동으로 포기 선언하지 않는다"는 이 절의 기존 원칙은 그대로 유지하고, 그 원칙 위에서 발견 과정만 자동화한 것이다. 다른 크론 배치(`SessionCleanupService` 등)와 동일하게 `SpExecutorService.runExclusive`로 감싸 레플리카 여러 대가 같은 정체 job을 중복으로 경고하지 않는다(`02_DEV_CONVENTIONS.md` 4.1).
+
 ## 2.5 캠페인 종료(`status=4`)가 진행 중인 생성 루프를 멈추지 못하는 문제
 
 `coupon_campaign.status`(라이프사이클)와 `generation_status`(코드 생성 진행상태)는 완전히 별개 축이다(1장 참고) — `POST /campaigns/{id}/status`(종료 처리)는 `generation_status`를 전혀 보지 않고, `SP_CAMPAIGN_CODE_GENERATE_ONE`도 원래 `status`를 안 봤다. 그래서 RANDOM 대량생성이 한창 진행 중(`generation_status=2`)인 캠페인을 관리자가 종료(`status→4`)시켜도, 이미 떠 있는 백그라운드 루프는 그걸 모르고 계속 코드를 만들어 `generation_status=3`(완료)까지 가버릴 수 있었다 — `17_CAMPAIGN_API.md` 1.3(종료된 캠페인 쓰기 차단)이 신규 API 호출은 막지만 이미 실행 중인 백그라운드 job은 막지 못하는 구조적 공백이었다.

@@ -130,10 +130,11 @@
 
 코드값 충돌(nanoid 우연 중복, MySQL 1062)은 이 두 변수와 무관하게 지연 없이 무제한 즉시 재시도한다 — 단순 값 재추첨이라 DB 일시 오류와 성격이 다르기 때문(`05_COUPON_ISSUANCE_SCENARIO.md` 2.2 표 참고). `CampaignService`(`backend/src/campaign/campaign.service.ts`)의 `generateRandomCodes` 백그라운드 루프가 실제로 이 값들을 읽어 적용한다.
 
-### 진행중 정체 캠페인 수동 복구(Abort)
+### 진행중 정체 캠페인 수동 복구(Abort) + 감지 모니터링
 
 | 변수 | 기본값 | 용도 |
 | ---- | ------ | ---- |
 | `CODE_GENERATION_ABORT_STALE_SAFETY_MULTIPLIER` | `3` | `POST /campaigns/{id}/codes/abort`(`05_COUPON_ISSUANCE_SCENARIO.md` 2.4)가 "`coupon_campaign.updated_at`이 이만큼(초) 이상 안 움직였으면 멈춘 것으로 본다"고 판단하는 임계값의 안전 배율 |
+| `CODE_GENERATION_STALE_MONITOR_CRON` | `*/5 * * * *` | 위와 동일한 정체 판정 임계값으로 `SP_CAMPAIGN_CODE_GENERATION_STALE_LIST`를 주기 조회해 서버 로그로 경고만 남기는 감지 전용 크론 주기(`CodeGenerationStaleMonitorService`, 스케일아웃 점검 5번, 2026-07-23) — 자동 복구는 하지 않는다 |
 
-이 임계값은 별도로 독립된 값이 아니라 위 `CODE_GENERATION_MAX_DB_RETRIES`/`CODE_GENERATION_RETRY_BASE_DELAY_MS`에서 계산한다 — 정상적으로 살아있는 루프가 DB 일시 오류 재시도로 만들 수 있는 이론상 최대 무진행 구간(`baseDelay × (2^retries − 1)`)에 이 배율을 곱한 값을 임계값(초)으로 쓴다(`CampaignService.computeAbortStaleThresholdSec`). 재시도 설정이 바뀌면 이 임계값도 자동으로 같이 늘어나므로, 두 설정을 별도로 맞춰줄 필요가 없다.
+이 임계값은 별도로 독립된 값이 아니라 위 `CODE_GENERATION_MAX_DB_RETRIES`/`CODE_GENERATION_RETRY_BASE_DELAY_MS`에서 계산한다 — 정상적으로 살아있는 루프가 DB 일시 오류 재시도로 만들 수 있는 이론상 최대 무진행 구간(`baseDelay × (2^retries − 1)`)에 이 배율을 곱한 값을 임계값(초)으로 쓴다(`computeCodeGenerationStaleThresholdSec`, `backend/src/common/config/code-generation-stale-threshold.util.ts` — 원래 `CampaignService`에만 있던 계산을 `POST /codes/abort`와 감지 크론이 공유하도록 공용 유틸로 추출). 재시도 설정이 바뀌면 이 임계값도 자동으로 같이 늘어나므로, 세 설정을 별도로 맞춰줄 필요가 없다.

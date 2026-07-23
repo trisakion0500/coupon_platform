@@ -77,4 +77,9 @@ export const envValidationSchema = Joi.object({
     .integer()
     .min(1)
     .default(3),
+
+  // 정체된 코드생성 job 감지 전용 모니터링 크론(스케일아웃 점검 5번, 2026-07-23) — 위 3개
+  // 설정에서 계산한 동일한 "정체 판정" 임계값으로 SP_CAMPAIGN_CODE_GENERATION_STALE_LIST를
+  // 주기 조회해 서버 로그로 경고만 남긴다(자동 복구는 하지 않음).
+  CODE_GENERATION_STALE_MONITOR_CRON: Joi.string().default('*/5 * * * *'),
 });
