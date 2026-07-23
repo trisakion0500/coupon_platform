@@ -27,7 +27,9 @@ export class SpExecutorService implements OnModuleDestroy {
       password: configService.get<string>('DB_PASSWORD'),
       database: configService.get<string>('DB_NAME'),
       waitForConnections: true,
-      connectionLimit: 10,
+      // 레플리카당 pool 크기 — 하드코딩이었다가 스케일아웃 점검(2026-07-23)에서 env로 이전,
+      // 레플리카 수를 늘릴 때 MySQL max_connections 한도에 맞춰 조정 가능해야 하므로.
+      connectionLimit: configService.get<number>('DB_CONNECTION_LIMIT'),
       // 08_API_COMMON.md 4장: 날짜/시간은 문자열로 전송 — Date 객체 변환/타임존 이슈를 피하기 위해
       // DATETIME 컬럼을 애초에 문자열로 받는다.
       dateStrings: true,

@@ -51,8 +51,9 @@
 | `DB_USER`     | (필수)      | 메인 DB 접속 계정 |
 | `DB_PASSWORD` | (필수, 빈 문자열 허용) | 메인 DB 접속 비밀번호 |
 | `DB_NAME`     | (필수)      | 메인 DB 스키마명 |
+| `DB_CONNECTION_LIMIT` | `10` | 인스턴스(레플리카)당 mysql2 pool 크기. 총 DB 커넥션 = 레플리카 수 × (이 값 + `LOG_DB_CONNECTION_LIMIT`)이므로, 스케일아웃 시 레플리카 수에 맞춰 MySQL `max_connections` 한도를 넘지 않도록 조정(2026-07-23 하드코딩에서 이전) |
 
-위 5개는 `SpExecutorService`(`backend/src/common/database/sp-executor.service.ts`)가 mysql2 커넥션 풀을 생성할 때 사용한다. company/project/user/coupon_* 등 메인 도메인 테이블 전부가 이 DB에 있다.
+위 6개는 `SpExecutorService`(`backend/src/common/database/sp-executor.service.ts`)가 mysql2 커넥션 풀을 생성할 때 사용한다. company/project/user/coupon_* 등 메인 도메인 테이블 전부가 이 DB에 있다.
 
 ### 로그 전용 DB (`coupon_platform_log`)
 
@@ -63,6 +64,7 @@
 | `LOG_DB_USER`     | (필수)      | 로그 DB 접속 계정 |
 | `LOG_DB_PASSWORD` | (필수, 빈 문자열 허용) | 로그 DB 접속 비밀번호 |
 | `LOG_DB_NAME`     | (필수)      | 로그 DB 스키마명 |
+| `LOG_DB_CONNECTION_LIMIT` | `10` | 인스턴스(레플리카)당 mysql2 pool 크기(`DB_CONNECTION_LIMIT`과 동일 이유, 2026-07-23 하드코딩에서 이전) |
 
 `log_audit`/`log_coupon_campaign`/`log_coupon_use` 3개 테이블 전용 — 메인 DB와 **물리적으로 분리**되어 있다(`02_DEV_CONVENTIONS.md` 1장). 접속 계정이 메인 DB와 같을 수도 다를 수도 있어 별도 변수로 관리한다. `LogSpExecutorService`(`backend/src/common/database/log-sp-executor.service.ts`)가 메인 DB와 완전히 분리된 별도 커넥션 풀로 사용 — 로그 적재 실패가 메인 트랜잭션에 영향을 주지 않는다는 원칙을 구조적으로 강제하기 위함이다.
 

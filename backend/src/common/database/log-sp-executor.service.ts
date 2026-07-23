@@ -24,7 +24,9 @@ export class LogSpExecutorService implements OnModuleDestroy {
       password: configService.get<string>('LOG_DB_PASSWORD'),
       database: configService.get<string>('LOG_DB_NAME'),
       waitForConnections: true,
-      connectionLimit: 10,
+      // 레플리카당 pool 크기 — 하드코딩이었다가 스케일아웃 점검(2026-07-23)에서 env로 이전
+      // (SpExecutorService와 동일 이유).
+      connectionLimit: configService.get<number>('LOG_DB_CONNECTION_LIMIT'),
       dateStrings: true,
     });
   }

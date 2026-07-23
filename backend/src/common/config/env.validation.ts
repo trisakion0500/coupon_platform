@@ -18,6 +18,10 @@ export const envValidationSchema = Joi.object({
   DB_USER: Joi.string().required(),
   DB_PASSWORD: Joi.string().allow('').required(),
   DB_NAME: Joi.string().required(),
+  // 인스턴스당 mysql2 pool 크기 — 하드코딩이었다가 스케일아웃 점검(2026-07-23)에서 env로 이전.
+  // 총 DB 커넥션 = 레플리카 수 × (DB_CONNECTION_LIMIT + LOG_DB_CONNECTION_LIMIT)이므로,
+  // 레플리카를 늘릴 때 MySQL max_connections 한도에 맞춰 이 값을 낮춰 조정할 수 있어야 한다.
+  DB_CONNECTION_LIMIT: Joi.number().integer().min(1).default(10),
 
   // 로그 전용 DB(coupon_platform_log) — 메인 DB와 물리적으로 분리(02_DEV_CONVENTIONS.md 1장).
   // 접속 계정이 메인 DB와 같을 수도 다를 수도 있어 별도 변수로 관리한다.
@@ -26,6 +30,7 @@ export const envValidationSchema = Joi.object({
   LOG_DB_USER: Joi.string().required(),
   LOG_DB_PASSWORD: Joi.string().allow('').required(),
   LOG_DB_NAME: Joi.string().required(),
+  LOG_DB_CONNECTION_LIMIT: Joi.number().integer().min(1).default(10),
 
   JWT_SECRET: Joi.string().min(32).required(),
   JWT_ACCESS_EXPIRES_IN: Joi.string().default('15m'),
