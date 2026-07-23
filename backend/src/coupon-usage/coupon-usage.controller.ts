@@ -31,6 +31,7 @@ export class CouponUsageController {
       req.s2sProject!.projectId,
       code,
       dto.game_user_id,
+      req.ip ?? null,
     );
   }
 
@@ -46,6 +47,7 @@ export class CouponUsageController {
       req.s2sProject!.projectId,
       code,
       dto.game_user_id,
+      req.ip ?? null,
     );
   }
 

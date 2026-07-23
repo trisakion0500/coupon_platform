@@ -56,6 +56,7 @@ describe('CouponUseLogService', () => {
             code_value: '23A4-B7C9-DEF2',
             game_user_id: 'player_1001',
             result_type: 0,
+            caller_ip: '203.0.113.10',
             created_at: '2026-07-18 10:00:00',
             total_count: 1,
           },
@@ -83,6 +84,7 @@ describe('CouponUseLogService', () => {
       );
       expect(result.total_count).toBe(1);
       expect(result.items[0].campaign_name).toBe('여름 이벤트');
+      expect(result.items[0].caller_ip).toBe('203.0.113.10');
     });
 
     it('leaves campaign_name null when coupon_campaign_id is null (code not found)', async () => {

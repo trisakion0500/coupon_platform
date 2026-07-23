@@ -343,7 +343,8 @@ CREATE PROCEDURE `SP_LOG_COUPON_USE_CREATE` (
     IN i_coupon_campaign_id  BIGINT UNSIGNED,  -- 캠페인 ID (코드 자체가 없는 시도는 NULL)
     IN i_code_value          VARCHAR(50),      -- 시도한 쿠폰 코드 문자열 원문
     IN i_game_user_id        VARCHAR(100),     -- 게임서버 유저 식별자
-    IN i_result_type         TINYINT UNSIGNED  -- 처리 결과 (0:성공,10:코드없음,20:이미소모/중지,30:캠페인사용불가,40:사용자한도초과,50:소모기록없음)
+    IN i_result_type         TINYINT UNSIGNED, -- 처리 결과 (0:성공,10:코드없음,20:이미소모/중지,30:캠페인사용불가,40:사용자한도초과,50:소모기록없음)
+    IN i_caller_ip           VARCHAR(45)       -- 호출한 게임서버의 IP(IPv6 포함, NULL 가능) — 인증 목적 아님, 이상징후 탐지/장애조사 보조용
 ) COMMENT '쿠폰 사용(reserve/confirm) 시도 이력 적재 (Append-Only, 18_COUPON_USAGE_API.md 1.5/4장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -361,6 +362,10 @@ BEGIN
     --        직접 노출되지 않는 백엔드 내부 인프라 호출 전용(SP_LOG_COUPON_CAMPAIGN_CREATE와
     --        동일한 이유). 데이터 반환용 두 번째 SELECT는 필요 없다(02_DEV_CONVENTIONS.md 3.4
     --        예외 - SP_LOG_AUDIT_CREATE와 동일).
+    -- 수정1: 2026.07.23 trisakion — caller_ip 컬럼 추가에 맞춰 i_caller_ip 파라미터를 받아 그대로
+    --        INSERT한다. TS(CouponUsageController)가 Express req.ip(main.ts trust proxy=1
+    --        설정으로 로드밸런서 뒤에서도 실제 호출자 IP)를 캡처해 넘긴다 - 이 SP는 값을 그대로
+    --        저장만 할 뿐 검증/가공하지 않는다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -374,9 +379,11 @@ BEGIN
     END;
 
     INSERT INTO `log_coupon_use` (
-        `action`, `project_id`, `coupon_campaign_id`, `code_value`, `game_user_id`, `result_type`
+        `action`, `project_id`, `coupon_campaign_id`, `code_value`, `game_user_id`, `result_type`,
+        `caller_ip`
     ) VALUES (
-        i_action, i_project_id, i_coupon_campaign_id, i_code_value, i_game_user_id, i_result_type
+        i_action, i_project_id, i_coupon_campaign_id, i_code_value, i_game_user_id, i_result_type,
+        i_caller_ip
     );
 
     SELECT 0 AS RESULT;
@@ -423,6 +430,9 @@ BEGIN
     --        campaign_name(응답에 필요, 17_CAMPAIGN_API.md 4.3)은 이 SP가 채우지 않는다 - 메인
     --        DB(coupon_campaign)와 물리 분리라 조인이 불가능해, coupon_campaign_id가 있는 행만
     --        앱(TS) 레이어가 메인 DB에서 배치 조회해 응답 조립 시 붙인다.
+    -- 수정1: 2026.07.23 trisakion — log_coupon_use.caller_ip 추가에 맞춰 응답에 caller_ip를
+    --        포함한다. 이 로그를 사람이 들여다보는 유일한 창구가 4.3이라, 저장만 하고 조회
+    --        API에서 빠뜨리면 사실상 못 쓰는 컬럼이 되므로 함께 반영.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -437,7 +447,7 @@ BEGIN
     SELECT 0 AS RESULT;
     SELECT
         lu.`idx`, lu.`action`, lu.`project_id`, lu.`coupon_campaign_id`, lu.`code_value`,
-        lu.`game_user_id`, lu.`result_type`, lu.`created_at`,
+        lu.`game_user_id`, lu.`result_type`, lu.`caller_ip`, lu.`created_at`,
         cnt.`total_count`
     FROM (
         SELECT COUNT(*) AS total_count
@@ -453,7 +463,7 @@ BEGIN
     ) cnt
     LEFT JOIN (
         SELECT `idx`, `action`, `project_id`, `coupon_campaign_id`, `code_value`,
-               `game_user_id`, `result_type`, `created_at`
+               `game_user_id`, `result_type`, `caller_ip`, `created_at`
         FROM `log_coupon_use`
         WHERE `project_id` = i_project_id
           AND (i_coupon_campaign_id IS NULL OR `coupon_campaign_id` = i_coupon_campaign_id)

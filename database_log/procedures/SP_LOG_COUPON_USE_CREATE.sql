@@ -6,7 +6,8 @@ CREATE PROCEDURE `SP_LOG_COUPON_USE_CREATE` (
     IN i_coupon_campaign_id  BIGINT UNSIGNED,  -- 캠페인 ID (코드 자체가 없는 시도는 NULL)
     IN i_code_value          VARCHAR(50),      -- 시도한 쿠폰 코드 문자열 원문
     IN i_game_user_id        VARCHAR(100),     -- 게임서버 유저 식별자
-    IN i_result_type         TINYINT UNSIGNED  -- 처리 결과 (0:성공,10:코드없음,20:이미소모/중지,30:캠페인사용불가,40:사용자한도초과,50:소모기록없음)
+    IN i_result_type         TINYINT UNSIGNED, -- 처리 결과 (0:성공,10:코드없음,20:이미소모/중지,30:캠페인사용불가,40:사용자한도초과,50:소모기록없음)
+    IN i_caller_ip           VARCHAR(45)       -- 호출한 게임서버의 IP(IPv6 포함, NULL 가능) — 인증 목적 아님, 이상징후 탐지/장애조사 보조용
 ) COMMENT '쿠폰 사용(reserve/confirm) 시도 이력 적재 (Append-Only, 18_COUPON_USAGE_API.md 1.5/4장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -24,6 +25,10 @@ BEGIN
     --        직접 노출되지 않는 백엔드 내부 인프라 호출 전용(SP_LOG_COUPON_CAMPAIGN_CREATE와
     --        동일한 이유). 데이터 반환용 두 번째 SELECT는 필요 없다(02_DEV_CONVENTIONS.md 3.4
     --        예외 - SP_LOG_AUDIT_CREATE와 동일).
+    -- 수정1: 2026.07.23 trisakion — caller_ip 컬럼 추가에 맞춰 i_caller_ip 파라미터를 받아 그대로
+    --        INSERT한다. TS(CouponUsageController)가 Express req.ip(main.ts trust proxy=1
+    --        설정으로 로드밸런서 뒤에서도 실제 호출자 IP)를 캡처해 넘긴다 - 이 SP는 값을 그대로
+    --        저장만 할 뿐 검증/가공하지 않는다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -37,9 +42,11 @@ BEGIN
     END;
 
     INSERT INTO `log_coupon_use` (
-        `action`, `project_id`, `coupon_campaign_id`, `code_value`, `game_user_id`, `result_type`
+        `action`, `project_id`, `coupon_campaign_id`, `code_value`, `game_user_id`, `result_type`,
+        `caller_ip`
     ) VALUES (
-        i_action, i_project_id, i_coupon_campaign_id, i_code_value, i_game_user_id, i_result_type
+        i_action, i_project_id, i_coupon_campaign_id, i_code_value, i_game_user_id, i_result_type,
+        i_caller_ip
     );
 
     SELECT 0 AS RESULT;

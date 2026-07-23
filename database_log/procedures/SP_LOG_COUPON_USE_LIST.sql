@@ -36,6 +36,9 @@ BEGIN
     --        campaign_name(응답에 필요, 17_CAMPAIGN_API.md 4.3)은 이 SP가 채우지 않는다 - 메인
     --        DB(coupon_campaign)와 물리 분리라 조인이 불가능해, coupon_campaign_id가 있는 행만
     --        앱(TS) 레이어가 메인 DB에서 배치 조회해 응답 조립 시 붙인다.
+    -- 수정1: 2026.07.23 trisakion — log_coupon_use.caller_ip 추가에 맞춰 응답에 caller_ip를
+    --        포함한다. 이 로그를 사람이 들여다보는 유일한 창구가 4.3이라, 저장만 하고 조회
+    --        API에서 빠뜨리면 사실상 못 쓰는 컬럼이 되므로 함께 반영.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -50,7 +53,7 @@ BEGIN
     SELECT 0 AS RESULT;
     SELECT
         lu.`idx`, lu.`action`, lu.`project_id`, lu.`coupon_campaign_id`, lu.`code_value`,
-        lu.`game_user_id`, lu.`result_type`, lu.`created_at`,
+        lu.`game_user_id`, lu.`result_type`, lu.`caller_ip`, lu.`created_at`,
         cnt.`total_count`
     FROM (
         SELECT COUNT(*) AS total_count
@@ -66,7 +69,7 @@ BEGIN
     ) cnt
     LEFT JOIN (
         SELECT `idx`, `action`, `project_id`, `coupon_campaign_id`, `code_value`,
-               `game_user_id`, `result_type`, `created_at`
+               `game_user_id`, `result_type`, `caller_ip`, `created_at`
         FROM `log_coupon_use`
         WHERE `project_id` = i_project_id
           AND (i_coupon_campaign_id IS NULL OR `coupon_campaign_id` = i_coupon_campaign_id)

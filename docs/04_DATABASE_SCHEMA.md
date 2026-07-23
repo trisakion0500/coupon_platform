@@ -260,6 +260,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 - `code_value`는 FK가 아님 — 존재하지 않는 코드로 시도한 요청도 그대로 남겨야 브루트포스 탐지가 가능하므로 문자열 원문을 그대로 저장
 - `coupon_campaign_id`는 NULL 허용 — 코드 자체가 존재하지 않는 시도는 캠페인을 특정할 수 없음
 - `result_type`(0:성공, 10:코드없음, 20:이미소모/중지, 30:캠페인 사용불가, 40:사용자한도초과, 50:소모기록없음(CONFIRM 전용))의 API result 코드 매핑은 [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md) 4장 참고
+- `caller_ip`(NULL 허용, 2026-07-23 추가) — 호출한 게임서버의 IP(Express `req.ip`, `main.ts`의 `trust proxy=1` 설정으로 로드밸런서 뒤에서도 실제 호출자 IP를 얻음). 이 엔드포인트는 이미 HMAC 서명으로 강하게 인증되므로 인증 목적이 아니라 "이 프로젝트의 API Secret이 평소와 다른 IP에서 호출되기 시작했다" 같은 이상징후 탐지·장애조사 보조 신호용 — 브루트포스를 시도하는 실제 최종 플레이어의 IP가 아니라 요청을 대신 전달한 게임서버 자신의 IP라는 점에 유의(최종 플레이어 추적은 `game_user_id`로 함)
 - 물리 수정 및 삭제를 허용하지 않음(Append-Only)
 - 전체 컬럼 FK 없음(`project_id`/`coupon_campaign_id`/`code_value` 포함) — 로그 원칙
 

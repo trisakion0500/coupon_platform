@@ -45,12 +45,12 @@ describe('CouponUsageService', () => {
         data: [reserveRow],
       });
 
-      const result = await service.reserve(10, '23A4-B7C9-DEF2', 'player_1001');
+      const result = await service.reserve(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10');
 
       expect(result).toEqual(reserveRow);
       expect(logSpExecutor.logCall).toHaveBeenCalledWith(
         'SP_LOG_COUPON_USE_CREATE',
-        [10, 10, 100, '23A4-B7C9-DEF2', 'player_1001', 0],
+        [10, 10, 100, '23A4-B7C9-DEF2', 'player_1001', 0, '203.0.113.10'],
       );
     });
 
@@ -58,13 +58,13 @@ describe('CouponUsageService', () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31005 });
 
       await expect(
-        service.reserve(10, 'NOPE', 'player_1001'),
+        service.reserve(10, 'NOPE', 'player_1001', '203.0.113.10'),
       ).rejects.toMatchObject({ resultCode: ResultCode.COUPON_CODE_NOT_FOUND });
 
       expect(spExecutor.callProcedure).toHaveBeenCalledTimes(1);
       expect(logSpExecutor.logCall).toHaveBeenCalledWith(
         'SP_LOG_COUPON_USE_CREATE',
-        [10, 10, null, 'NOPE', 'player_1001', 10],
+        [10, 10, null, 'NOPE', 'player_1001', 10, '203.0.113.10'],
       );
     });
 
@@ -76,7 +76,7 @@ describe('CouponUsageService', () => {
       });
 
       await expect(
-        service.reserve(10, '23A4-B7C9-DEF2', 'player_1001'),
+        service.reserve(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10'),
       ).rejects.toMatchObject({
         resultCode: ResultCode.COUPON_CODE_ALREADY_USED_OR_STOPPED,
       });
@@ -88,7 +88,7 @@ describe('CouponUsageService', () => {
       );
       expect(logSpExecutor.logCall).toHaveBeenCalledWith(
         'SP_LOG_COUPON_USE_CREATE',
-        [10, 10, 100, '23A4-B7C9-DEF2', 'player_1001', 20],
+        [10, 10, 100, '23A4-B7C9-DEF2', 'player_1001', 20, '203.0.113.10'],
       );
     });
 
@@ -100,7 +100,7 @@ describe('CouponUsageService', () => {
       });
 
       await expect(
-        service.reserve(10, '23A4-B7C9-DEF2', 'player_1001'),
+        service.reserve(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10'),
       ).rejects.toMatchObject({ resultCode: ResultCode.CAMPAIGN_NOT_USABLE });
     });
 
@@ -112,7 +112,7 @@ describe('CouponUsageService', () => {
       });
 
       await expect(
-        service.reserve(10, '23A4-B7C9-DEF2', 'player_1001'),
+        service.reserve(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10'),
       ).rejects.toMatchObject({ resultCode: ResultCode.USER_USE_LIMIT_EXCEEDED });
     });
 
@@ -121,14 +121,14 @@ describe('CouponUsageService', () => {
       spExecutor.callProcedure.mockRejectedValueOnce(new Error('connection refused'));
 
       await expect(
-        service.reserve(10, '23A4-B7C9-DEF2', 'player_1001'),
+        service.reserve(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10'),
       ).rejects.toMatchObject({
         resultCode: ResultCode.COUPON_CODE_ALREADY_USED_OR_STOPPED,
       });
 
       expect(logSpExecutor.logCall).toHaveBeenCalledWith(
         'SP_LOG_COUPON_USE_CREATE',
-        [10, 10, null, '23A4-B7C9-DEF2', 'player_1001', 20],
+        [10, 10, null, '23A4-B7C9-DEF2', 'player_1001', 20, '203.0.113.10'],
       );
     });
   });
@@ -140,7 +140,7 @@ describe('CouponUsageService', () => {
         data: [confirmRow],
       });
 
-      const result = await service.confirm(10, '23A4-B7C9-DEF2', 'player_1001');
+      const result = await service.confirm(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10');
 
       expect(result).toEqual({
         coupon_code_usage_id: 9000,
@@ -148,7 +148,7 @@ describe('CouponUsageService', () => {
       });
       expect(logSpExecutor.logCall).toHaveBeenCalledWith(
         'SP_LOG_COUPON_USE_CREATE',
-        [20, 10, 100, '23A4-B7C9-DEF2', 'player_1001', 0],
+        [20, 10, 100, '23A4-B7C9-DEF2', 'player_1001', 0, '203.0.113.10'],
       );
     });
 
@@ -156,7 +156,7 @@ describe('CouponUsageService', () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31005 });
 
       await expect(
-        service.confirm(10, 'NOPE', 'player_1001'),
+        service.confirm(10, 'NOPE', 'player_1001', '203.0.113.10'),
       ).rejects.toMatchObject({ resultCode: ResultCode.COUPON_CODE_NOT_FOUND });
     });
 
@@ -168,12 +168,12 @@ describe('CouponUsageService', () => {
       });
 
       await expect(
-        service.confirm(10, '23A4-B7C9-DEF2', 'player_1001'),
+        service.confirm(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10'),
       ).rejects.toMatchObject({ resultCode: ResultCode.USAGE_NOT_FOUND });
 
       expect(logSpExecutor.logCall).toHaveBeenCalledWith(
         'SP_LOG_COUPON_USE_CREATE',
-        [20, 10, 100, '23A4-B7C9-DEF2', 'player_1001', 50],
+        [20, 10, 100, '23A4-B7C9-DEF2', 'player_1001', 50, '203.0.113.10'],
       );
     });
   });

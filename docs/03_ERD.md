@@ -169,6 +169,7 @@ erDiagram
         VARCHAR50   code_value          "FK아님, 존재하지 않는 코드도 기록"
         VARCHAR100  game_user_id        "FK없음"
         TINYINT     result_type         "0:성공, 그외:실패사유(18_COUPON_USAGE_API.md 4장 매핑)"
+        VARCHAR45   caller_ip           "NULL허용, 인증목적아님(보조신호)"
         DATETIME    created_at
     }
 

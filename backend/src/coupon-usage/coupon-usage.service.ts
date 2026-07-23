@@ -109,6 +109,7 @@ export class CouponUsageService {
     projectId: number,
     codeValue: string,
     gameUserId: string,
+    callerIp: string | null,
   ): Promise<ReserveResult> {
     const { result, data } = await this.spExecutor.callProcedure<ReserveResult[]>(
       'SP_COUPON_RESERVE',
@@ -124,6 +125,7 @@ export class CouponUsageService {
         codeValue,
         gameUserId,
         0,
+        callerIp,
       );
       return row;
     }
@@ -140,6 +142,7 @@ export class CouponUsageService {
       codeValue,
       gameUserId,
       RESERVE_LOG_TYPE_MAP[result] ?? 0,
+      callerIp,
     );
 
     if (result === ResultCode.COUPON_CODE_NOT_FOUND) {
@@ -168,6 +171,7 @@ export class CouponUsageService {
     projectId: number,
     codeValue: string,
     gameUserId: string,
+    callerIp: string | null,
   ): Promise<ConfirmResult> {
     const { result, data } = await this.spExecutor.callProcedure<ConfirmRow[]>(
       'SP_COUPON_CONFIRM',
@@ -183,6 +187,7 @@ export class CouponUsageService {
         codeValue,
         gameUserId,
         0,
+        callerIp,
       );
       return {
         coupon_code_usage_id: row.coupon_code_usage_id,
@@ -202,6 +207,7 @@ export class CouponUsageService {
       codeValue,
       gameUserId,
       CONFIRM_LOG_TYPE_MAP[result] ?? 0,
+      callerIp,
     );
 
     if (result === ResultCode.COUPON_CODE_NOT_FOUND) {
@@ -303,7 +309,13 @@ export class CouponUsageService {
     }
   }
 
-  /** log_coupon_use 적재(로그 DB) - 실패해도 메인 흐름에 영향 없는 fire-and-forget. */
+  /**
+   * log_coupon_use 적재(로그 DB) - 실패해도 메인 흐름에 영향 없는 fire-and-forget.
+   * `callerIp`는 컨트롤러가 Express `req.ip`(main.ts의 trust proxy=1 설정으로 프록시 뒤에서도
+   * 실제 호출자 IP)를 그대로 넘긴 값 - 이 엔드포인트는 이미 HMAC 서명으로 인증되므로 IP는
+   * 인증에 쓰이지 않고, "이 프로젝트의 API Secret이 평소와 다른 IP에서 호출되기 시작했다" 같은
+   * 이상징후 탐지·장애 조사 보조 신호로만 쓴다(2026-07-23).
+   */
   private async logAttempt(
     action: UsageLogAction,
     projectId: number,
@@ -311,6 +323,7 @@ export class CouponUsageService {
     codeValue: string,
     gameUserId: string,
     resultType: number,
+    callerIp: string | null,
   ): Promise<void> {
     await this.logSpExecutor.logCall('SP_LOG_COUPON_USE_CREATE', [
       action,
@@ -319,6 +332,7 @@ export class CouponUsageService {
       codeValue,
       gameUserId,
       resultType,
+      callerIp,
     ]);
   }
 }

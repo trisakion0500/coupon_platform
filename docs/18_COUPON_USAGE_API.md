@@ -34,7 +34,7 @@ S2S API이므로 [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2.7의 버전 정�
 
 ## 1.5 로그 기록
 
-본 장의 모든 API는 성공/실패 여부와 무관하게 매 호출마다 `log_coupon_use`에 `action`(10:RESERVE, 20:CONFIRM)과 `result_type` 스냅샷을 기록한다(3장 참고). 로그 기록 실패/지연은 메인 트랜잭션을 막지 않는다(CLAUDE.md 원칙).
+본 장의 모든 API는 성공/실패 여부와 무관하게 매 호출마다 `log_coupon_use`에 `action`(10:RESERVE, 20:CONFIRM)과 `result_type` 스냅샷을 기록한다(3장 참고). 로그 기록 실패/지연은 메인 트랜잭션을 막지 않는다(CLAUDE.md 원칙). 호출한 게임서버의 IP(`caller_ip`, 2026-07-23 추가)도 함께 기록한다 — 인증 목적이 아니라(이미 HMAC 서명으로 인증됨) API Secret 이상징후 탐지·장애조사 보조용이며, [04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md) 11장 참고.
 
 ---
 

@@ -859,6 +859,7 @@ ORDER BY created_at DESC, idx DESC
         "code_value": "23A4-B7C9-DEF2",
         "game_user_id": "player_1001",
         "result_type": 0,
+        "caller_ip": "203.0.113.10",
         "created_at": "2026-07-18 10:00:00"
       },
       {
@@ -870,6 +871,7 @@ ORDER BY created_at DESC, idx DESC
         "code_value": "ZZZZ-ZZZZ-ZZZZ",
         "game_user_id": "player_1001",
         "result_type": 10,
+        "caller_ip": "203.0.113.10",
         "created_at": "2026-07-18 09:59:50"
       }
     ]
@@ -877,7 +879,7 @@ ORDER BY created_at DESC, idx DESC
 }
 ```
 
-`campaign_name`은 `log_coupon_use` 자체 컬럼이 아니다 — `coupon_campaign_id`가 있는 행에 한해 메인 DB(`coupon_campaign`)에서 배치 조회해 응답 조립 시 붙인다(로그 DB는 메인 DB와 물리 분리라 SQL JOIN 불가, [02_DEV_CONVENTIONS.md](./02_DEV_CONVENTIONS.md) 1장). `coupon_campaign_id`가 NULL인 행(코드 자체가 존재하지 않는 시도)은 `campaign_name`도 NULL이다.
+`campaign_name`은 `log_coupon_use` 자체 컬럼이 아니다 — `coupon_campaign_id`가 있는 행에 한해 메인 DB(`coupon_campaign`)에서 배치 조회해 응답 조립 시 붙인다(로그 DB는 메인 DB와 물리 분리라 SQL JOIN 불가, [02_DEV_CONVENTIONS.md](./02_DEV_CONVENTIONS.md) 1장). `coupon_campaign_id`가 NULL인 행(코드 자체가 존재하지 않는 시도)은 `campaign_name`도 NULL이다. `caller_ip`(2026-07-23 추가)는 호출한 게임서버의 IP — 인증 목적이 아니라 이상징후 탐지·장애조사 보조용이며, `NULL`일 수 있다([04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md) 11장 참고).
 
 ### Errors
 

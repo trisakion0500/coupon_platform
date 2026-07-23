@@ -19,6 +19,7 @@ interface CouponUseLogRow {
   code_value: string | null;
   game_user_id: string | null;
   result_type: number | null;
+  caller_ip: string | null;
   created_at: string | null;
   total_count: number;
 }
@@ -32,6 +33,7 @@ export interface CouponUseLogItem {
   code_value: string;
   game_user_id: string;
   result_type: number;
+  caller_ip: string | null;
   created_at: string;
 }
 
@@ -124,6 +126,7 @@ export class CouponUseLogService {
       code_value: row.code_value!,
       game_user_id: row.game_user_id!,
       result_type: row.result_type!,
+      caller_ip: row.caller_ip,
       created_at: row.created_at!,
     }));
 

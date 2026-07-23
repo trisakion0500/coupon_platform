@@ -25,6 +25,12 @@ async function bootstrap() {
   // 프로세스가 강제 종료된다.
   app.enableShutdownHooks();
 
+  // 배포 토폴로지상 이 서버 앞에 항상 리버스 프록시/로드밸런서가 정확히 1홉 있다(2026-07-23,
+  // log_coupon_use.caller_ip 도입 때 확인) — trust proxy=1로 X-Forwarded-For의 첫 번째 값만
+  // 신뢰해야 `req.ip`가 프록시 자신이 아니라 실제 호출자(게임서버) IP를 반환한다. 프록시가 없는
+  // 로컬 개발 환경에서는 이 헤더 자체가 없어 안전하게 소켓 IP로 폴백된다.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   app.useLogger(new Log4jsLogger());
 
   const configService = app.get(ConfigService);
