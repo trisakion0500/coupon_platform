@@ -95,7 +95,7 @@
 | `S2S_TIMESTAMP_TOLERANCE_SEC` | `300`            | `X-API-Timestamp` 허용 오차(초). 서버 시각 기준 과거/미래 양방향으로 이 범위를 벗어나면 거부(`07_AUTH_SECURITY.md` 2.4, result `10013`). `S2sAuthGuard`가 실제로 이 값을 읽어 검증한다 |
 | `S2S_NONCE_CLEANUP_CRON`      | `*/10 * * * *`   | `project_api_nonce` 정리 배치 주기(10분 간격) — reserve/confirm 트래픽마다 1행씩 쌓여 다른 배치보다 훨씬 잦다(`07_AUTH_SECURITY.md` 2.5) |
 
-`API_SECRET_CLEANUP_CRON`은 `ApiSecretCleanupService`가 실제로 `node-cron` 등록까지 마쳤다(project 도메인 구현 시점, `SP_PROJECT_API_SECRET_CLEANUP` 호출). `S2S_NONCE_CLEANUP_CRON`은 아직 값 검증까지만 구현되어 있고 실제 크론 등록은 없다 — 해당 배치는 S2S 도메인(캠페인/코드/사용) 구현 시점에 추가 예정. `S2S_TIMESTAMP_TOLERANCE_SEC`은 `S2sAuthGuard`에서 이미 실제로 소비 중이다.
+`API_SECRET_CLEANUP_CRON`은 `ApiSecretCleanupService`가 실제로 `node-cron` 등록까지 마쳤다(project 도메인 구현 시점, `SP_PROJECT_API_SECRET_CLEANUP` 호출). `S2S_NONCE_CLEANUP_CRON`도 `NonceCleanupService`가 실제로 `node-cron` 등록까지 마쳤다(`SP_NONCE_CLEANUP` 호출, 스케일아웃 점검 4번, 2026-07-23 — 애초 설계 시점에 계획됐던 배치가 S2S 도메인 구현 때 누락된 채 남아있다가 뒤늦게 발견돼 추가됨). `S2S_TIMESTAMP_TOLERANCE_SEC`은 `S2sAuthGuard`에서 이미 실제로 소비 중이다. 위 3개 크론 배치(`SESSION_CLEANUP_CRON`/`API_SECRET_CLEANUP_CRON`/`S2S_NONCE_CLEANUP_CRON`) 전부 `SpExecutorService.runExclusive`로 감싸져 있어 스케일아웃 환경에서 레플리카 간 중복 실행되지 않는다(`02_DEV_CONVENTIONS.md` 4.1).
 
 ### CORS / 보안 헤더
 
