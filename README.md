@@ -87,27 +87,27 @@ coupon_platform은 인앱결제의 consume/acknowledge 패턴을 참고해 **res
 
 ## 문서 목록
 
-| 번호 | 문서 | 내용 |
-| ---- | ---- | ---- |
-| 01 | [TECH_STACK](docs/01_TECH_STACK.md) | 기술 스택, 환경변수 |
-| 02 | [DEV_CONVENTIONS](docs/02_DEV_CONVENTIONS.md) | 로깅 원칙, 코드 모듈화 기준, SP 네이밍, 동시성 처리 컨벤션 |
-| 03 | [ERD](docs/03_ERD.md) | 전체 테이블 ERD, 비정규화 FK, 상태코드 요약 |
-| 04 | [DATABASE_SCHEMA](docs/04_DATABASE_SCHEMA.md) | 테이블별 특징/상태/특수규칙 |
-| 05 | [COUPON_ISSUANCE_SCENARIO](docs/05_COUPON_ISSUANCE_SCENARIO.md) | 캠페인/코드 발급 흐름, 비동기 생성, 재시도 처리 |
-| 06 | [COUPON_USAGE_SCENARIO](docs/06_COUPON_USAGE_SCENARIO.md) | 쿠폰 사용 흐름, 동시성 처리 |
-| 07 | [AUTH_SECURITY](docs/07_AUTH_SECURITY.md) | 사용자 인증, S2S 인증 정책 |
-| 08 | [API_COMMON](docs/08_API_COMMON.md) | 응답포맷/에러코드/페이지네이션 |
-| 09 | [AUTH_API](docs/09_AUTH_API.md) | 회원가입/로그인/로그아웃 등 |
-| 10 | [COMPANY_API](docs/10_COMPANY_API.md) | 회사 CRUD |
-| 11 | [PROJECT_API](docs/11_PROJECT_API.md) | 프로젝트 CRUD, Secret 발급/재발급 |
-| 12 | [USER_API](docs/12_USER_API.md) | 사용자 승인/반려/권한 배정 |
-| 13 | [LOG_AUDIT_API](docs/13_LOG_AUDIT_API.md) | 감사로그 조회 |
-| 14 | [MENU_PERMISSION](docs/14_MENU_PERMISSION.md) | 역할별 메뉴 접근 권한 |
-| 15 | [SCREEN_LIST](docs/15_SCREEN_LIST.md) | 화면 목록 및 연관 API |
-| 16 | [LAYOUT](docs/16_LAYOUT.md) | 레이아웃, 라우트, 공통 컴포넌트 |
-| 17 | [CAMPAIGN_API](docs/17_CAMPAIGN_API.md) | 캠페인 CRUD, 상태변경, 승인/반려, 코드 발급(RANDOM 비동기/FIXED 동기) |
-| 18 | [COUPON_USAGE_API](docs/18_COUPON_USAGE_API.md) | 쿠폰 사용 reserve/confirm, 미컨슘 조회 |
-| 19 | [DEV_SETUP](docs/19_DEV_SETUP.md) | 로컬 개발 환경 설정 |
+| 문서 | 내용 |
+| ---- | ---- |
+| [01_TECH_STACK.md](docs/01_TECH_STACK.md) | 기술 스택, 환경변수 |
+| [02_DEV_CONVENTIONS.md](docs/02_DEV_CONVENTIONS.md) | 로깅 원칙, 코드 모듈화 기준, SP 네이밍, 동시성 처리 컨벤션 |
+| [03_ERD.md](docs/03_ERD.md) | 전체 테이블 ERD, 비정규화 FK, 상태코드 요약 |
+| [04_DATABASE_SCHEMA.md](docs/04_DATABASE_SCHEMA.md) | 테이블별 특징/상태/특수규칙 |
+| [05_COUPON_ISSUANCE_SCENARIO.md](docs/05_COUPON_ISSUANCE_SCENARIO.md) | 캠페인/코드 발급 흐름, 비동기 생성, 재시도 처리 |
+| [06_COUPON_USAGE_SCENARIO.md](docs/06_COUPON_USAGE_SCENARIO.md) | 쿠폰 사용 흐름, 동시성 처리 |
+| [07_AUTH_SECURITY.md](docs/07_AUTH_SECURITY.md) | 사용자 인증, S2S 인증 정책 |
+| [08_API_COMMON.md](docs/08_API_COMMON.md) | 응답포맷/에러코드/페이지네이션 |
+| [09_AUTH_API.md](docs/09_AUTH_API.md) | 회원가입/로그인/로그아웃 등 |
+| [10_COMPANY_API.md](docs/10_COMPANY_API.md) | 회사 CRUD |
+| [11_PROJECT_API.md](docs/11_PROJECT_API.md) | 프로젝트 CRUD, Secret 발급/재발급 |
+| [12_USER_API.md](docs/12_USER_API.md) | 사용자 승인/반려/권한 배정 |
+| [13_LOG_AUDIT_API.md](docs/13_LOG_AUDIT_API.md) | 감사로그 조회 |
+| [14_MENU_PERMISSION.md](docs/14_MENU_PERMISSION.md) | 역할별 메뉴 접근 권한 |
+| [15_SCREEN_LIST.md](docs/15_SCREEN_LIST.md) | 화면 목록 및 연관 API |
+| [16_LAYOUT.md](docs/16_LAYOUT.md) | 레이아웃, 라우트, 공통 컴포넌트 |
+| [17_CAMPAIGN_API.md](docs/17_CAMPAIGN_API.md) | 캠페인 CRUD, 상태변경, 승인/반려, 코드 발급(RANDOM 비동기/FIXED 동기) |
+| [18_COUPON_USAGE_API.md](docs/18_COUPON_USAGE_API.md) | 쿠폰 사용 reserve/confirm, 미컨슘 조회 |
+| [19_DEV_SETUP.md](docs/19_DEV_SETUP.md) | 로컬 개발 환경 설정 |
 
 ---
 
