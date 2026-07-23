@@ -10,6 +10,7 @@ import { DatabaseModule } from './common/database/database.module';
 import { LogDatabaseModule } from './common/database/log-database.module';
 import { SessionCleanupModule } from './common/session-cleanup/session-cleanup.module';
 import { CouponUsageModule } from './coupon-usage/coupon-usage.module';
+import { CouponUseLogModule } from './coupon-use-log/coupon-use-log.module';
 import { HealthModule } from './health/health.module';
 import { LogAuditModule } from './log-audit/log-audit.module';
 import { ProjectModule } from './project/project.module';
@@ -41,6 +42,7 @@ import { UserRoleModule } from './user-role/user-role.module';
     UserRoleModule,
     CampaignModule,
     CouponUsageModule,
+    CouponUseLogModule,
     LogAuditModule,
   ],
 })

@@ -7,7 +7,9 @@ import { CampaignService } from './campaign.service';
 
 describe('CampaignService', () => {
   let spExecutor: jest.Mocked<Pick<SpExecutorService, 'callProcedure'>>;
-  let logSpExecutor: jest.Mocked<Pick<LogSpExecutorService, 'logCall'>>;
+  let logSpExecutor: jest.Mocked<
+    Pick<LogSpExecutorService, 'logCall' | 'callProcedure'>
+  >;
   let configService: ConfigService;
   let service: CampaignService;
 
@@ -41,7 +43,7 @@ describe('CampaignService', () => {
 
   beforeEach(() => {
     spExecutor = { callProcedure: jest.fn() };
-    logSpExecutor = { logCall: jest.fn() };
+    logSpExecutor = { logCall: jest.fn(), callProcedure: jest.fn() };
     configService = {
       getOrThrow: jest.fn((key: string) => {
         if (key === 'CODE_GENERATION_MAX_DB_RETRIES') return 5;
@@ -708,6 +710,80 @@ describe('CampaignService', () => {
       await expect(
         service.listUsages(100, { page: 1, page_size: 20 }, { userId: 2 }),
       ).rejects.toMatchObject({ resultCode: ResultCode.PERMISSION_DENIED });
+    });
+  });
+
+  describe('listLogs', () => {
+    it('reuses getById for existence/scoping then queries the log DB', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({
+        result: 0,
+        data: [{ ...campaignRow, requester_name: 'Manager' }],
+      });
+      logSpExecutor.callProcedure.mockResolvedValueOnce({
+        result: 0,
+        data: [
+          {
+            idx: 1,
+            action: 10,
+            coupon_campaign_id: 100,
+            project_id: 10,
+            name: '여름 이벤트 쿠폰',
+            campaign_start: '2026-08-01 00:00:00',
+            campaign_end: '2026-08-31 23:59:59',
+            code_type: 1,
+            use_hyphen: 1,
+            requested_qty: 1000,
+            generated_qty: 0,
+            usable_qty: 0,
+            used_qty: 0,
+            use_limit_per_user: 1,
+            status: 1,
+            approval_status: 2,
+            approved_by: null,
+            approved_at: null,
+            reject_reason: null,
+            reward_data: { item_id: 5001, qty: 3 },
+            created_by: 4,
+            created_by_name: 'Operator',
+            created_at: '2026-07-22 09:59:12',
+            total_count: 1,
+          },
+        ],
+      });
+
+      const result = await service.listLogs(
+        100,
+        { page: 1, page_size: 20 },
+        { userId: 1 },
+      );
+
+      expect(spExecutor.callProcedure).toHaveBeenCalledWith(
+        'SP_CAMPAIGN_GET_BY_ID',
+        [100, 1],
+      );
+      expect(logSpExecutor.callProcedure).toHaveBeenCalledWith(
+        'SP_LOG_COUPON_CAMPAIGN_LIST',
+        [100, null, 20, 0],
+      );
+      expect(result.total_count).toBe(1);
+      expect(result.items[0].action).toBe(10);
+      expect(result.items[0].created_by_name).toBe('Operator');
+    });
+
+    it('throws CAMPAIGN_NOT_FOUND on 31004 without querying the log DB', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 31004 });
+      await expect(
+        service.listLogs(999, { page: 1, page_size: 20 }, { userId: 1 }),
+      ).rejects.toMatchObject({ resultCode: ResultCode.CAMPAIGN_NOT_FOUND });
+      expect(logSpExecutor.callProcedure).not.toHaveBeenCalled();
+    });
+
+    it('throws PERMISSION_DENIED on 20001 without querying the log DB', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
+      await expect(
+        service.listLogs(100, { page: 1, page_size: 20 }, { userId: 2 }),
+      ).rejects.toMatchObject({ resultCode: ResultCode.PERMISSION_DENIED });
+      expect(logSpExecutor.callProcedure).not.toHaveBeenCalled();
     });
   });
 

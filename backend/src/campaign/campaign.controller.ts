@@ -20,6 +20,7 @@ import { Roles } from '../common/roles/roles.decorator';
 import { RolesGuard } from '../common/roles/roles.guard';
 import { CampaignService } from './campaign.service';
 import { ApproveCampaignDto } from './dto/approve-campaign.dto';
+import { CampaignLogListQueryDto } from './dto/campaign-log-list-query.dto';
 import { ChangeCampaignStatusDto } from './dto/change-campaign-status.dto';
 import { CampaignListQueryDto } from './dto/campaign-list-query.dto';
 import { CodeListQueryDto } from './dto/code-list-query.dto';
@@ -243,6 +244,25 @@ export class CampaignController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.campaignService.listUsages(campaignId, query, {
+      userId: req.user!.userId,
+    });
+  }
+
+  /** 캠페인 변경 이력 조회(17_CAMPAIGN_API.md 4.2) — 조회 전용, 승인/종료여부 무관. */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    RoleCode.SUPER_ADMIN,
+    RoleCode.DEVELOPER,
+    RoleCode.MANAGER,
+    RoleCode.OPERATOR,
+  )
+  @Get(':coupon_campaign_id/logs')
+  listLogs(
+    @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
+    @Query() query: CampaignLogListQueryDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.campaignService.listLogs(campaignId, query, {
       userId: req.user!.userId,
     });
   }

@@ -10,6 +10,7 @@ import {
 } from '../common/response/pagination';
 import { ResultCode } from '../common/response/result-code.enum';
 import { ApproveCampaignDto } from './dto/approve-campaign.dto';
+import { CampaignLogListQueryDto } from './dto/campaign-log-list-query.dto';
 import { ChangeCampaignStatusDto } from './dto/change-campaign-status.dto';
 import { CampaignListQueryDto } from './dto/campaign-list-query.dto';
 import { CodeListQueryDto } from './dto/code-list-query.dto';
@@ -196,6 +197,64 @@ export interface UsageListItem {
   code_value: string;
   game_user_id: string;
   confirmed_at: string | null;
+  created_at: string;
+}
+
+/**
+ * SP_LOG_COUPON_CAMPAIGN_LIST(로그 DB) 반환 행 — coupon_campaign 컬럼 스냅샷 + action +
+ * created_by_name(17_CAMPAIGN_API.md 4.2). reward_data는 log_coupon_campaign에서도 JSON
+ * 타입 컬럼이라 mysql2가 자동 파싱한다(log_audit의 LONGTEXT before/after_json과 다름).
+ */
+interface CampaignLogListRow {
+  idx: number | null;
+  action: number | null;
+  coupon_campaign_id: number | null;
+  project_id: number | null;
+  name: string | null;
+  campaign_start: string | null;
+  campaign_end: string | null;
+  code_type: number | null;
+  use_hyphen: number | null;
+  requested_qty: number | null;
+  generated_qty: number | null;
+  usable_qty: number | null;
+  used_qty: number | null;
+  use_limit_per_user: number | null;
+  status: number | null;
+  approval_status: number | null;
+  approved_by: number | null;
+  approved_at: string | null;
+  reject_reason: string | null;
+  reward_data: Record<string, unknown> | null;
+  created_by: number | null;
+  created_by_name: string | null;
+  created_at: string | null;
+  total_count: number;
+}
+
+export interface CampaignLogListItem {
+  idx: number;
+  action: number;
+  coupon_campaign_id: number;
+  project_id: number;
+  name: string;
+  campaign_start: string;
+  campaign_end: string;
+  code_type: number;
+  use_hyphen: number;
+  requested_qty: number;
+  generated_qty: number;
+  usable_qty: number;
+  used_qty: number;
+  use_limit_per_user: number;
+  status: number;
+  approval_status: number;
+  approved_by: number | null;
+  approved_at: string | null;
+  reject_reason: string | null;
+  reward_data: Record<string, unknown>;
+  created_by: number;
+  created_by_name: string | null;
   created_at: string;
 }
 
@@ -777,6 +836,67 @@ export class CampaignService {
         game_user_id: row.game_user_id,
         confirmed_at: row.confirmed_at,
         created_at: row.created_at,
+      }));
+
+    return buildPaginatedResult(query, totalCount, items);
+  }
+
+  /**
+   * 캠페인 변경 이력 조회(17_CAMPAIGN_API.md 4.2) — 조회 전용, 캠페인 종료여부와 무관(1.3
+   * 차단목록에 없음). log_coupon_campaign은 로그 DB에 있어 SP가 스스로 존재확인/스코핑을
+   * 재검증하지 못하므로(02_DEV_CONVENTIONS.md 3.2 예외), getById가 이미 갖고 있는
+   * 존재확인(31004)+스코핑(20001) 체크를 그대로 재사용해 메인 DB에서 먼저 통과시킨 뒤에만
+   * 로그 DB(SP_LOG_COUPON_CAMPAIGN_LIST)를 조회하는 2단계 패턴이다.
+   */
+  async listLogs(
+    campaignId: number,
+    query: CampaignLogListQueryDto,
+    requester: CampaignRequester,
+  ): Promise<PaginatedResult<CampaignLogListItem>> {
+    await this.getById(campaignId, requester);
+
+    const offset = (query.page - 1) * query.page_size;
+    const { result, data } = await this.logSpExecutor.callProcedure<
+      CampaignLogListRow[]
+    >('SP_LOG_COUPON_CAMPAIGN_LIST', [
+      campaignId,
+      query.action ?? null,
+      query.page_size,
+      offset,
+    ]);
+
+    if (result !== 0) {
+      throw new BusinessException(ResultCode.INTERNAL_ERROR);
+    }
+
+    const rows = data ?? [];
+    const totalCount = rows[0]?.total_count ?? 0;
+    const items: CampaignLogListItem[] = rows
+      .filter((row): row is CampaignLogListRow & { idx: number } => row.idx !== null)
+      .map((row) => ({
+        idx: row.idx,
+        action: row.action!,
+        coupon_campaign_id: row.coupon_campaign_id!,
+        project_id: row.project_id!,
+        name: row.name!,
+        campaign_start: row.campaign_start!,
+        campaign_end: row.campaign_end!,
+        code_type: row.code_type!,
+        use_hyphen: row.use_hyphen!,
+        requested_qty: row.requested_qty!,
+        generated_qty: row.generated_qty!,
+        usable_qty: row.usable_qty!,
+        used_qty: row.used_qty!,
+        use_limit_per_user: row.use_limit_per_user!,
+        status: row.status!,
+        approval_status: row.approval_status!,
+        approved_by: row.approved_by,
+        approved_at: row.approved_at,
+        reject_reason: row.reject_reason,
+        reward_data: row.reward_data!,
+        created_by: row.created_by!,
+        created_by_name: row.created_by_name,
+        created_at: row.created_at!,
       }));
 
     return buildPaginatedResult(query, totalCount, items);
