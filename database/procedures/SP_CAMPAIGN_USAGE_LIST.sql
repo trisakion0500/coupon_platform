@@ -21,6 +21,11 @@ BEGIN
     --        비정규화돼 있지 않아(project_id만 비정규화됨, coupon_code_usage.sql 참고)
     --        coupon_code를 조인해서 가져온다. 정렬은 최근 이력이 먼저 보이도록 created_at DESC로
     --        고정한다(SP_LOG_AUDIT_LIST와 동일한 원칙 - 로그성 조회는 최신순).
+    -- 수정1: 2026.07.23 trisakion - created_at(초 단위 정밀도) 단독 정렬은 같은 초 안에 여러 건이
+    --        쌓이면 순서가 흔들릴 수 있음(SP_LOG_AUDIT_LIST에서 실제로 재현됐던 것과 동일한 문제).
+    --        AUTO_INCREMENT PK인 coupon_code_usage_id를 2차 정렬 키로 추가해 타이밍에 의존하지
+    --        않는 결정적 순서를 보장(SP_LOG_AUDIT_LIST/SP_LOG_COUPON_CAMPAIGN_LIST/
+    --        SP_LOG_COUPON_USE_LIST와 동일한 패턴).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -79,7 +84,7 @@ BEGIN
                     OR (i_confirmed = 1 AND u.`confirmed_at` IS NOT NULL)
                     OR (i_confirmed = 0 AND u.`confirmed_at` IS NULL)
                   )
-            ORDER BY u.`created_at` DESC
+            ORDER BY u.`created_at` DESC, u.`coupon_code_usage_id` DESC
             LIMIT i_page_size OFFSET i_offset
         ) pg ON TRUE;
     END proc_block;

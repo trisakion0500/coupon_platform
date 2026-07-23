@@ -2,7 +2,7 @@
 
 ## 개요
 
-본 문서는 게임서버가 쿠폰 코드를 검증·소모하는 전체 흐름(reserve → confirm)과 지급 실패 시 재시도 처리 방식을 정리한다. API 엔드포인트/result 코드 등 상세 스펙이 아니라 **흐름 자체의 설계 근거**를 다룬다 — 상세 API 스펙은 별도 문서(TODO)로 정리한다.
+본 문서는 게임서버가 쿠폰 코드를 검증·소모하는 전체 흐름(reserve → confirm)과 지급 실패 시 재시도 처리 방식을 정리한다. API 엔드포인트/result 코드 등 상세 스펙이 아니라 **흐름 자체의 설계 근거**를 다룬다 — 상세 API 스펙은 [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md)에 정리돼 있다.
 
 관련 테이블: `database/tables/coupon_campaign.sql`, `coupon_code.sql`, `coupon_code_usage.sql`
 
@@ -227,4 +227,4 @@ created_at            소모(reserve) 확정 일시
 # 5. 관련 문서
 
 - 테이블 DDL: `database/tables/coupon_campaign.sql`, `coupon_code.sql`, `coupon_code_usage.sql`
-- S2S 인증(게임서버 → 쿠폰서버) 정책: [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) — 요청 서명 방식 등 세부는 본 문서의 흐름 확정 후 후속 작업으로 결정 예정(TODO)
+- S2S 인증(게임서버 → 쿠폰서버) 정책: [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2장 — HMAC-SHA256 요청 서명 + Timestamp/Nonce 재전송 방지, grace period rotation까지 확정·구현 완료

@@ -66,7 +66,9 @@ docs/               ERD, 스키마, API 명세, 화면/레이아웃 설계 문�
 
 DB 설계(테이블 12개)와 관련 문서(01~19)가 모두 완료된 상태입니다. 백엔드 공통 인프라(`backend/`, NestJS + mysql2 SP 실행기 + 공통 응답 포맷 + S2S HMAC 인증 가드 + 헬스체크 + 역할 기반 권한 가드)에 이어 `auth`(회원가입/로그인/세션)·`company`·`project`(CRUD/Secret 발급·재발급)·`user`/`user_role`(승인/반려/권한배정) 도메인과 감사로그(`log_audit`, 적재 + 조회 API `GET /log-audits`) 구현을 마쳤습니다.
 
-쿠폰 도메인은 4단계로 나눠 진행했고 전 단계 구현이 완료됐습니다 — 1단계(캠페인 CRUD + 승인 워크플로우, `edit_count` 낙관적 동시성 제어), 2단계(코드 발급 — RANDOM 비동기 대량생성/재시도, FIXED 동기 등록, 진행중 정체 시 수동 복구(`abort`), 캠페인 종료 시 생성 루프 중단 등 동시성 방어), 3단계(캠페인별 쿠폰 사용 이력 조회), 4단계(쿠폰 사용 reserve/confirm + 미컨슘 조회 + `log_coupon_use` 적재). 이어서 캠페인 변경 이력(`GET /campaigns/{id}/logs`)·쿠폰 사용 로그(`GET /coupon-use-logs`) 조회 API까지 구현을 마쳤습니다(`docs/17_CAMPAIGN_API.md` 4.2/4.3). 로컬 개발 환경 설정은 `docs/19_DEV_SETUP.md` 참고. 프론트엔드 구현은 아직 시작 전입니다.
+쿠폰 도메인은 4단계로 나눠 진행했고 전 단계 구현이 완료됐습니다 — 1단계(캠페인 CRUD + 승인 워크플로우, `edit_count` 낙관적 동시성 제어), 2단계(코드 발급 — RANDOM 비동기 대량생성/재시도, FIXED 동기 등록, 진행중 정체 시 수동 복구(`abort`), 캠페인 종료 시 생성 루프 중단 등 동시성 방어), 3단계(캠페인별 쿠폰 사용 이력 조회), 4단계(쿠폰 사용 reserve/confirm + 미컨슘 조회 + `log_coupon_use` 적재). 이어서 캠페인 변경 이력(`GET /campaigns/{id}/logs`)·쿠폰 사용 로그(`GET /coupon-use-logs`) 조회 API까지 구현을 마쳤습니다(`docs/17_CAMPAIGN_API.md` 4.2/4.3).
+
+쿠폰 도메인 구현 완료 직후 스케일아웃(수평 확장) 대응 점검을 진행해 5개 항목을 모두 해결했습니다 — graceful shutdown 훅(SIGTERM 시 DB 커넥션 풀 안전 종료), DB 커넥션 풀 크기 env화(`DB_CONNECTION_LIMIT`/`LOG_DB_CONNECTION_LIMIT`), 크론 배치 인스턴스 간 중복 실행 방지(`SpExecutorService.runExclusive`, GET_LOCK 기반), `project_api_nonce` 정리 배치 신규 구현(`SP_NONCE_CLEANUP`), 정체된 코드생성 job 감지 모니터링(자동 복구는 하지 않고 경고 로그만). 곁들여 로그 파일을 일별 로테이션(`dateFile`) + ERROR 전용 파일로 분리하고, S2S 쿠폰 사용 로그(`log_coupon_use`)에 `caller_ip`를 추가했습니다. 로컬 개발 환경 설정은 `docs/19_DEV_SETUP.md` 참고. 프론트엔드 구현은 아직 시작 전입니다.
 
 ### 향후 개선사항 (우선순위 낮음, 별도 검토 필요)
 

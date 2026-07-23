@@ -696,8 +696,10 @@ GET /campaigns/{coupon_campaign_id}/usages
 ### Sorting
 
 ```sql
-ORDER BY created_at DESC
+ORDER BY created_at DESC, coupon_code_usage_id DESC
 ```
+
+`created_at`(초 단위 정밀도) 단독 정렬은 같은 초 안에 여러 건이 쌓이면 순서가 흔들릴 수 있어(`SP_LOG_AUDIT_LIST`에서 실제로 재현됐던 문제), AUTO_INCREMENT PK인 `coupon_code_usage_id`를 2차 정렬 키로 추가했다(2026-07-23, 4.2/4.3과 동일한 패턴).
 
 ### Response
 
