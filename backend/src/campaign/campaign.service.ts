@@ -69,6 +69,17 @@ export interface CampaignRow {
   edit_count: number;
 }
 
+/**
+ * CREATE/UPDATE/CHANGE_STATUS/APPROVE/REJECT 5개 SP 전용 반환 행 — log_coupon_campaign.
+ * created_by_name(17_CAMPAIGN_API.md 4.2)을 채우기 위한 requester_name이 추가로 온다.
+ * GET_BY_ID/LIST는 이 컬럼이 없어 CampaignRow를 그대로 쓴다. requester_name은 API 응답
+ * 스키마에 없는 로그 전용 컬럼이라 controller로 나가는 반환값에서는 toPublicRow로 제외한다
+ * (company/project/user 도메인과 동일 원칙 — 02_DEV_CONVENTIONS.md).
+ */
+interface CampaignActionRow extends CampaignRow {
+  requester_name: string | null;
+}
+
 /** SP_CAMPAIGN_LIST 반환 행 — 목록용 축약 컬럼 + total_count. */
 interface CampaignListRow {
   coupon_campaign_id: number | null;
@@ -268,7 +279,9 @@ export class CampaignService {
     dto: CreateCampaignDto,
     requesterUserId: number,
   ): Promise<CampaignRow> {
-    const { result, data } = await this.spExecutor.callProcedure<CampaignRow[]>(
+    const { result, data } = await this.spExecutor.callProcedure<
+      CampaignActionRow[]
+    >(
       'SP_CAMPAIGN_CREATE',
       [
         dto.project_id,
@@ -296,7 +309,7 @@ export class CampaignService {
 
     const row = data[0];
     void this.logCampaignAction(CampaignLogAction.CREATE, row, requesterUserId);
-    return row;
+    return this.toPublicRow(row);
   }
 
   async list(
@@ -379,7 +392,9 @@ export class CampaignService {
     dto: UpdateCampaignDto,
     requesterUserId: number,
   ): Promise<CampaignRow> {
-    const { result, data } = await this.spExecutor.callProcedure<CampaignRow[]>(
+    const { result, data } = await this.spExecutor.callProcedure<
+      CampaignActionRow[]
+    >(
       'SP_CAMPAIGN_UPDATE',
       [
         campaignId,
@@ -415,7 +430,7 @@ export class CampaignService {
 
     const row = data[0];
     void this.logCampaignAction(CampaignLogAction.UPDATE, row, requesterUserId);
-    return row;
+    return this.toPublicRow(row);
   }
 
   async changeStatus(
@@ -423,7 +438,9 @@ export class CampaignService {
     dto: ChangeCampaignStatusDto,
     requesterUserId: number,
   ): Promise<CampaignRow> {
-    const { result, data } = await this.spExecutor.callProcedure<CampaignRow[]>(
+    const { result, data } = await this.spExecutor.callProcedure<
+      CampaignActionRow[]
+    >(
       'SP_CAMPAIGN_CHANGE_STATUS',
       [campaignId, dto.edit_count, dto.status, requesterUserId],
     );
@@ -450,7 +467,7 @@ export class CampaignService {
       row,
       requesterUserId,
     );
-    return row;
+    return this.toPublicRow(row);
   }
 
   async approve(
@@ -458,7 +475,9 @@ export class CampaignService {
     dto: ApproveCampaignDto,
     requesterUserId: number,
   ): Promise<CampaignRow> {
-    const { result, data } = await this.spExecutor.callProcedure<CampaignRow[]>(
+    const { result, data } = await this.spExecutor.callProcedure<
+      CampaignActionRow[]
+    >(
       'SP_CAMPAIGN_APPROVE',
       [campaignId, dto.edit_count, requesterUserId],
     );
@@ -485,7 +504,7 @@ export class CampaignService {
       row,
       requesterUserId,
     );
-    return row;
+    return this.toPublicRow(row);
   }
 
   async reject(
@@ -493,7 +512,9 @@ export class CampaignService {
     dto: RejectCampaignDto,
     requesterUserId: number,
   ): Promise<CampaignRow> {
-    const { result, data } = await this.spExecutor.callProcedure<CampaignRow[]>(
+    const { result, data } = await this.spExecutor.callProcedure<
+      CampaignActionRow[]
+    >(
       'SP_CAMPAIGN_REJECT',
       [campaignId, dto.edit_count, dto.reject_reason, requesterUserId],
     );
@@ -516,7 +537,7 @@ export class CampaignService {
 
     const row = data[0];
     void this.logCampaignAction(CampaignLogAction.REJECT, row, requesterUserId);
-    return row;
+    return this.toPublicRow(row);
   }
 
   /**
@@ -937,7 +958,7 @@ export class CampaignService {
    */
   private async logCampaignAction(
     action: CampaignLogAction,
-    row: CampaignRow,
+    row: CampaignActionRow,
     requesterUserId: number,
   ): Promise<void> {
     await this.logSpExecutor.logCall('SP_LOG_COUPON_CAMPAIGN_CREATE', [
@@ -961,6 +982,43 @@ export class CampaignService {
       row.reject_reason,
       JSON.stringify(row.reward_data),
       requesterUserId,
+      row.requester_name,
     ]);
+  }
+
+  /**
+   * CampaignActionRow(requester_name 포함)를 공개 API 응답 스키마(CampaignRow)로 좁힌다.
+   * requester_name은 log_coupon_campaign.created_by_name 채우기용 로그 전용 컬럼이라
+   * 17_CAMPAIGN_API.md 응답 스펙에 없다 — 컨트롤러로 나가기 전에 명시적으로 제외한다
+   * (company/project/user 도메인과 동일 원칙 — 02_DEV_CONVENTIONS.md).
+   */
+  private toPublicRow(row: CampaignActionRow): CampaignRow {
+    return {
+      coupon_campaign_id: row.coupon_campaign_id,
+      project_id: row.project_id,
+      name: row.name,
+      campaign_start: row.campaign_start,
+      campaign_end: row.campaign_end,
+      code_type: row.code_type,
+      use_hyphen: row.use_hyphen,
+      requested_qty: row.requested_qty,
+      generated_qty: row.generated_qty,
+      generation_status: row.generation_status,
+      generation_error: row.generation_error,
+      usable_qty: row.usable_qty,
+      used_qty: row.used_qty,
+      use_limit_per_user: row.use_limit_per_user,
+      status: row.status,
+      approval_status: row.approval_status,
+      approved_by: row.approved_by,
+      approved_at: row.approved_at,
+      reject_reason: row.reject_reason,
+      reward_data: row.reward_data,
+      created_by: row.created_by,
+      updated_by: row.updated_by,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      edit_count: row.edit_count,
+    };
   }
 }

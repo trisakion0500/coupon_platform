@@ -22,6 +22,9 @@ BEGIN
     --        적용한다(반려자가 검토한 시점의 캠페인 내용과 실제 반려 시점의 내용이 다를 수 있는
     --        문제, SP_CAMPAIGN_APPROVE 주석 참고). ROW_COUNT()=0이면 edit_count 불일치(30005)인지
     --        반려 대상 상태 자체가 아닌지(30004)를 재조회로 구분한다.
+    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다
+    --        (SP_CAMPAIGN_CREATE와 동일한 이유/패턴).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -90,7 +93,8 @@ BEGIN
             `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
             `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
             `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
-            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`
+            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS `requester_name`
         FROM `coupon_campaign`
         WHERE `coupon_campaign_id` = i_coupon_campaign_id;
     END proc_block;

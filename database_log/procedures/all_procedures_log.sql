@@ -203,7 +203,8 @@ CREATE PROCEDURE `SP_LOG_COUPON_CAMPAIGN_CREATE` (
     IN i_approved_at         DATETIME,         -- 승인/반려 처리일시 (스냅샷, NULL 가능)
     IN i_reject_reason       VARCHAR(500),     -- 반려 사유 (스냅샷, NULL 가능)
     IN i_reward_data         JSON,             -- 보상 내용 (스냅샷)
-    IN i_created_by          BIGINT UNSIGNED   -- 이 로그 행(액션)을 수행한 사용자 ID
+    IN i_created_by          BIGINT UNSIGNED,  -- 이 로그 행(액션)을 수행한 사용자 ID
+    IN i_created_by_name     VARCHAR(50)       -- 이 로그 행(액션)을 수행한 사용자명 스냅샷
 ) COMMENT '쿠폰 캠페인 변경 이력 적재 (Append-Only, 04_DATABASE_SCHEMA.md 10장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -217,10 +218,14 @@ BEGIN
     --        JSON 스냅샷 방식이 아니라 coupon_campaign 컬럼을 그대로 복제하는 구조라
     --        (04_DATABASE_SCHEMA.md 10장 - 타입 보존, JSON 파싱 없이 특정 시점 특정 컬럼 값을
     --        바로 조회 가능) before 상태 캡처 자체가 필요 없다 - 매 액션마다 "그 시점의 최종
-    --        상태" 한 장만 남기면 된다. created_by_name 스냅샷 컬럼도 없다(log_audit과 다른 점)
-    --        - 이 로그는 MANAGER/OPERATOR 등 캠페인 당사자가 직접 조회하는 화면이라 필요 시
-    --        created_by(user_id)로 조회 시점에 조인하면 되고, 별도 스냅샷을 남기지 않기로
-    --        확정했다(17_CAMPAIGN_API.md 4장 범위 밖 - 이 로그의 조회 API 자체는 별도 작업).
+    --        상태" 한 장만 남기면 된다.
+    -- 수정1: 2026.07.22 trisakion — created_by_name 파라미터/컬럼 추가(17_CAMPAIGN_API.md 4.2
+    --        GET /campaigns/{id}/logs 조회 API 설계 중 소급 반영). 최초 설계 시엔 "필요 시
+    --        created_by(user_id)로 조회 시점에 조인하면 된다"고 이 스냅샷 없이 시작했으나, 이
+    --        로그는 메인 DB와 물리 분리된 로그 DB에 있어 애초에 조인이 불가능하다(02_DEV_CONVENTIONS.md
+    --        1장, log_audit이 처음부터 created_by_name을 둔 것과 동일 제약 — 잘못된 전제였음).
+    --        메인 도메인 SP(SP_CAMPAIGN_CREATE 등, 수정1)가 user 테이블에서 직접 조회해 반환하는
+    --        requester_name을 TS가 그대로 이 파라미터로 전달한다.
     --        권한 검증이 없다 - 외부(HTTP)에 직접 노출되지 않는 백엔드 내부 인프라 호출 전용이고,
     --        호출 시점엔 이미 메인 도메인 SP의 권한 검증이 끝난 뒤이기 때문이다. 로그 적재 실패가
     --        메인 트랜잭션에 영향을 주면 안 되므로(LogSpExecutorService.logCall이 예외를 잡아
@@ -242,15 +247,90 @@ BEGIN
         `action`, `coupon_campaign_id`, `project_id`, `name`, `campaign_start`, `campaign_end`,
         `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `usable_qty`, `used_qty`,
         `use_limit_per_user`, `status`, `approval_status`, `approved_by`, `approved_at`,
-        `reject_reason`, `reward_data`, `created_by`
+        `reject_reason`, `reward_data`, `created_by`, `created_by_name`
     ) VALUES (
         i_action, i_coupon_campaign_id, i_project_id, i_name, i_campaign_start, i_campaign_end,
         i_code_type, i_use_hyphen, i_requested_qty, i_generated_qty, i_usable_qty, i_used_qty,
         i_use_limit_per_user, i_status, i_approval_status, i_approved_by, i_approved_at,
-        i_reject_reason, i_reward_data, i_created_by
+        i_reject_reason, i_reward_data, i_created_by, i_created_by_name
     );
 
     SELECT 0 AS RESULT;
+END$$
+
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `SP_LOG_COUPON_CAMPAIGN_LIST`;
+DELIMITER $$
+CREATE PROCEDURE `SP_LOG_COUPON_CAMPAIGN_LIST` (
+    IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 대상 캠페인 ID (필수 - 이 API는 항상 특정 캠페인에 종속)
+    IN i_action             TINYINT UNSIGNED, -- 작업유형 필터(NULL이면 전체, 10:CREATE/20:UPDATE/30:STATUS_CHANGE/40:APPROVE/50:REJECT)
+    IN i_page_size          INT,              -- 페이지당 행 수
+    IN i_offset             INT               -- 시작 오프셋
+) COMMENT '캠페인 변경 이력 목록 조회 - coupon_campaign_id 필수, 페이지네이션 (17_CAMPAIGN_API.md 4.2)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_LOG_COUPON_CAMPAIGN_LIST
+    -- 작성 : 2026.07.22 trisakion
+    -- 내용 : log_coupon_campaign을 coupon_campaign_id로 필터링해 created_at DESC로 정렬 후 페이지
+    --        단위로 반환한다. 이 SP는 로그 DB(coupon_platform_log)에서 실행되며 메인 DB의
+    --        coupon_campaign/user/user_role 테이블에 접근할 수 없다(02_DEV_CONVENTIONS.md 1장,
+    --        물리 분리) - 그래서 이 프로젝트의 일반 원칙("SP가 FN_CHECK_PROJECT_ACCESS 등으로
+    --        호출자 권한을 스스로 재검증")을 여기서는 적용할 수 없다(SP_LOG_AUDIT_LIST와 동일한
+    --        구조적 제약, 02_DEV_CONVENTIONS.md 3.2 예외 참고). 캠페인 존재확인(31004)+프로젝트
+    --        스코핑(20001) 재검증은 앱(TS) 레이어가 이 SP 호출 전에 메인 DB에서 먼저 수행한다
+    --        (CampaignService가 이미 갖고 있는 존재확인+스코핑 체크 재사용, SP_CAMPAIGN_GET_BY_ID와
+    --        동일 로직) - "메인 DB 접근권한 확인 → 로그 DB 목록 조회" 2단계 패턴
+    --        (02_DEV_CONVENTIONS.md 3.2 신규 예외 항목 참고).
+    --        total_count는 다른 목록 SP와 동일하게 COUNT(*) OVER()가 아니라 별도 서브쿼리 +
+    --        LEFT JOIN ... ON TRUE 패턴으로 반환한다(offset이 범위를 벗어나 0행이 반환돼도
+    --        total_count가 0으로 사라지지 않도록).
+    --        정렬은 SP_LOG_AUDIT_LIST와 동일하게 `created_at DESC, idx DESC` 2단 키다 - created_at
+    --        (DATETIME, 마이크로초 없음)만으로는 같은 초 안에 여러 액션이 겹칠 때 순서가 보장되지
+    --        않는다(2026-07-22 SP_LOG_AUDIT_LIST에서 실제 재현된 문제, 동일 원인이라 처음부터
+    --        2단 키로 작성).
+    --        응답 컬럼은 log_coupon_campaign 전체(coupon_campaign 컬럼 스냅샷 + action +
+    --        created_by/created_by_name/created_at) 그대로다 - before/after 비교(diff)는 이 SP가
+    --        하지 않고 프론트엔드가 인접한 두 행을 비교해 표시한다(17_CAMPAIGN_API.md 4.2).
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    SELECT 0 AS RESULT;
+    SELECT
+        lc.`idx`, lc.`action`, lc.`coupon_campaign_id`, lc.`project_id`, lc.`name`,
+        lc.`campaign_start`, lc.`campaign_end`, lc.`code_type`, lc.`use_hyphen`,
+        lc.`requested_qty`, lc.`generated_qty`, lc.`usable_qty`, lc.`used_qty`,
+        lc.`use_limit_per_user`, lc.`status`, lc.`approval_status`, lc.`approved_by`,
+        lc.`approved_at`, lc.`reject_reason`, lc.`reward_data`, lc.`created_by`,
+        lc.`created_by_name`, lc.`created_at`,
+        cnt.`total_count`
+    FROM (
+        SELECT COUNT(*) AS total_count
+        FROM `log_coupon_campaign`
+        WHERE `coupon_campaign_id` = i_coupon_campaign_id
+          AND (i_action IS NULL OR `action` = i_action)
+    ) cnt
+    LEFT JOIN (
+        SELECT
+            `idx`, `action`, `coupon_campaign_id`, `project_id`, `name`, `campaign_start`,
+            `campaign_end`, `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`,
+            `usable_qty`, `used_qty`, `use_limit_per_user`, `status`, `approval_status`,
+            `approved_by`, `approved_at`, `reject_reason`, `reward_data`, `created_by`,
+            `created_by_name`, `created_at`
+        FROM `log_coupon_campaign`
+        WHERE `coupon_campaign_id` = i_coupon_campaign_id
+          AND (i_action IS NULL OR `action` = i_action)
+        ORDER BY `created_at` DESC, `idx` DESC
+        LIMIT i_page_size OFFSET i_offset
+    ) lc ON TRUE;
 END$$
 
 DELIMITER ;
@@ -300,6 +380,92 @@ BEGIN
     );
 
     SELECT 0 AS RESULT;
+END$$
+
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS `SP_LOG_COUPON_USE_LIST`;
+DELIMITER $$
+CREATE PROCEDURE `SP_LOG_COUPON_USE_LIST` (
+    IN i_project_id         BIGINT UNSIGNED,   -- 필수 - 스코핑 기준(17_CAMPAIGN_API.md 4.3, 회사 단위 조회 예외 없음)
+    IN i_coupon_campaign_id BIGINT UNSIGNED,   -- 선택 - 특정 캠페인으로 좁힘(NULL이면 프로젝트 전체, 코드 자체가 없는 시도(campaign_id NULL 행) 포함)
+    IN i_game_user_id       VARCHAR(100),      -- 선택 필터
+    IN i_code_value         VARCHAR(50),       -- 선택 필터
+    IN i_action             TINYINT UNSIGNED,  -- 선택 필터 (10:RESERVE, 20:CONFIRM)
+    IN i_result_type        TINYINT UNSIGNED,  -- 선택 필터 (04_DATABASE_SCHEMA.md 11장)
+    IN i_from_created_at    DATETIME,          -- 조회 시작일시(NULL이면 하한 없음)
+    IN i_to_created_at      DATETIME,          -- 조회 종료일시(NULL이면 상한 없음)
+    IN i_page_size          INT,               -- 페이지당 행 수
+    IN i_offset             INT                -- 시작 오프셋
+) COMMENT '쿠폰 사용 시도 로그 목록 조회 - project_id 필수, 페이지네이션 (17_CAMPAIGN_API.md 4.3)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_LOG_COUPON_USE_LIST
+    -- 작성 : 2026.07.22 trisakion
+    -- 내용 : log_coupon_use를 project_id로 필터링해 created_at DESC로 정렬 후 페이지 단위로
+    --        반환한다. 이 SP는 로그 DB(coupon_platform_log)에서 실행되며 메인 DB의
+    --        coupon_campaign/user/user_role 테이블에 접근할 수 없다(02_DEV_CONVENTIONS.md 1장,
+    --        물리 분리) - SP_LOG_AUDIT_LIST/SP_LOG_COUPON_CAMPAIGN_LIST와 동일한 구조적 제약으로
+    --        이 SP는 권한 재검증을 하지 않는다(02_DEV_CONVENTIONS.md 3.2 예외). project_id
+    --        접근권한 확인은 앱(TS) 레이어가 이 SP 호출 전에 신규 SP_PROJECT_CHECK_ACCESS(메인 DB)
+    --        로 먼저 수행한다 - "메인 DB 접근권한 확인 → 로그 DB 목록 조회" 2단계 패턴
+    --        (02_DEV_CONVENTIONS.md 3.2). log_coupon_campaign(4.2)과 달리 이 로그는 project_id에
+    --        종속되고 coupon_campaign_id에는 종속되지 않는다(NULL 허용 - 코드 자체가 존재하지
+    --        않는 시도는 캠페인을 특정할 수 없음, 04_DATABASE_SCHEMA.md 11장) - 그래서 접근권한
+    --        확인 대상이 "특정 캠페인"이 아니라 "프로젝트"이고, 전용 체크 SP가 별도로 필요했다
+    --        (SP_CAMPAIGN_LIST처럼 FN_CHECK_PROJECT_ACCESS를 SP 안에서 바로 쓸 수 있는 건
+    --        coupon_campaign이 메인 DB에 있어서 가능한 것 - 이 SP는 그 전제가 성립하지 않는다).
+    --        total_count는 다른 목록 SP와 동일하게 COUNT(*) OVER()가 아니라 별도 서브쿼리 +
+    --        LEFT JOIN ... ON TRUE 패턴으로 반환한다.
+    --        정렬은 SP_LOG_AUDIT_LIST/SP_LOG_COUPON_CAMPAIGN_LIST와 동일하게 `created_at DESC,
+    --        idx DESC` 2단 키다(같은 초 안에 여러 시도가 겹치는 경우 순서 보장 목적).
+    --        campaign_name(응답에 필요, 17_CAMPAIGN_API.md 4.3)은 이 SP가 채우지 않는다 - 메인
+    --        DB(coupon_campaign)와 물리 분리라 조인이 불가능해, coupon_campaign_id가 있는 행만
+    --        앱(TS) 레이어가 메인 DB에서 배치 조회해 응답 조립 시 붙인다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    SELECT 0 AS RESULT;
+    SELECT
+        lu.`idx`, lu.`action`, lu.`project_id`, lu.`coupon_campaign_id`, lu.`code_value`,
+        lu.`game_user_id`, lu.`result_type`, lu.`created_at`,
+        cnt.`total_count`
+    FROM (
+        SELECT COUNT(*) AS total_count
+        FROM `log_coupon_use`
+        WHERE `project_id` = i_project_id
+          AND (i_coupon_campaign_id IS NULL OR `coupon_campaign_id` = i_coupon_campaign_id)
+          AND (i_game_user_id IS NULL OR `game_user_id` = i_game_user_id)
+          AND (i_code_value IS NULL OR `code_value` = i_code_value)
+          AND (i_action IS NULL OR `action` = i_action)
+          AND (i_result_type IS NULL OR `result_type` = i_result_type)
+          AND (i_from_created_at IS NULL OR `created_at` >= i_from_created_at)
+          AND (i_to_created_at IS NULL OR `created_at` <= i_to_created_at)
+    ) cnt
+    LEFT JOIN (
+        SELECT `idx`, `action`, `project_id`, `coupon_campaign_id`, `code_value`,
+               `game_user_id`, `result_type`, `created_at`
+        FROM `log_coupon_use`
+        WHERE `project_id` = i_project_id
+          AND (i_coupon_campaign_id IS NULL OR `coupon_campaign_id` = i_coupon_campaign_id)
+          AND (i_game_user_id IS NULL OR `game_user_id` = i_game_user_id)
+          AND (i_code_value IS NULL OR `code_value` = i_code_value)
+          AND (i_action IS NULL OR `action` = i_action)
+          AND (i_result_type IS NULL OR `result_type` = i_result_type)
+          AND (i_from_created_at IS NULL OR `created_at` >= i_from_created_at)
+          AND (i_to_created_at IS NULL OR `created_at` <= i_to_created_at)
+        ORDER BY `created_at` DESC, `idx` DESC
+        LIMIT i_page_size OFFSET i_offset
+    ) lu ON TRUE;
 END$$
 
 DELIMITER ;

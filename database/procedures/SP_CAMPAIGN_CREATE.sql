@@ -51,6 +51,11 @@ BEGIN
     --        DB)에 전달한다. log_audit(before/after JSON)와 달리 log_coupon_campaign은 컬럼을
     --        그대로 복제하는 구조라(04_DATABASE_SCHEMA.md 10장) 이 SP가 별도 JSON 캡처를 할 필요가
     --        없다 — 반환 행 자체가 곧 로그에 필요한 전부다.
+    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다.
+    --        JWT 페이로드엔 user_name이 없어(02_DEV_CONVENTIONS.md 1장 - 로그 DB는 user 테이블
+    --        조인 불가) SP_COMPANY_UPDATE 등 log_audit 계열 SP와 동일하게 이 SP(메인 DB, user
+    --        테이블 접근 가능)가 직접 서브쿼리로 조회해 채운다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -102,7 +107,8 @@ BEGIN
             `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
             `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
             `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
-            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`
+            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS `requester_name`
         FROM `coupon_campaign`
         WHERE `coupon_campaign_id` = v_campaign_id;
     END proc_block;

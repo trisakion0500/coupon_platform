@@ -20,7 +20,8 @@ CREATE PROCEDURE `SP_LOG_COUPON_CAMPAIGN_CREATE` (
     IN i_approved_at         DATETIME,         -- 승인/반려 처리일시 (스냅샷, NULL 가능)
     IN i_reject_reason       VARCHAR(500),     -- 반려 사유 (스냅샷, NULL 가능)
     IN i_reward_data         JSON,             -- 보상 내용 (스냅샷)
-    IN i_created_by          BIGINT UNSIGNED   -- 이 로그 행(액션)을 수행한 사용자 ID
+    IN i_created_by          BIGINT UNSIGNED,  -- 이 로그 행(액션)을 수행한 사용자 ID
+    IN i_created_by_name     VARCHAR(50)       -- 이 로그 행(액션)을 수행한 사용자명 스냅샷
 ) COMMENT '쿠폰 캠페인 변경 이력 적재 (Append-Only, 04_DATABASE_SCHEMA.md 10장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -34,10 +35,14 @@ BEGIN
     --        JSON 스냅샷 방식이 아니라 coupon_campaign 컬럼을 그대로 복제하는 구조라
     --        (04_DATABASE_SCHEMA.md 10장 - 타입 보존, JSON 파싱 없이 특정 시점 특정 컬럼 값을
     --        바로 조회 가능) before 상태 캡처 자체가 필요 없다 - 매 액션마다 "그 시점의 최종
-    --        상태" 한 장만 남기면 된다. created_by_name 스냅샷 컬럼도 없다(log_audit과 다른 점)
-    --        - 이 로그는 MANAGER/OPERATOR 등 캠페인 당사자가 직접 조회하는 화면이라 필요 시
-    --        created_by(user_id)로 조회 시점에 조인하면 되고, 별도 스냅샷을 남기지 않기로
-    --        확정했다(17_CAMPAIGN_API.md 4장 범위 밖 - 이 로그의 조회 API 자체는 별도 작업).
+    --        상태" 한 장만 남기면 된다.
+    -- 수정1: 2026.07.22 trisakion — created_by_name 파라미터/컬럼 추가(17_CAMPAIGN_API.md 4.2
+    --        GET /campaigns/{id}/logs 조회 API 설계 중 소급 반영). 최초 설계 시엔 "필요 시
+    --        created_by(user_id)로 조회 시점에 조인하면 된다"고 이 스냅샷 없이 시작했으나, 이
+    --        로그는 메인 DB와 물리 분리된 로그 DB에 있어 애초에 조인이 불가능하다(02_DEV_CONVENTIONS.md
+    --        1장, log_audit이 처음부터 created_by_name을 둔 것과 동일 제약 — 잘못된 전제였음).
+    --        메인 도메인 SP(SP_CAMPAIGN_CREATE 등, 수정1)가 user 테이블에서 직접 조회해 반환하는
+    --        requester_name을 TS가 그대로 이 파라미터로 전달한다.
     --        권한 검증이 없다 - 외부(HTTP)에 직접 노출되지 않는 백엔드 내부 인프라 호출 전용이고,
     --        호출 시점엔 이미 메인 도메인 SP의 권한 검증이 끝난 뒤이기 때문이다. 로그 적재 실패가
     --        메인 트랜잭션에 영향을 주면 안 되므로(LogSpExecutorService.logCall이 예외를 잡아
@@ -59,12 +64,12 @@ BEGIN
         `action`, `coupon_campaign_id`, `project_id`, `name`, `campaign_start`, `campaign_end`,
         `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `usable_qty`, `used_qty`,
         `use_limit_per_user`, `status`, `approval_status`, `approved_by`, `approved_at`,
-        `reject_reason`, `reward_data`, `created_by`
+        `reject_reason`, `reward_data`, `created_by`, `created_by_name`
     ) VALUES (
         i_action, i_coupon_campaign_id, i_project_id, i_name, i_campaign_start, i_campaign_end,
         i_code_type, i_use_hyphen, i_requested_qty, i_generated_qty, i_usable_qty, i_used_qty,
         i_use_limit_per_user, i_status, i_approval_status, i_approved_by, i_approved_at,
-        i_reject_reason, i_reward_data, i_created_by
+        i_reject_reason, i_reward_data, i_created_by, i_created_by_name
     );
 
     SELECT 0 AS RESULT;

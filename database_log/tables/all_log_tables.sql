@@ -54,10 +54,15 @@ SET FOREIGN_KEY_CHECKS = 1;
 --        (예: 승인된 캠페인의 STATUS_CHANGE) 로그 행에서도 "그때 누가 승인해뒀었는지" 히스토리로
 --        계속 의미가 있다.
 --        물리 수정 및 삭제를 허용하지 않음(log_audit과 동일 원칙).
--- created_by / created_at
+-- created_by / created_by_name / created_at
 --  log_audit과 동일한 관례: 캠페인 원본의 created_by 스냅샷이 아니라 "이 로그 행(액션)을 수행한
 --  사용자/시각"이다. CREATE 행은 생성자, UPDATE/STATUS_CHANGE 행은 그 수정을 한 사용자를 담는다
 --  — 모든 액션 공통으로 행위자를 나타내므로 별도 updated_by 컬럼이 필요 없다.
+--  created_by_name은 2026.07.22 조회 API(17_CAMPAIGN_API.md 4.2) 설계 중 추가됨 — 애초 설계
+--  시점엔 이 스냅샷 없이 "조회 시점에 created_by로 user 테이블을 조인하면 된다"고 가정했으나,
+--  이 로그는 메인 DB와 물리 분리된 로그 DB에 있어 애초에 조인이 불가능하다(1장/log_audit과 동일
+--  제약, 잘못된 전제였음). log_audit의 created_by_name과 동일하게 로그 생성 시점 사용자명을
+--  스냅샷으로 저장해 조회 시 조인 없이 행위자명을 바로 노출한다.
 -- coupon_campaign_id / project_id 등 (FK 없음)
 --  log_audit과 동일하게 로그 테이블은 전체 컬럼에 FK 를 걸지 않는다(원본 삭제/변경과 무관하게
 --  로그는 그 시점의 값을 그대로 보존해야 하므로).
@@ -86,6 +91,7 @@ CREATE TABLE `log_coupon_campaign` (
   `reject_reason`			VARCHAR(500)						DEFAULT NULL											COMMENT '반려 사유 (원본 스냅샷)',
   `reward_data`				JSON					NOT NULL															COMMENT '보상 내용 (원본 스냅샷)',
   `created_by`				BIGINT		UNSIGNED	NOT NULL															COMMENT '이 로그 행(액션)을 수행한 사용자 ID',
+  `created_by_name`		VARCHAR(50)				DEFAULT NULL														COMMENT '이 로그 행(액션)을 수행한 사용자명 스냅샷 (로그 생성 시점 값 고정, 별도 DB 분리 대비 user 테이블 조인 제거용)',
   `created_at`				DATETIME				NOT NULL	DEFAULT CURRENT_TIMESTAMP								COMMENT '이 로그 행(액션)이 발생한 시각',
   PRIMARY KEY (`idx`),
   KEY `ix_campaign` (`coupon_campaign_id`),

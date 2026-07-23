@@ -37,6 +37,9 @@ BEGIN
     --        부족하다). ROW_COUNT()=0이면 edit_count 불일치(30005)인지 승인 대상 상태 자체가
     --        아닌지(30004, 17_CAMPAIGN_API.md 2.6 State Transition/1.3 종료 잠금)를 재조회로
     --        구분한다 - SP_CAMPAIGN_UPDATE와 동일한 패턴.
+    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다
+    --        (SP_CAMPAIGN_CREATE와 동일한 이유/패턴).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -104,7 +107,8 @@ BEGIN
             `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
             `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
             `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
-            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`
+            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS `requester_name`
         FROM `coupon_campaign`
         WHERE `coupon_campaign_id` = i_coupon_campaign_id;
     END proc_block;
@@ -112,8 +116,9 @@ END$$
 
 DELIMITER ;
 
-
-
+-- ============================================================================================================ --
+-- SP_CAMPAIGN_CHANGE_STATUS
+-- ============================================================================================================ --
 DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_CHANGE_STATUS`;
 DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_CHANGE_STATUS` (
@@ -143,6 +148,9 @@ BEGIN
     --        쓰기 액션 전부가 "내가 마지막으로 본 버전이 맞는지"를 동일하게 검증해야 한다 —
     --        예를 들어 운영자가 화면에서 본 캠페인 내용과 실제로 상태를 바꾸는 시점의 내용이
     --        다르면(그 사이 누가 캠페인 필드를 수정했다면) 그것도 감지해야 하기 때문이다.
+    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다
+    --        (SP_CAMPAIGN_CREATE와 동일한 이유/패턴).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -205,14 +213,14 @@ BEGIN
             `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
             `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
             `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
-            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`
+            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS `requester_name`
         FROM `coupon_campaign`
         WHERE `coupon_campaign_id` = i_coupon_campaign_id;
     END proc_block;
 END$$
 
 DELIMITER ;
-
 
 -- ============================================================================================================ --
 -- SP_CAMPAIGN_CODE_ABORT
@@ -941,6 +949,11 @@ BEGIN
     --        DB)에 전달한다. log_audit(before/after JSON)와 달리 log_coupon_campaign은 컬럼을
     --        그대로 복제하는 구조라(04_DATABASE_SCHEMA.md 10장) 이 SP가 별도 JSON 캡처를 할 필요가
     --        없다 — 반환 행 자체가 곧 로그에 필요한 전부다.
+    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다.
+    --        JWT 페이로드엔 user_name이 없어(02_DEV_CONVENTIONS.md 1장 - 로그 DB는 user 테이블
+    --        조인 불가) SP_COMPANY_UPDATE 등 log_audit 계열 SP와 동일하게 이 SP(메인 DB, user
+    --        테이블 접근 가능)가 직접 서브쿼리로 조회해 채운다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -992,7 +1005,8 @@ BEGIN
             `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
             `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
             `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
-            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`
+            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS `requester_name`
         FROM `coupon_campaign`
         WHERE `coupon_campaign_id` = v_campaign_id;
     END proc_block;
@@ -1169,6 +1183,9 @@ BEGIN
     --        적용한다(반려자가 검토한 시점의 캠페인 내용과 실제 반려 시점의 내용이 다를 수 있는
     --        문제, SP_CAMPAIGN_APPROVE 주석 참고). ROW_COUNT()=0이면 edit_count 불일치(30005)인지
     --        반려 대상 상태 자체가 아닌지(30004)를 재조회로 구분한다.
+    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다
+    --        (SP_CAMPAIGN_CREATE와 동일한 이유/패턴).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -1237,7 +1254,8 @@ BEGIN
             `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
             `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
             `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
-            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`
+            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS `requester_name`
         FROM `coupon_campaign`
         WHERE `coupon_campaign_id` = i_coupon_campaign_id;
     END proc_block;
@@ -1305,6 +1323,9 @@ BEGIN
     --        role_code<=30(승인권한 role)의 수정은 이 규칙이 발동하지 않고 즉시 그대로 반영된다.
     --        log_coupon_campaign(action=20 UPDATE) 기록은 이 SP가 직접 하지 않는다 - 반환 행
     --        전체를 TS 서비스가 SP_LOG_COUPON_CAMPAIGN_CREATE(로그 DB)에 그대로 전달한다.
+    -- 수정3: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다
+    --        (SP_CAMPAIGN_CREATE 수정1과 동일한 이유/패턴).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -1382,7 +1403,8 @@ BEGIN
             `code_type`, `use_hyphen`, `requested_qty`, `generated_qty`, `generation_status`,
             `generation_error`, `usable_qty`, `used_qty`, `use_limit_per_user`, `status`,
             `approval_status`, `approved_by`, `approved_at`, `reject_reason`, `reward_data`,
-            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`
+            `created_by`, `updated_by`, `created_at`, `updated_at`, `edit_count`,
+            (SELECT `user_name` FROM `user` WHERE `user_id` = i_requester_user_id) AS `requester_name`
         FROM `coupon_campaign`
         WHERE `coupon_campaign_id` = i_coupon_campaign_id;
     END proc_block;
@@ -2455,6 +2477,52 @@ BEGIN
         FROM `project`
         WHERE `project_id` = i_project_id;
     END proc_block;
+END$$
+
+DELIMITER ;
+
+-- ============================================================================================================ --
+-- SP_PROJECT_CHECK_ACCESS
+-- ============================================================================================================ --
+DROP PROCEDURE IF EXISTS `SP_PROJECT_CHECK_ACCESS`;
+DELIMITER $$
+CREATE PROCEDURE `SP_PROJECT_CHECK_ACCESS` (
+    IN i_project_id        BIGINT UNSIGNED,  -- 확인할 프로젝트 ID
+    IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
+) COMMENT '프로젝트 접근권한만 확인 (17_CAMPAIGN_API.md 4.3, 로그 DB 조회 API의 메인 DB 사전 체크 전용)'
+BEGIN
+    -- ------------------------------------------------------------------------------------------------------------ --
+    -- 명칭 : SP_PROJECT_CHECK_ACCESS
+    -- 작성 : 2026.07.22 trisakion
+    -- 내용 : SUPER_ADMIN 우회 또는 FN_CHECK_PROJECT_ACCESS(캠페인 도메인과 동일한 "user_role에
+    --        실제 활성 배정된 project_id인가" 스코핑 규칙, 17_CAMPAIGN_API.md 1.2)만 확인하는
+    --        가장 작은 단위의 SP다 - 데이터를 반환하지 않고 RESULT(0/20001)만 응답한다.
+    --        SP_CAMPAIGN_LIST 등 캠페인 도메인 SP는 coupon_campaign이 메인 DB에 있어 이 체크를
+    --        SP 안에 바로 인라인할 수 있지만, GET /coupon-use-logs(4.3)가 조회하는 log_coupon_use
+    --        는 로그 DB에 있어 메인 DB의 user_role을 참조할 방법이 없다(02_DEV_CONVENTIONS.md
+    --        1장/3.2) - 그래서 "메인 DB에서 접근권한만 먼저 확인 → 통과하면 로그 DB에서 목록
+    --        조회"하는 2단계 패턴(02_DEV_CONVENTIONS.md 3.2)이 필요했고, 이 SP가 그 1단계를
+    --        전담한다. 프로젝트 존재 여부는 별도로 확인하지 않는다 - SP_CAMPAIGN_LIST와 동일하게
+    --        SUPER_ADMIN은 존재하지 않는 project_id에도 이 체크를 그냥 통과하며(그 뒤 로그 DB
+    --        조회에서 자연히 0건), 그 외 role은 존재하지 않는 project_id에 애초에 배정이 있을 수
+    --        없어 FN_CHECK_PROJECT_ACCESS가 false를 반환해 동일하게 20001로 걸러진다.
+    -- ------------------------------------------------------------------------------------------------------------ --
+    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
+    DECLARE error_no      INT          DEFAULT 0;
+    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        GET DIAGNOSTICS CONDITION 1
+            sql_state = RETURNED_SQLSTATE, error_no = MYSQL_ERRNO, error_message = MESSAGE_TEXT;
+        SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE;
+    END;
+
+    IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id)
+       AND NOT FN_CHECK_PROJECT_ACCESS(i_requester_user_id, i_project_id) THEN
+        SELECT 20001 AS RESULT;
+    ELSE
+        SELECT 0 AS RESULT;
+    END IF;
 END$$
 
 DELIMITER ;

@@ -234,6 +234,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 - CREATE / UPDATE / STATUS_CHANGE / APPROVE / REJECT 5종 작업 기록
 - `approved_by`/`approved_at`/`reject_reason`도 원본 스냅샷 그대로 유지 — "이 행의 행위자"가 아니라 그 시점 캠페인 자체의 승인 상태이므로, 승인 이후에 생기는 다른 액션(예: 승인된 캠페인의 STATUS_CHANGE) 로그 행에서도 "그때 누가 승인해뒀었는지" 히스토리로 계속 의미가 있음
 - `created_by`/`created_at`은 `log_audit`와 동일한 관례 — 캠페인 원본의 `created_by` 스냅샷이 아니라 **"이 로그 행(액션)을 수행한 사용자/시각"**이다. CREATE 행은 생성자, UPDATE/STATUS_CHANGE 행은 그 수정을 한 사용자를 담으므로 별도 `updated_by` 컬럼이 필요 없음
+- `created_by_name`(2026-07-22 추가)은 `log_audit`와 동일한 목적의 행위자명 스냅샷 — 최초 설계 시에는 "조회 시점에 `created_by`로 `user` 테이블을 조인하면 된다"고 잘못 가정해 이 컬럼 없이 시작했으나, 로그 DB는 메인 DB와 물리 분리돼 있어 애초에 조인이 불가능하다(1장, `log_audit`가 처음부터 `created_by_name`을 둔 것과 동일 이유) — [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 4.2(`GET /campaigns/{id}/logs`) 구현 과정에서 발견해 소급 추가
 - 물리 수정 및 삭제를 허용하지 않음(Append-Only)
 - 전체 컬럼 FK 없음(`coupon_campaign_id`/`project_id` 포함) — 로그 원칙(원본 삭제/변경과 무관하게 그 시점 값을 그대로 보존)
 

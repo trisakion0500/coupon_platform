@@ -668,9 +668,9 @@ POST /campaigns/{coupon_campaign_id}/codes/abort
 
 ---
 
-# 4. Coupon Usage History (Admin Console)
+# 4. Read & Log APIs (Admin Console)
 
-관리 콘솔(JWT 인증)에서 캠페인별 쿠폰 사용 이력을 조회하는 API. [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md)의 `GET /coupons/unconfirmed`는 게임서버가 S2S(API Key)로 호출하는 별개의 엔드포인트이며, 이 절의 API와는 인증 주체·용도가 다르다(그쪽은 게임서버의 미지급 재처리용, 이쪽은 운영자의 조회/문의대응용).
+관리 콘솔(JWT 인증)에서 캠페인/코드/사용 도메인의 이력·로그를 조회하는 API. [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md)의 `GET /coupons/unconfirmed`는 게임서버가 S2S(API Key)로 호출하는 별개의 엔드포인트이며, 이 절의 API와는 인증 주체·용도가 다르다(그쪽은 게임서버의 미지급 재처리용, 이쪽은 운영자의 조회/문의대응용) — `log_coupon_use` 조회(4.3)도 원본 시도 기록은 게임서버 S2S 호출로 쌓이지만, 그걸 사람이 들여다보는 창구는 이 절의 관리 콘솔 API다.
 
 ## 4.1 Get Coupon Usage List
 
@@ -731,9 +731,163 @@ ORDER BY created_at DESC
 
 ---
 
+## 4.2 Get Campaign Change Log
+
+### Endpoint
+
+```http
+GET /campaigns/{coupon_campaign_id}/logs
+```
+
+### Permission
+
+- SUPER_ADMIN, DEVELOPER, MANAGER, OPERATOR (스코핑 내 `project_id`만) — 4.1과 동일한 권한 범위, 조회 전용이라 승인 여부(`approval_status`)와 무관
+
+### Query Parameters
+
+| Name      | Required | Description |
+|-----------|----------|--------------|
+| action    | N        | `10:CREATE`/`20:UPDATE`/`30:STATUS_CHANGE`/`40:APPROVE`/`50:REJECT` 필터 |
+| page      | Y        | |
+| page_size | Y        | 20/30/50/100 중 선택. 기본 20 |
+
+### Sorting
+
+```sql
+ORDER BY created_at DESC, idx DESC
+```
+
+### Response
+
+페이지네이션 응답 형식([08_API_COMMON.md](./08_API_COMMON.md) 2장 참고). `log_coupon_campaign`([04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md) 10장) 컬럼을 그대로 반환한다 — `log_audit`의 `before_json`/`after_json` 방식이 아니라 그 시점 `coupon_campaign` 전체 스냅샷 한 장씩이므로, 백엔드는 목록만 제공하고 "무엇이 바뀌었는지"는 프론트엔드가 인접한 두 로그 행(시간순 바로 앞/뒤)을 비교해 표시한다 — 가장 오래된 행(`action=10 CREATE`)은 비교 대상이 없으므로 생성 시점 상태 그대로 보여준다.
+
+```json
+{
+  "result": 0,
+  "data": {
+    "page": 1,
+    "page_size": 20,
+    "total_count": 3,
+    "items": [
+      {
+        "idx": 2001,
+        "action": 40,
+        "coupon_campaign_id": 100,
+        "project_id": 10,
+        "name": "여름 이벤트",
+        "campaign_start": "2026-07-01 00:00:00",
+        "campaign_end": "2026-07-31 23:59:59",
+        "code_type": 1,
+        "use_hyphen": 1,
+        "requested_qty": 100,
+        "generated_qty": 100,
+        "usable_qty": 100,
+        "used_qty": 3,
+        "use_limit_per_user": 1,
+        "status": 2,
+        "approval_status": 3,
+        "approved_by": 5,
+        "approved_at": "2026-07-18 09:00:00",
+        "reject_reason": null,
+        "reward_data": { "item_id": 5001, "qty": 3 },
+        "created_by": 5,
+        "created_by_name": "Manager",
+        "created_at": "2026-07-18 09:00:00"
+      }
+    ]
+  }
+}
+```
+
+### Errors
+
+미존재는 31004, 스코핑 범위 밖(1.2 일반 원칙과 동일)이면 20001.
+
+---
+
+## 4.3 Get Coupon Use Log List
+
+### Endpoint
+
+```http
+GET /coupon-use-logs
+```
+
+### Permission
+
+- SUPER_ADMIN, DEVELOPER, MANAGER, OPERATOR (스코핑 내 `project_id`만) — 1.2와 동일한 프로젝트 단위 스코핑. `log_audit`(시스템관리자 영역)과 달리 이 로그는 "유저 영역"([04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md) 11장)이라 캠페인 도메인과 동일하게 전 역할이 대상
+
+### Query Parameters
+
+| Name               | Required | Description |
+|--------------------|----------|--------------|
+| project_id         | Y        | 스코핑 기준(1.2와 동일 — 회사 단위 조회 예외 없음) |
+| coupon_campaign_id | N        | 특정 캠페인으로 좁힘. 지정하지 않으면 코드 자체가 존재하지 않는 시도(브루트포스 탐지 대상, `coupon_campaign_id` NULL)까지 포함해 프로젝트 전체를 반환 |
+| game_user_id       | N        | 특정 유저로 필터(운영 문의 대응) |
+| code_value         | N        | 특정 코드 문자열로 필터(동일 코드 반복 시도 확인) |
+| action             | N        | `10:RESERVE`/`20:CONFIRM` 필터 |
+| result_type        | N        | `log_coupon_use.result_type` 필터([04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md) 11장) |
+| from_created_at    | N        | 조회 시작일시 |
+| to_created_at      | N        | 조회 종료일시 |
+| page               | Y        | |
+| page_size          | Y        | 20/30/50/100 중 선택. 기본 20 |
+
+### Sorting
+
+```sql
+ORDER BY created_at DESC, idx DESC
+```
+
+### Response
+
+페이지네이션 응답 형식([08_API_COMMON.md](./08_API_COMMON.md) 2장 참고).
+
+```json
+{
+  "result": 0,
+  "data": {
+    "page": 1,
+    "page_size": 20,
+    "total_count": 2,
+    "items": [
+      {
+        "idx": 5001,
+        "action": 10,
+        "project_id": 10,
+        "coupon_campaign_id": 100,
+        "campaign_name": "여름 이벤트",
+        "code_value": "23A4-B7C9-DEF2",
+        "game_user_id": "player_1001",
+        "result_type": 0,
+        "created_at": "2026-07-18 10:00:00"
+      },
+      {
+        "idx": 5000,
+        "action": 10,
+        "project_id": 10,
+        "coupon_campaign_id": null,
+        "campaign_name": null,
+        "code_value": "ZZZZ-ZZZZ-ZZZZ",
+        "game_user_id": "player_1001",
+        "result_type": 10,
+        "created_at": "2026-07-18 09:59:50"
+      }
+    ]
+  }
+}
+```
+
+`campaign_name`은 `log_coupon_use` 자체 컬럼이 아니다 — `coupon_campaign_id`가 있는 행에 한해 메인 DB(`coupon_campaign`)에서 배치 조회해 응답 조립 시 붙인다(로그 DB는 메인 DB와 물리 분리라 SQL JOIN 불가, [02_DEV_CONVENTIONS.md](./02_DEV_CONVENTIONS.md) 1장). `coupon_campaign_id`가 NULL인 행(코드 자체가 존재하지 않는 시도)은 `campaign_name`도 NULL이다.
+
+### Errors
+
+`project_id` 누락은 30001. 스코핑 범위 밖(1.2 일반 원칙과 동일, 존재하지 않는 `project_id` 포함 — 2.2 `SP_CAMPAIGN_LIST`와 동일하게 SUPER_ADMIN은 별도 존재확인 없이 통과하고 빈 목록을 반환할 수 있다)이면 20001.
+
+---
+
 # 5. 관련 문서
 
 - 캠페인/코드 발급 흐름 근거: [05_COUPON_ISSUANCE_SCENARIO.md](./05_COUPON_ISSUANCE_SCENARIO.md)
 - 쿠폰 사용(reserve/confirm) 상세 API: [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md)
-- 테이블 DDL: `database/tables/coupon_campaign.sql`, `coupon_code.sql`, `coupon_code_usage.sql`, `log_coupon_campaign.sql`
+- 테이블 DDL: `database/tables/coupon_campaign.sql`, `coupon_code.sql`, `coupon_code_usage.sql`, `database_log/tables/log_coupon_campaign.sql`, `log_coupon_use.sql`
 - 공통 응답/에러코드: [08_API_COMMON.md](./08_API_COMMON.md)

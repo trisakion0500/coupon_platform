@@ -71,15 +71,16 @@ describe('CampaignService', () => {
     it('returns the created campaign and fires a log_coupon_campaign write', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({
         result: 0,
-        data: [campaignRow],
+        data: [{ ...campaignRow, requester_name: 'Manager' }],
       });
 
       const result = await service.create(dto, 4);
 
       expect(result).toEqual(campaignRow);
+      expect(result).not.toHaveProperty('requester_name');
       expect(logSpExecutor.logCall).toHaveBeenCalledWith(
         'SP_LOG_COUPON_CAMPAIGN_CREATE',
-        expect.arrayContaining([10, 100, 10]),
+        expect.arrayContaining([10, 100, 10, 'Manager']),
       );
     });
 
@@ -234,7 +235,7 @@ describe('CampaignService', () => {
     it('returns the updated campaign and fires a log_coupon_campaign write', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({
         result: 0,
-        data: [campaignRow],
+        data: [{ ...campaignRow, requester_name: 'Manager' }],
       });
 
       const result = await service.update(
@@ -244,7 +245,11 @@ describe('CampaignService', () => {
       );
 
       expect(result).toEqual(campaignRow);
-      expect(logSpExecutor.logCall).toHaveBeenCalled();
+      expect(result).not.toHaveProperty('requester_name');
+      expect(logSpExecutor.logCall).toHaveBeenCalledWith(
+        'SP_LOG_COUPON_CAMPAIGN_CREATE',
+        expect.arrayContaining(['Manager']),
+      );
     });
 
     it('passes edit_count through as the optimistic-lock token', async () => {
@@ -306,6 +311,7 @@ describe('CampaignService', () => {
       );
 
       expect(result.status).toBe(2);
+      expect(result).not.toHaveProperty('requester_name');
       expect(logSpExecutor.logCall).toHaveBeenCalled();
     });
 
@@ -343,6 +349,7 @@ describe('CampaignService', () => {
       const result = await service.approve(100, { edit_count: 0 }, 1);
 
       expect(result.approval_status).toBe(3);
+      expect(result).not.toHaveProperty('requester_name');
       expect(logSpExecutor.logCall).toHaveBeenCalled();
     });
 
@@ -386,6 +393,7 @@ describe('CampaignService', () => {
       );
 
       expect(result.approval_status).toBe(4);
+      expect(result).not.toHaveProperty('requester_name');
       expect(logSpExecutor.logCall).toHaveBeenCalled();
     });
 

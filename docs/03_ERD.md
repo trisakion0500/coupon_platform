@@ -157,6 +157,7 @@ erDiagram
         VARCHAR500  reject_reason       "스냅샷, NULL허용"
         JSON        reward_data         "스냅샷"
         BIGINT      created_by          "이 행위자(FK없음)"
+        VARCHAR50   created_by_name     "행위자명 스냅샷, NULL허용"
         DATETIME    created_at
     }
 
