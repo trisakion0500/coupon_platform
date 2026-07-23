@@ -184,7 +184,7 @@ MainLayout, AdminLayout 하단 공통.
 | 인증 상태로 `/login`, `/signup` 접근          | `/campaigns`로 리다이렉트                                     |
 | MANAGER/OPERATOR가 `/admin/*` 접근            | 403 페이지                                                    |
 | `/admin` 접근 시 역할별 첫 메뉴 redirect      | SUPER_ADMIN → `/admin/companies` / DEVELOPER → `/admin/projects` |
-| `selectedProjectId`가 `null`(전체 프로젝트)인 상태로 `/campaigns*` 접근 | 페이지 진입은 허용하되 목록 대신 프로젝트 선택 안내 표시(3.1 참고) — 하드 리다이렉트가 아니라 화면 내 안내인 이유는 사용자가 헤더에서 바로 프로젝트를 골라 이어서 볼 수 있게 하기 위함 |
+| `selectedProjectId`가 `null`(전체 프로젝트)인 상태로 `/campaigns*`, `/coupon-use-logs` 접근 | 페이지 진입은 허용하되 목록 대신 프로젝트 선택 안내 표시(3.1 참고) — 하드 리다이렉트가 아니라 화면 내 안내인 이유는 사용자가 헤더에서 바로 프로젝트를 골라 이어서 볼 수 있게 하기 위함. `/coupon-use-logs`(SCR-103)도 `GET /coupon-use-logs`가 `project_id` 필수라(17_CAMPAIGN_API.md 4.3) `/campaigns*`와 동일한 가드가 필요(2026-07-23 추가) |
 
 ---
 
