@@ -71,8 +71,8 @@ export function Header() {
   }, [projectList, selectedCompanyId, isSuperAdmin, t]);
 
   const userMenuItems: MenuProps['items'] = [
-    { key: 'my-account', label: t('header.myAccount') },
-    { key: 'logout', label: t('header.logout') },
+    { key: 'my-account', label: t('myAccount.title') },
+    { key: 'logout', label: t('myAccount.logout') },
   ];
 
   async function handleUserMenuClick({ key }: { key: string }) {
