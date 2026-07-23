@@ -19,6 +19,12 @@ async function bootstrap() {
   // request.rawBody를 채워주도록 켠다.
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
+  // SIGTERM/SIGINT(스케일아웃 환경의 롤링 배포/오토스케일 축소가 항상 보냄) 수신 시 Nest가
+  // onModuleDestroy 라이프사이클 훅을 호출하도록 등록 — 이게 없으면 SpExecutorService/
+  // LogSpExecutorService의 mysql2 pool.end()가 절대 호출되지 않아 커넥션이 안전하게 안 닫힌 채
+  // 프로세스가 강제 종료된다.
+  app.enableShutdownHooks();
+
   app.useLogger(new Log4jsLogger());
 
   const configService = app.get(ConfigService);
