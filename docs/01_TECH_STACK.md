@@ -28,6 +28,9 @@
 | 폼 상태 관리  | Ant Design Form (antd `Form`, 일부 컴포넌트는 react-hook-form) |
 | 상태 관리     | Zustand               |
 | HTTP          | Axios                 |
+| 다국어(i18n)  | react-i18next + i18next(ko/en, 2026-07-24 추가) |
+
+> **다국어화 범위**: 프론트엔드 UI 문자열만 대상이다(`frontend/src/locales/{ko,en}/common.json`). 백엔드 API 에러 메시지(`result-code.enum.ts`/`error-map.ts`)는 한글로 유지하기로 확정 — 프론트가 `result` 코드를 보고 자체적으로 번역해 보여준다(`api/errors.ts`, 서버 `message`는 알려진 코드가 아닐 때만 폴백으로 사용). 선택한 언어는 `localStorage`에 저장되어 새로고침 후에도 유지된다.
 
 ---
 

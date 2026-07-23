@@ -1,0 +1,77 @@
+{
+  "auth": {
+    "login": {
+      "loginId": "Login ID",
+      "password": "Password",
+      "loginIdRequired": "Please enter your login ID.",
+      "passwordRequired": "Please enter your password.",
+      "submit": "Log In",
+      "noAccount": "Don't have an account?",
+      "signup": "Sign up",
+      "errors": {
+        "10001": "Login ID or password is incorrect.",
+        "10002": "Login ID or password is incorrect.",
+        "10005": "Your account is still pending approval.",
+        "10006": "Your signup was rejected. Please contact an administrator.",
+        "10007": "This account has been suspended. Please contact an administrator.",
+        "40001": "Too many login attempts. Please try again later.",
+        "default": "An error occurred while processing your request."
+      }
+    },
+    "signup": {
+      "comingSoon": "The signup form is coming soon."
+    }
+  },
+  "myAccount": {
+    "title": "My Account",
+    "logout": "Log Out",
+    "logoutFailedWarning": "There was an issue logging out on the server, but your local session has been ended.",
+    "fields": {
+      "loginId": "Login ID",
+      "name": "Name",
+      "email": "Email",
+      "department": "Department",
+      "position": "Position",
+      "lastLogin": "Last Login"
+    }
+  },
+  "nav": {
+    "campaigns": "Campaigns",
+    "couponUseLogs": "Coupon Use Logs",
+    "admin": {
+      "companies": "Companies",
+      "projects": "Projects",
+      "users": "Users",
+      "auditLogs": "Audit Logs"
+    }
+  },
+  "header": {
+    "manage": "Admin",
+    "allCompanies": "All Companies",
+    "allProjects": "All Projects",
+    "projectPlaceholder": "Select a project"
+  },
+  "footer": {
+    "inquiry": "Contact"
+  },
+  "errors": {
+    "forbidden": {
+      "subtitle": "You don't have permission to access this page.",
+      "home": "Go Home"
+    },
+    "notFound": {
+      "subtitle": "The page you requested could not be found.",
+      "home": "Go Home"
+    }
+  },
+  "guards": {
+    "selectProject": "Please select a project from the header first."
+  },
+  "stub": {
+    "comingSoon": "{{screenId}} coming soon"
+  },
+  "language": {
+    "ko": "한국어",
+    "en": "English"
+  }
+}

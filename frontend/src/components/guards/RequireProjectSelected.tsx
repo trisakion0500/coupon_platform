@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Empty } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useGlobalStore } from '@/stores/globalStore';
 
 /**
@@ -9,12 +10,13 @@ import { useGlobalStore } from '@/stores/globalStore';
  * 경우에만 발생 — 다른 role은 애초에 "전체 프로젝트"를 선택할 수 없다).
  */
 export function RequireProjectSelected({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const selectedProjectId = useGlobalStore((state) => state.selectedProjectId);
 
   if (selectedProjectId === null) {
     return (
       <Empty
-        description="상단 헤더에서 프로젝트를 먼저 선택해주세요."
+        description={t('guards.selectProject')}
         style={{ marginTop: 80 }}
       />
     );

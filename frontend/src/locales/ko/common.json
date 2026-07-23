@@ -1,0 +1,77 @@
+{
+  "auth": {
+    "login": {
+      "loginId": "로그인 ID",
+      "password": "비밀번호",
+      "loginIdRequired": "로그인 ID를 입력해주세요.",
+      "passwordRequired": "비밀번호를 입력해주세요.",
+      "submit": "로그인",
+      "noAccount": "계정이 없으신가요?",
+      "signup": "회원가입",
+      "errors": {
+        "10001": "로그인 ID 또는 비밀번호가 올바르지 않습니다.",
+        "10002": "로그인 ID 또는 비밀번호가 올바르지 않습니다.",
+        "10005": "아직 가입 승인 대기 중인 계정입니다.",
+        "10006": "가입이 반려된 계정입니다. 관리자에게 문의해주세요.",
+        "10007": "사용이 중지된 계정입니다. 관리자에게 문의해주세요.",
+        "40001": "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.",
+        "default": "요청 처리 중 오류가 발생했습니다."
+      }
+    },
+    "signup": {
+      "comingSoon": "회원가입 폼은 준비 중입니다."
+    }
+  },
+  "myAccount": {
+    "title": "내 계정",
+    "logout": "로그아웃",
+    "logoutFailedWarning": "로그아웃 처리 중 문제가 있었지만 세션을 종료합니다.",
+    "fields": {
+      "loginId": "로그인 ID",
+      "name": "이름",
+      "email": "이메일",
+      "department": "부서",
+      "position": "직급",
+      "lastLogin": "최근 로그인"
+    }
+  },
+  "nav": {
+    "campaigns": "캠페인 목록",
+    "couponUseLogs": "쿠폰 사용 로그",
+    "admin": {
+      "companies": "회사",
+      "projects": "프로젝트",
+      "users": "사용자",
+      "auditLogs": "감사로그"
+    }
+  },
+  "header": {
+    "manage": "관리",
+    "allCompanies": "전체 회사",
+    "allProjects": "전체 프로젝트",
+    "projectPlaceholder": "프로젝트 선택"
+  },
+  "footer": {
+    "inquiry": "문의"
+  },
+  "errors": {
+    "forbidden": {
+      "subtitle": "이 화면에 접근할 권한이 없습니다.",
+      "home": "홈으로"
+    },
+    "notFound": {
+      "subtitle": "요청하신 페이지를 찾을 수 없습니다.",
+      "home": "홈으로"
+    }
+  },
+  "guards": {
+    "selectProject": "상단 헤더에서 프로젝트를 먼저 선택해주세요."
+  },
+  "stub": {
+    "comingSoon": "{{screenId}} 구현 예정"
+  },
+  "language": {
+    "ko": "한국어",
+    "en": "English"
+  }
+}

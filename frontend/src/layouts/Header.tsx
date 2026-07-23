@@ -2,12 +2,14 @@ import { useMemo } from 'react';
 import { Layout, Select, Button, Dropdown, Space, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import { UserOutlined, DownOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useGlobalStore } from '@/stores/globalStore';
 import { RoleCode } from '@/types/role';
 import { useProjectRoleSync } from '@/hooks/useProjectRoleSync';
 import { logout } from '@/api/auth';
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 
 const ALL_COMPANIES = '__all_companies__';
 const ALL_PROJECTS = '__all_projects__';
@@ -20,8 +22,9 @@ const ADMIN_LIST_ROUTES = [
   '/admin/audit-logs',
 ];
 
-/** 16_LAYOUT.md 2장 공통 Header — 로고/회사·프로젝트 선택/[관리] 버튼/사용자 메뉴. */
+/** 16_LAYOUT.md 2장 공통 Header — 로고/회사·프로젝트 선택/[관리] 버튼/사용자 메뉴/언어 선택. */
 export function Header() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const roleCode = useAuthStore((state) => state.roleCode);
@@ -59,14 +62,17 @@ export function Header() {
       label: p.project_name,
     }));
     if (isSuperAdmin) {
-      return [{ value: ALL_PROJECTS, label: '전체 프로젝트' }, ...options];
+      return [
+        { value: ALL_PROJECTS, label: t('header.allProjects') },
+        ...options,
+      ];
     }
     return options;
-  }, [projectList, selectedCompanyId, isSuperAdmin]);
+  }, [projectList, selectedCompanyId, isSuperAdmin, t]);
 
   const userMenuItems: MenuProps['items'] = [
-    { key: 'my-account', label: '내 계정' },
-    { key: 'logout', label: '로그아웃' },
+    { key: 'my-account', label: t('header.myAccount') },
+    { key: 'logout', label: t('header.logout') },
   ];
 
   async function handleUserMenuClick({ key }: { key: string }) {
@@ -114,7 +120,7 @@ export function Header() {
             setSelectedCompanyId(value === ALL_COMPANIES ? null : Number(value))
           }
           options={[
-            { value: ALL_COMPANIES, label: '전체 회사' },
+            { value: ALL_COMPANIES, label: t('header.allCompanies') },
             ...companyList.map((c) => ({
               value: String(c.company_id),
               label: c.company_name,
@@ -137,7 +143,7 @@ export function Header() {
       <Select
         disabled={headerLocked}
         style={{ width: 200 }}
-        placeholder="프로젝트 선택"
+        placeholder={t('header.projectPlaceholder')}
         value={
           selectedProjectId === null
             ? isSuperAdmin
@@ -155,9 +161,11 @@ export function Header() {
 
       {canOpenAdmin && (
         <Button type="text" onClick={() => navigate('/admin')}>
-          관리
+          {t('header.manage')}
         </Button>
       )}
+
+      <LanguageSwitcher />
 
       <Dropdown
         menu={{ items: userMenuItems, onClick: handleUserMenuClick }}
