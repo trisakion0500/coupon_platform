@@ -6,8 +6,8 @@ export function Footer() {
   const { t } = useTranslation();
   return (
     <Layout.Footer style={{ textAlign: 'center', color: 'rgba(0,0,0,0.45)' }}>
-      © 2026 {import.meta.env.VITE_APP_NAME} | v1.0.0 | {t('footer.inquiry')}:
-      support@example.com
+      {import.meta.env.VITE_FOOTER_COPYRIGHT} | {import.meta.env.VITE_APP_VERSION} |{' '}
+      {t('footer.inquiry')}: {import.meta.env.VITE_SUPPORT_EMAIL}
     </Layout.Footer>
   );
 }

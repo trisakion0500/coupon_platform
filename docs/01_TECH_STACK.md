@@ -152,7 +152,10 @@
 
 | 변수                 | 기본값(`.env.example`)     | 용도 |
 | -------------------- | --------------------------- | ---- |
-| `VITE_API_BASE_URL`  | `http://localhost:3210`     | 백엔드 API 서버 주소(`frontend/src/api/client.ts`의 axios `baseURL`). 백엔드 `.env`의 `PORT`와 일치해야 한다 |
-| `VITE_APP_NAME`      | `Coupon Platform`           | 헤더 로고/로그인 화면 타이틀에 노출하는 앱 이름(`16_LAYOUT.md` 2장/5장) |
+| `VITE_API_BASE_URL`      | `http://localhost:3210`     | 백엔드 API 서버 주소(`frontend/src/api/client.ts`의 axios `baseURL`). 백엔드 `.env`의 `PORT`와 일치해야 한다 |
+| `VITE_APP_NAME`          | `Coupon Platform`           | 헤더 로고/로그인 화면 타이틀에 노출하는 앱 이름(`16_LAYOUT.md` 2장/5장) |
+| `VITE_FOOTER_COPYRIGHT`  | `© 2026 Coupon Platform`    | 공통 Footer에 노출하는 저작권 문구(`16_LAYOUT.md` 6장) |
+| `VITE_APP_VERSION`       | `v1.0.0`                    | 공통 Footer에 노출하는 앱 버전 표기 |
+| `VITE_SUPPORT_EMAIL`     | `trisakion@gmail.com`       | 공통 Footer 문의 이메일 |
 
 프론트 개발 서버(기본 `http://localhost:5173`)는 백엔드 `CORS_ALLOWED_ORIGINS`에 등록돼 있어야 API 호출이 CORS에 막히지 않는다. 로컬 개발 환경 설정 절차는 `19_DEV_SETUP.md` 6장 참고.
