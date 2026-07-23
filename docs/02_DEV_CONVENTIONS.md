@@ -181,6 +181,14 @@ LEFT JOIN (
 - 개수 기반 한도 체크처럼 조건부 UPDATE로 해결이 안 되는 경우에만 `SELECT ... FOR UPDATE` 갭락을 쓴다
 - UNSIGNED 오버플로 유도 같은 SQL 모드 의존적인 트릭은 쓰지 않는다(strict 모드가 아니면 조용히 값이 깨질 수 있음)
 
+## 4.1 인스턴스(레플리카) 간 배치 중복 실행 방지
+
+`node-cron`으로 등록하는 배치(`SessionCleanupService`/`ApiSecretCleanupService` 등)는 스케일아웃 환경에서 레플리카마다 각자 인메모리로 스케줄을 등록하므로, 별도 조치가 없으면 N개 레플리카가 같은 스케줄에 동시에 같은 배치를 중복 실행한다(스케일아웃 점검 3번, 2026-07-23). SP 자체가 멱등(DELETE/조건부 UPDATE)이라 정합성이 깨지지는 않지만, 레플리카 수만큼 불필요한 DB 왕복이 늘어난다.
+
+**해결**: `SpExecutorService.runExclusive(lockName, fn)` — MySQL 세션 수준 advisory lock(`GET_LOCK`/`RELEASE_LOCK`, timeout=0 non-blocking)으로 감싸 한 시점에 한 레플리카만 실제로 `fn`을 실행하도록 한다. Redis 등 별도 분산 락 인프라를 새로 들이지 않고 이미 쓰고 있는 MySQL만으로 해결한 것 — `GET_LOCK`은 락을 커넥션 세션에 묶어 관리하므로 반드시 pool에서 커넥션 하나를 직접 뽑아 잡고 있어야 하고(`callProcedure`처럼 매 호출마다 pool이 임의로 골라주는 커넥션으로는 락을 건 커넥션과 푸는 커넥션이 달라질 수 있음), timeout=0으로 시도해 이미 다른 레플리카가 실행 중이면 대기 없이 즉시 포기한다(크론은 다음 스케줄에 또 돌아오므로 기다릴 이유가 없음).
+
+**새로 크론 배치를 추가할 때는 이 패턴을 그대로 재사용한다** — `SP_SESSION_CLEANUP`/`SP_PROJECT_API_SECRET_CLEANUP`이 이미 이렇게 감싸져 있고, `project_api_nonce` 정리 배치(현재 미구현, `S2S_NONCE_CLEANUP_CRON` 참고)를 구현할 때도 동일하게 적용해야 한다.
+
 ---
 
 # 5. 멱등성 원칙

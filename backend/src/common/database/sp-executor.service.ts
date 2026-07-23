@@ -53,4 +53,41 @@ export class SpExecutorService implements OnModuleDestroy {
   ): Promise<SpCallResult<TData>> {
     return callStoredProcedure<TData>(this.pool, this.logger, spName, params);
   }
+
+  /**
+   * MySQL 세션 수준 advisory lock(`GET_LOCK`/`RELEASE_LOCK`)으로 여러 인스턴스(레플리카)가
+   * 동시에 같은 크론 배치를 중복 실행하지 않도록 한다(스케일아웃 점검 3번, 2026-07-23) — 이미
+   * 쓰고 있는 MySQL만으로 해결해 Redis 등 별도 분산 락 인프라를 새로 들이지 않는다.
+   * `GET_LOCK`은 락을 커넥션 세션에 묶어 관리하므로(그 커넥션이 끝날 때까지 유지) pool에서
+   * 커넥션 하나를 직접 뽑아 잡고 있어야 한다 — `callProcedure`처럼 매 호출마다 pool이 임의로
+   * 골라주는 커넥션을 쓰면 락을 건 커넥션과 푸는 커넥션이 달라질 수 있어 안 된다.
+   * timeout=0(non-blocking)으로 시도해 이미 다른 인스턴스가 실행 중이면 대기하지 않고 즉시
+   * 포기한다 — 크론은 다음 스케줄에 또 돌아오므로 여기서 기다릴 이유가 없다.
+   *
+   * @param lockName - 배치를 식별하는 락 이름(인스턴스 간 공유되는 문자열 키)
+   * @param fn - 락을 획득했을 때만 실행할 작업
+   * @returns 락을 획득해 `fn`을 실행했으면 true, 다른 인스턴스가 이미 실행 중이라 건너뛰었으면 false
+   */
+  async runExclusive(lockName: string, fn: () => Promise<void>): Promise<boolean> {
+    const conn = await this.pool.getConnection();
+    try {
+      const [rows] = await conn.query('SELECT GET_LOCK(?, 0) AS acquired', [
+        lockName,
+      ]);
+      const acquired =
+        (rows as unknown as Array<{ acquired: number }>)[0]?.acquired === 1;
+      if (!acquired) {
+        return false;
+      }
+
+      try {
+        await fn();
+      } finally {
+        await conn.query('SELECT RELEASE_LOCK(?)', [lockName]);
+      }
+      return true;
+    } finally {
+      conn.release();
+    }
+  }
 }

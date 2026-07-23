@@ -29,19 +29,33 @@ export class ApiSecretCleanupService implements OnModuleInit {
     });
   }
 
-  /** 배치 실패는 서버 로그로만 남기고, 스케줄러 자체가 죽지 않도록 절대 throw하지 않는다. */
+  /**
+   * 배치 실패는 서버 로그로만 남기고, 스케줄러 자체가 죽지 않도록 절대 throw하지 않는다.
+   * `runExclusive`로 감싸 스케일아웃 시 레플리카 여러 대가 같은 스케줄에 중복 실행하지 않도록
+   * 한다(`SessionCleanupService`와 동일 이유 — 스케일아웃 점검 3번, 2026-07-23).
+   */
   private async cleanup(): Promise<void> {
     try {
       const gracePeriodDays = this.configService.getOrThrow<number>(
         'API_SECRET_GRACE_PERIOD_DAYS',
       );
-      const { result } = await this.spExecutor.callProcedure(
-        'SP_PROJECT_API_SECRET_CLEANUP',
-        [gracePeriodDays],
+      const ran = await this.spExecutor.runExclusive(
+        'coupon_platform:api_secret_cleanup',
+        async () => {
+          const { result } = await this.spExecutor.callProcedure(
+            'SP_PROJECT_API_SECRET_CLEANUP',
+            [gracePeriodDays],
+          );
+          if (result !== 0) {
+            this.logger.error(
+              `SP_PROJECT_API_SECRET_CLEANUP returned RESULT=${result}`,
+            );
+          }
+        },
       );
-      if (result !== 0) {
-        this.logger.error(
-          `SP_PROJECT_API_SECRET_CLEANUP returned RESULT=${result}`,
+      if (!ran) {
+        this.logger.debug(
+          'SP_PROJECT_API_SECRET_CLEANUP skipped — another instance is already running it',
         );
       }
     } catch (err) {

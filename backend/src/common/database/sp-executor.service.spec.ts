@@ -4,6 +4,7 @@ import { SpExecutorService } from './sp-executor.service';
 
 const queryMock = jest.fn();
 const endMock = jest.fn();
+const getConnectionMock = jest.fn();
 
 jest.mock('mysql2/promise', () => ({
   __esModule: true,
@@ -11,6 +12,7 @@ jest.mock('mysql2/promise', () => ({
     createPool: jest.fn(() => ({
       query: queryMock,
       end: endMock,
+      getConnection: getConnectionMock,
     })),
   },
 }));
@@ -34,6 +36,7 @@ describe('SpExecutorService', () => {
   beforeEach(() => {
     queryMock.mockReset();
     endMock.mockReset();
+    getConnectionMock.mockReset();
     service = new SpExecutorService(buildConfigService());
   });
 
@@ -97,5 +100,63 @@ describe('SpExecutorService', () => {
   it('closes the pool on module destroy', async () => {
     await service.onModuleDestroy();
     expect(endMock).toHaveBeenCalled();
+  });
+
+  describe('runExclusive', () => {
+    it('acquires the lock, runs fn, releases the lock and the connection', async () => {
+      const connQuery = jest
+        .fn()
+        .mockResolvedValueOnce([[{ acquired: 1 }]]) // GET_LOCK
+        .mockResolvedValueOnce([[{}]]); // RELEASE_LOCK
+      const release = jest.fn();
+      getConnectionMock.mockResolvedValueOnce({ query: connQuery, release });
+      const fn = jest.fn().mockResolvedValue(undefined);
+
+      const ran = await service.runExclusive('test_lock', fn);
+
+      expect(ran).toBe(true);
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(connQuery).toHaveBeenNthCalledWith(
+        1,
+        'SELECT GET_LOCK(?, 0) AS acquired',
+        ['test_lock'],
+      );
+      expect(connQuery).toHaveBeenNthCalledWith(2, 'SELECT RELEASE_LOCK(?)', [
+        'test_lock',
+      ]);
+      expect(release).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns false without running fn when another instance already holds the lock', async () => {
+      const connQuery = jest.fn().mockResolvedValueOnce([[{ acquired: 0 }]]);
+      const release = jest.fn();
+      getConnectionMock.mockResolvedValueOnce({ query: connQuery, release });
+      const fn = jest.fn();
+
+      const ran = await service.runExclusive('test_lock', fn);
+
+      expect(ran).toBe(false);
+      expect(fn).not.toHaveBeenCalled();
+      expect(connQuery).toHaveBeenCalledTimes(1); // GET_LOCK만 — RELEASE_LOCK은 호출하지 않음
+      expect(release).toHaveBeenCalledTimes(1);
+    });
+
+    it('releases the lock and the connection even if fn throws', async () => {
+      const connQuery = jest
+        .fn()
+        .mockResolvedValueOnce([[{ acquired: 1 }]])
+        .mockResolvedValueOnce([[{}]]);
+      const release = jest.fn();
+      getConnectionMock.mockResolvedValueOnce({ query: connQuery, release });
+      const fn = jest.fn().mockRejectedValue(new Error('boom'));
+
+      await expect(service.runExclusive('test_lock', fn)).rejects.toThrow(
+        'boom',
+      );
+      expect(connQuery).toHaveBeenNthCalledWith(2, 'SELECT RELEASE_LOCK(?)', [
+        'test_lock',
+      ]);
+      expect(release).toHaveBeenCalledTimes(1);
+    });
   });
 });
