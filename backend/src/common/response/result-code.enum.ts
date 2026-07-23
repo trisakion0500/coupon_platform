@@ -58,4 +58,5 @@ export enum ResultCode {
   // 50000 — System
   INTERNAL_ERROR = 50000,
   DATABASE_ERROR = 50001,
+  API_EXECUTION_TIMEOUT = 50002,
 }

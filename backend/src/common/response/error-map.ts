@@ -182,4 +182,10 @@ export const ERROR_MAP: Record<ResultCode, ErrorEntry> = {
     message: 'DB 오류가 발생했습니다.',
     httpStatus: 500,
   },
+  // 08_API_COMMON.md 1.3 예외 — System 범위지만 500이 아니라 408을 쓴다(요청 자체는
+  // 정상이었고 처리 시간 초과가 원인이라는 걸 클라이언트가 구분할 수 있어야 함).
+  [ResultCode.API_EXECUTION_TIMEOUT]: {
+    message: '요청 처리 시간이 초과되었습니다.',
+    httpStatus: 408,
+  },
 };

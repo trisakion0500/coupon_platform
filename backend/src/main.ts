@@ -8,6 +8,7 @@ import { AppModule } from './app.module';
 import { Log4jsLogger } from './common/logging/log4js-logger.service';
 import { HttpExceptionFilter } from './common/response/http-exception.filter';
 import { ResponseInterceptor } from './common/response/response.interceptor';
+import { TimeoutInterceptor } from './common/response/timeout.interceptor';
 
 /**
  * 앱 부트스트랩 — 보안 헤더/CORS/버전 관리/전역 파이프·필터·인터셉터를 여기서 한 번에 구성한다.
@@ -60,7 +61,12 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new HttpExceptionFilter(configService));
-  app.useGlobalInterceptors(new ResponseInterceptor());
+  app.useGlobalInterceptors(
+    new ResponseInterceptor(),
+    new TimeoutInterceptor(
+      configService.get<number>('API_EXECUTION_TIMEOUT_MS') ?? 30000,
+    ),
+  );
 
   if (swaggerEnabled) {
     const swaggerConfig = new DocumentBuilder()

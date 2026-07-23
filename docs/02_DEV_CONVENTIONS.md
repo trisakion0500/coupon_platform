@@ -22,6 +22,14 @@
 - **민감정보는 `maskSensitiveData`(`backend/src/common/logging/sensitive-data-masker.util.ts`)로 재귀 마스킹한 뒤 남긴다** — `password`/`new_password`/`old_password`/`password_hash`/`phone_number`/`access_token`/`refresh_token`/`api_secret`/`api_secret_prev`/`Authorization`/`X-API-Signature` 키(대소문자 무시)는 중첩 깊이·배열 안 여부와 무관하게 값을 `***`로 치환한다. 새 도메인에 비밀값(새 토큰 종류, 새 비밀번호 필드 등)이 추가되면 이 목록에도 반드시 함께 추가할 것 — 로그가 사후에 새는 것보다 코드리뷰 시점에 놓치지 않는 게 안전하다.
 - 대량 목록 응답 등으로 로그 한 줄이 지나치게 길어지는 것을 막기 위해 바디 문자열은 5000자에서 잘라 `...(truncated)`를 붙인다.
 
+## 1.2 API 실행 타임아웃
+
+`API_EXECUTION_TIMEOUT_MS`(기본 30000ms, `01_TECH_STACK.md`)를 전역 `TimeoutInterceptor`(`backend/src/common/response/timeout.interceptor.ts`, `main.ts`에서 `ResponseInterceptor` 뒤에 등록)가 소비한다(2026-07-23 도입 — 그 전에는 값 검증만 있고 실제로 소비하는 코드가 없었다). 컨트롤러 핸들러가 이 시간 안에 응답을 만들지 못하면 RxJS `timeout()`이 던지는 `TimeoutError`를 잡아 `BusinessException(ResultCode.API_EXECUTION_TIMEOUT)`(408, `08_API_COMMON.md` 1.3/8장 `50002`)으로 변환한다.
+
+- **인터셉터 등록 순서가 중요하다**: `ResponseInterceptor`를 먼저, `TimeoutInterceptor`를 나중에 등록해야 한다 — Nest의 인터셉터는 등록 순서대로 바깥→안쪽으로 감싸므로, 나중에 등록한 쪽이 컨트롤러 실행에 더 가깝다. `TimeoutInterceptor`가 컨트롤러 핸들러의 Observable에 직접 `timeout()`을 걸어야 하므로 안쪽에 있어야 하고, `ResponseInterceptor`는 성공 응답만 `map()`으로 감싸 오류를 그대로 통과시키므로 바깥에서 타임아웃 예외를 가로막지 않는다.
+- **타임아웃은 "클라이언트에게 실패를 알림"일 뿐 "DB 작업 취소"가 아니다** — RxJS `timeout()`은 구독을 취소할 뿐, 이미 던져진 SP 호출(mysql2 쿼리)을 서버 사이드에서 강제 종료하지 못한다. 즉 408 응답이 나간 뒤에도 해당 SP는 계속 실행되다 커밋될 수 있다. `POST /v1/coupons/reserve`처럼 상태를 바꾸는 API가 이미 멱등하게 설계된 것(`06_COUPON_USAGE_SCENARIO.md` 1.2)이 이 한계에 대한 실질적 방어선이다 — 새 쓰기 API를 추가할 때도 "타임아웃 이후 커밋될 수 있다"는 전제 하에 재시도 안전성을 갖추도록 한다.
+- RANDOM 코드 대량생성(`CampaignService.generateRandomCodes`)처럼 컨트롤러 응답과 분리된 fire-and-forget 백그라운드 작업은 이 인터셉터가 감싸는 Observable 범위 밖이라 타임아웃 대상이 아니다.
+
 ---
 
 # 2. 코드 모듈화 원칙

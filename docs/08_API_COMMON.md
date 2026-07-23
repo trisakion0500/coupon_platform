@@ -48,8 +48,11 @@ Coupon Platform API는 HTTP Status Code와 Result Code를 함께 사용한다. �
 | 401 Unauthorized           | 10000~19999  | Authentication            |
 | 403 Forbidden              | 20000~29999  | Authorization             |
 | 404 Not Found              | 31000~31999  | Validation (Not Found)   |
+| 408 Request Timeout        | 50002        | System (API 실행 타임아웃, 아래 예외 참고) |
 | 429 Too Many Requests      | 40000~49999  | Rate Limit                |
 | 500 Internal Server Error  | 50000~59999  | System                    |
+
+50002는 System 범위(`50000~59999`)에 속하지만 예외적으로 500이 아니라 408을 쓴다 — 서버 내부 결함이 아니라 처리 시간 초과가 원인이라는 걸 클라이언트가 구분할 수 있어야 하기 때문이다.
 
 ## 1.4 응답 예시
 
@@ -367,5 +370,8 @@ Anonymous (인증 불필요)
 | ----- | --------------------------- |
 | 50000 | 시스템 오류(서버 내부 오류) |
 | 50001 | 데이터베이스 오류(SP 내부 오류) |
+| 50002 | API 실행 타임아웃(`API_EXECUTION_TIMEOUT_MS` 초과, HTTP 408) |
 
 캠페인/코드 발급 관련 오류 코드는 위 표에 반영 완료([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 참고). 쿠폰 사용(reserve/confirm) 관련 오류 코드도 위 표에 반영 완료([18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md) 참고). S2S 인증(HMAC 서명 검증) 실패 코드(`10010`~`10015`)도 위 표에 반영 완료([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2장 참고).
+
+**50002(API 실행 타임아웃)의 한계**: 전역 `TimeoutInterceptor`가 `API_EXECUTION_TIMEOUT_MS` 안에 컨트롤러 핸들러가 응답을 만들지 못하면 408로 끊어 클라이언트에 알리지만, 이미 시작된 SP 호출(mysql2 쿼리)까지 취소하지는 못한다(RxJS `timeout()`은 구독만 취소한다) — 타임아웃 응답이 나간 뒤에도 DB 쪽 작업은 계속 진행되어 결국 커밋될 수 있다. `POST /v1/coupons/reserve`처럼 상태를 바꾸는 API는 이미 확립된 멱등성(`use_limit_per_user` 체크 등, [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md) 참고)에 기대어 재시도해도 안전하도록 설계되어 있다. RANDOM 코드 대량생성처럼 컨트롤러 응답과 분리된 fire-and-forget 백그라운드 작업([05_COUPON_ISSUANCE_SCENARIO.md](./05_COUPON_ISSUANCE_SCENARIO.md) 참고)은 이 인터셉터의 적용 범위 밖이라 영향받지 않는다.
