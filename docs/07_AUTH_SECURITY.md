@@ -238,6 +238,19 @@ URL 패턴 : /v1/coupons/reserve, /v1/coupons/confirm 등
 운영 규칙 : v1으로 시작, breaking change 발생 시 v2 컨트롤러를 추가하고 기존 v1 라우트는 유지
 ```
 
+## 2.8 요청 제한(Rate Limit) 정책
+
+`POST /v1/coupons/{code}/reserve`/`confirm`에 **프로젝트(API Key) 기준** 요청 제한을 적용한다 — 목적은 오남용 방지가 아니라 **인프라 보호**(특정 게임서버의 비정상 트래픽 폭주로부터 서버 전체를 지키는 것)다. README "향후 개선사항"에 있던 "프로젝트 단위 + 프로젝트·유저 단위 이중 적용" 검토 중 프로젝트 단위만 채택했다(2026-07-23) — 유저 단위 오남용 방지는 별도 논의로 보류.
+
+```text
+기준   : X-API-Key 헤더값당 windowMs 동안 max회 (기본 1분/600회, COUPON_USAGE_RATE_LIMIT_WINDOW_MS/COUPON_USAGE_RATE_LIMIT_MAX)
+대상   : POST /v1/coupons/{code}/reserve, POST /v1/coupons/{code}/confirm (GET /v1/coupons/unconfirmed 제외 — 조회 API라 상대적으로 저위험)
+초과 시 : 429 Too Many Requests
+저장소 : in-memory (1.4 로그인 리미터와 동일한 express-rate-limit 선택 — 스케일아웃 시 인스턴스별로 카운터가 나뉘어 실효 한도가 인스턴스 수배로 늘어나는 한계는 인지하고 감수)
+```
+
+`X-API-Key` 헤더값을 그대로 카운터 키로 쓴다 — 미들웨어는 가드보다 먼저 실행되어 서명/nonce 검증 전이지만, 프로젝트별로 카운터를 나누는 목적에는 이 값으로 충분하다(1.4의 IP 기준 리미터가 IP 소유권을 검증하지 않는 것과 같은 성격). 헤더가 없으면 IP로 폴백해 리미터 자체가 죽지 않게만 한다.
+
 ---
 
 # 3. 비밀번호 정책

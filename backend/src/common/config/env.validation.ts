@@ -62,6 +62,13 @@ export const envValidationSchema = Joi.object({
   LOGIN_RATE_LIMIT_MAX: Joi.number().integer().min(1).default(10),
   SESSION_CLEANUP_CRON: Joi.string().default('0 4 * * *'),
 
+  // reserve/confirm 프로젝트(API Key) 기준 rate limit — 07_AUTH_SECURITY.md 2.8
+  COUPON_USAGE_RATE_LIMIT_WINDOW_MS: Joi.number()
+    .integer()
+    .min(1)
+    .default(60000),
+  COUPON_USAGE_RATE_LIMIT_MAX: Joi.number().integer().min(1).default(600),
+
   // RANDOM 코드 대량생성 백그라운드 루프(05_COUPON_ISSUANCE_SCENARIO.md 2.2) — DB 일시 오류
   // 재시도 한도/지연. 코드값 충돌(1062)은 이 설정과 무관하게 무제한 즉시 재시도한다.
   CODE_GENERATION_MAX_DB_RETRIES: Joi.number().integer().min(0).default(5),
