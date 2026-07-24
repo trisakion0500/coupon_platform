@@ -109,13 +109,16 @@ describe('ProjectService', () => {
   });
 
   describe('list', () => {
-    it('forces company_id to the requester company for DEVELOPER', async () => {
+    // 2026-07-24 — DEVELOPER 스코핑이 회사 단위에서 실제 user_role 배정 단위로 바뀌어(SP가
+    // 행 단위로 필터링), 앱 레이어는 더 이상 company_id를 강제로 채우지 않는다 — role과
+    // 무관하게 query.company_id를 순수 필터로 그대로 전달한다.
+    it('passes query.company_id through unchanged regardless of role', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 0, data: [] });
 
       await service.list({ page: 1, page_size: 20 }, developer);
 
       expect(spExecutor.callProcedure).toHaveBeenCalledWith('SP_PROJECT_LIST', [
-        developer.companyId,
+        null,
         null,
         20,
         0,
@@ -151,13 +154,6 @@ describe('ProjectService', () => {
         total_count: 1,
         items: [projectRow],
       });
-    });
-
-    it('throws PERMISSION_DENIED when the SP rejects the company scope (20001)', async () => {
-      spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
-      await expect(
-        service.list({ page: 1, page_size: 20 }, developer),
-      ).rejects.toMatchObject({ resultCode: ResultCode.PERMISSION_DENIED });
     });
 
     it('reports the real total_count when the requested page is out of range', async () => {
@@ -207,23 +203,16 @@ describe('ProjectService', () => {
       );
     });
 
-    it('returns the project for DEVELOPER in the same company', async () => {
+    // 2026-07-24 — 접근 판단은 SP(FN_CHECK_PROJECT_ACCESS, 실제 user_role 배정 여부)의
+    // 유일한 책임이라, 앱 레이어는 SP가 result:0으로 반환한 행을 그대로 신뢰한다(회사 일치
+    // 여부를 다시 확인하지 않음 — campaign 도메인의 getById와 동일한 패턴).
+    it('returns the project as-is when the SP grants access (e.g. DEVELOPER with an assigned user_role)', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({
         result: 0,
         data: [{ ...projectRow, company_id: 2 }],
       });
       await expect(service.getById(10, developer)).resolves.toMatchObject({
         company_id: 2,
-      });
-    });
-
-    it('throws PERMISSION_DENIED for DEVELOPER in a different company', async () => {
-      spExecutor.callProcedure.mockResolvedValueOnce({
-        result: 0,
-        data: [projectRow],
-      });
-      await expect(service.getById(10, developer)).rejects.toMatchObject({
-        resultCode: ResultCode.PERMISSION_DENIED,
       });
     });
 
@@ -234,7 +223,7 @@ describe('ProjectService', () => {
       });
     });
 
-    it('throws PERMISSION_DENIED when the SP rejects the company scope (20001)', async () => {
+    it('throws PERMISSION_DENIED when the SP rejects access (20001, no user_role assignment)', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 20001 });
       await expect(service.getById(10, developer)).rejects.toMatchObject({
         resultCode: ResultCode.PERMISSION_DENIED,

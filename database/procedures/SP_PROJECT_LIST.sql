@@ -1,33 +1,43 @@
 DROP PROCEDURE IF EXISTS `SP_PROJECT_LIST`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_LIST` (
-    IN i_company_id        BIGINT UNSIGNED,   -- 회사 필터 (NULL이면 전체 — DEVELOPER 호출 시 앱 레이어가 자기 회사로 강제)
+    IN i_company_id        BIGINT UNSIGNED,   -- 회사 필터 (NULL이면 전체) — 스코핑이 아니라 순수 필터
     IN i_status            TINYINT UNSIGNED,  -- 상태 필터 (NULL이면 전체)
     IN i_page_size         INT,               -- 페이지당 행 수
     IN i_offset            INT,               -- 시작 오프셋
     IN i_requester_user_id BIGINT UNSIGNED    -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '프로젝트 목록 조회 - 페이지네이션, company 조인, 회사 접근 재검증 (11_PROJECT_API.md 2.2)'
+) COMMENT '프로젝트 목록 조회 - 페이지네이션, company 조인, user_role 기반 행단위 스코핑 (11_PROJECT_API.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_LIST
     -- 작성 : 2026.07.19 trisakion
+    -- 수정 : 2026.07.24 trisakion — 스코핑 기준을 회사(company_id) 단위에서 실제 user_role 배정
+    --        단위로 전환. API Key/Secret처럼 민감한 자격증명을 다루는 화면이라, 같은 회사
+    --        소속이라는 사실만으로 담당이 아닌 프로젝트까지 보이는 게 문제로 지적됨(캠페인 등
+    --        쿠폰 도메인이 이미 쓰는 user_role 프로젝트 단위 스코핑과 통일, 17_CAMPAIGN_API.md
+    --        1.2 참고). i_company_id는 더 이상 "앱이 강제로 채우는 스코핑 값"이 아니라 누구나
+    --        선택적으로 쓸 수 있는 순수 필터로 의미가 바뀌었다 — SUPER_ADMIN이 아닌 호출자에게는
+    --        이 필터와 별개로 `user_role` 행단위 조건이 항상 함께 걸린다. 이 방식은
+    --        "권한 없음(20001)"을 던지는 대신 조용히 결과를 좁히는 필터형 스코핑이라(회사 목록
+    --        조회에 잘못된 값을 넣는 것과 달리, "내가 배정 안 된 프로젝트가 안 보이는 것"은 에러가
+    --        아니라 정상 동작이므로) FN_IS_SUPER_ADMIN 우회 확인 외의 별도 20001 분기가 필요 없다.
+    --        FN_IS_SUPER_ADMIN 호출을 행마다 반복하지 않도록 결과를 로컬 변수에 한 번만 담아 재사용.
+    -- 수정2: 2026.07.24 trisakion — 최초 전환 때는 "배정 존재 여부"만 보는 EXISTS였는데, 이는
+    --        role_code 수준을 구분하지 않는 결함이었다(예: 프로젝트 A에서 DEVELOPER(20), 프로젝트
+    --        B에서 OPERATOR(40)로 배정된 사용자는 JWT의 MIN role_code가 20이라 관리메뉴 진입
+    --        자체는 허용되는데, 존재 여부만 보면 프로젝트 B까지 노출·수정됐다). 프로젝트 관리메뉴는
+    --        DEVELOPER(20) 이상만 접근 가능하다는 원칙(10_COMPANY_API.md 1.2)을 프로젝트 단위로
+    --        정확히 적용하기 위해 `role_code <= 20` 조건을 추가했다.
     -- 내용 : 프로젝트 목록을 status DESC, project_name ASC로 정렬해 페이지 단위로 반환한다.
-    --        company_code/company_name을 함께 보여줘야 해서 company를 조인한다. DEVELOPER는
-    --        본인 소속 company_id만 봐야 하는데(11_PROJECT_API.md 2.2 Business Rules), 그 스코핑은
-    --        앱 레이어(ProjectService)가 i_company_id에 항상 자기 companyId를 채워 호출하는
-    --        방식으로 1차 강제하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로 호출자가 실제 그 회사
-    --        소속인지 2차로 재검증한다(앱 레이어 버그로 잘못된 company_id가 넘어와도 SP가
-    --        마지막 방어선 역할을 하도록, 02_DEV_CONVENTIONS.md 3.2). SUPER_ADMIN 우회는
-    --        FN_IS_SUPER_ADMIN(i_requester_user_id)로 SP가 직접 DB에서 재확인한다 - 앱이
-    --        role_code 값을 함께 넘겨 그 값을 그대로 믿는 방식은 쓰지 않는다(앱 레이어가 잘못된
-    --        role_code를 실어 보내는 버그가 있어도 이 SP는 영향받지 않는다).
+    --        company_code/company_name을 함께 보여줘야 해서 company를 조인한다.
     --        total_count는 SP_COMPANY_LIST와 동일한 이유로 COUNT(*) OVER()가 아니라 별도 서브쿼리
     --        + LEFT JOIN ... ON TRUE 패턴으로 반환한다(offset이 범위를 벗어나 0행이 반환돼도
     --        total_count가 0으로 사라지지 않도록, 2026-07-19 감사에서 발견된 버그 수정).
     -- ------------------------------------------------------------------------------------------------------------ --
-    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
-    DECLARE error_no      INT          DEFAULT 0;
-    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE sql_state       CHAR(5)      DEFAULT '00000';
+    DECLARE error_no        INT          DEFAULT 0;
+    DECLARE error_message   VARCHAR(255) DEFAULT '';
+    DECLARE v_is_super_admin BOOLEAN     DEFAULT FN_IS_SUPER_ADMIN(i_requester_user_id);
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS CONDITION 1
@@ -36,12 +46,6 @@ BEGIN
     END;
 
     proc_block: BEGIN
-        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id)
-           AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, i_company_id) THEN
-            SELECT 20001 AS RESULT;
-            LEAVE proc_block;
-        END IF;
-
         SELECT 0 AS RESULT;
         SELECT
             pg.`project_id`, pg.`company_id`, pg.`company_code`, pg.`company_name`,
@@ -53,6 +57,16 @@ BEGIN
             FROM `project` p
             WHERE (i_company_id IS NULL OR p.`company_id` = i_company_id)
               AND (i_status IS NULL OR p.`status` = i_status)
+              AND (
+                  v_is_super_admin
+                  OR EXISTS (
+                      SELECT 1 FROM `user_role` ur
+                      WHERE ur.`project_id` = p.`project_id`
+                        AND ur.`user_id` = i_requester_user_id
+                        AND ur.`status` = 1
+                        AND ur.`role_code` <= 20  -- DEVELOPER(20) 이상만 — MANAGER/OPERATOR 배정은 프로젝트 관리메뉴 접근 불가
+                  )
+              )
         ) cnt
         LEFT JOIN (
             SELECT
@@ -63,6 +77,16 @@ BEGIN
             JOIN `company` c ON c.`company_id` = p.`company_id`
             WHERE (i_company_id IS NULL OR p.`company_id` = i_company_id)
               AND (i_status IS NULL OR p.`status` = i_status)
+              AND (
+                  v_is_super_admin
+                  OR EXISTS (
+                      SELECT 1 FROM `user_role` ur
+                      WHERE ur.`project_id` = p.`project_id`
+                        AND ur.`user_id` = i_requester_user_id
+                        AND ur.`status` = 1
+                        AND ur.`role_code` <= 20  -- DEVELOPER(20) 이상만 — MANAGER/OPERATOR 배정은 프로젝트 관리메뉴 접근 불가
+                  )
+              )
             ORDER BY p.`status` DESC, p.`project_name` ASC
             LIMIT i_page_size OFFSET i_offset
         ) pg ON TRUE;

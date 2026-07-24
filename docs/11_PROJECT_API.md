@@ -88,7 +88,7 @@ GET /projects
 
 | Name       | Required | Description                |
 | ---------- | -------- | -------------------------- |
-| company_id | N        |                             |
+| company_id | N        | 순수 필터(스코핑 아님) — DEVELOPER가 지정해도 아래 스코핑 범위 밖 프로젝트는 여전히 보이지 않는다 |
 | status     | N        |                             |
 | page       | N        | 페이지 번호 (1부터 시작). 기본 1 |
 | page_size  | N        | 20/30/50/100 중 선택. 기본 20 |
@@ -103,7 +103,7 @@ ORDER BY status DESC,
 ### Business Rules
 
 - SUPER_ADMIN: 전체 프로젝트 목록 반환
-- DEVELOPER: 본인 소속 `company_id`의 프로젝트만 반환
+- DEVELOPER: 해당 프로젝트에서 실제 `role_code<=20`(DEVELOPER 이상)으로 활성 배정된 프로젝트만 반환 — 회사 소속 여부와 무관하고, 다른 프로젝트에서 DEVELOPER라도 이 프로젝트에서의 배정이 MANAGER(30)/OPERATOR(40)뿐이면 제외된다(같은 회사 소속이라는 사실만으로, 혹은 다른 프로젝트의 상위 권한만으로 담당 아닌 프로젝트의 API Key/Secret까지 보이는 문제가 있어, 캠페인 등 쿠폰 도메인과 동일한 `user_role` 프로젝트 단위 스코핑으로 통일했다. 17_CAMPAIGN_API.md 1.2 참고)
 
 ### Response
 
@@ -155,7 +155,7 @@ GET /projects/{project_id}
 ### Business Rules
 
 - SUPER_ADMIN: 모든 프로젝트 조회 가능
-- DEVELOPER: 본인 소속 `company_id`의 프로젝트만 조회 가능
+- DEVELOPER: 해당 프로젝트에서 실제 `role_code<=20`(DEVELOPER 이상)으로 활성 배정된 경우만 조회 가능(회사 소속 여부와 무관, 2.2 Business Rules와 동일한 기준) — 미배정이거나 이 프로젝트에서의 배정이 MANAGER/OPERATOR뿐이면 20001
 
 ---
 
@@ -226,11 +226,11 @@ POST /projects/{project_id}/api-secret/rotate
 ### Permission
 
 - SUPER_ADMIN
-- DEVELOPER (해당 `project_id`에 실제 활성 `user_role`이 배정되어 있어야 함 — 없으면 20001)
+- DEVELOPER (해당 `project_id`에서 실제 `role_code<=20`(DEVELOPER 이상)으로 활성 배정되어 있어야 함 — 미배정이거나 이 프로젝트에서의 배정이 MANAGER/OPERATOR뿐이면 20001)
 
 ### Description
 
-기존 `api_secret`(암호화값)을 `api_secret_prev`로 이동하고 신규 Secret을 발급한다. 유예기간 동안은 기존 Secret도 함께 유효하다([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2.6 Secret Rotation 참고).
+기존 `api_secret`(암호화값)을 `api_secret_prev`로 이동하고 신규 Secret을 발급한다. 유예기간 동안은 기존 Secret도 함께 유효하다([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2.6 Secret Rotation 참고). 유예기간 일수(`API_SECRET_GRACE_PERIOD_DAYS`)는 화면 확인 문구에 노출해야 해서 프론트가 하드코딩하지 않고 [08_API_COMMON.md](./08_API_COMMON.md) 6.2 `GET /config/public`으로 조회한다.
 
 ### Request
 
@@ -261,7 +261,7 @@ POST /projects/{project_id}/api-secret/rotate
 ### Business Rules
 
 - `api_key`는 변경되지 않는다(Secret만 재발급 대상)
-- DEVELOPER 호출 시 JWT의 `role_code`(여러 프로젝트 중 최고 권한)가 아니라 해당 `project_id`의 실제 `user_role`을 재검증한다
+- DEVELOPER 호출 시 JWT의 `role_code`(여러 프로젝트 중 최고 권한)가 아니라 해당 `project_id`에서의 실제 `role_code`를 재검증한다(MANAGER/OPERATOR로만 배정된 프로젝트는 다른 프로젝트에서 DEVELOPER 이상이라도 재발급 불가)
 - 재발급 즉시 관리자가 평문을 복사해 게임서버 설정에 반영해야 한다 — 재확인 불가
 - 유예기간 경과 후 배치가 `api_secret_prev`를 `NULL` 처리한다([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2.6 참고)
 

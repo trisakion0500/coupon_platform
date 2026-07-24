@@ -114,8 +114,8 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
 ### SCR-020. 프로젝트 목록
 
 - **Route:** `/admin/projects`
-- **접근:** SUPER_ADMIN, DEVELOPER(본인 소속 회사만)
-- **주요 기능:** 프로젝트 목록 조회. 회사 필터는 화면 자체가 아닌 헤더의 전역 회사 선택 콤보박스를 그대로 사용(SUPER_ADMIN만 "전체 회사" 선택 가능, DEVELOPER는 본인 소속 회사로 고정), 화면에는 상태 필터·페이지네이션만 존재. 등록 버튼(SUPER_ADMIN), 상세 이동
+- **접근:** SUPER_ADMIN, DEVELOPER(해당 프로젝트에서 실제 `role_code<=20`으로 활성 배정된 프로젝트만 — 11_PROJECT_API.md 2.2 참고, 회사 소속 여부·다른 프로젝트에서의 role_code와 무관)
+- **주요 기능:** 프로젝트 목록 조회. 상태 필터·페이지네이션 존재, 등록 버튼(SUPER_ADMIN), 상세 이동. 헤더의 전역 회사 선택은 SUPER_ADMIN에게만 추가 필터로 적용되고(DEVELOPER는 스코핑 자체가 회사 단위가 아니라 배정 단위라 헤더 선택값을 이 화면 조회에 반영하지 않음), 화면 자체에는 회사 필터 UI가 따로 없다
 - **연관 API:**
 
   | Method | Endpoint  | 설명          |
@@ -141,7 +141,7 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
 ### SCR-022. 프로젝트 상세·수정
 
 - **Route:** `/admin/projects/:project_id`
-- **접근:** SUPER_ADMIN(전체 수정), DEVELOPER(조회 + Secret 재발급, 본인이 역할보유한 프로젝트에 한함)
+- **접근:** SUPER_ADMIN(전체 수정), DEVELOPER(조회 + Secret 재발급, 해당 프로젝트에서 본인 role_code가 20 이하인 경우에 한함)
 - **주요 기능:** 프로젝트 정보 조회, 이름 / 설명 / 상태 수정(SUPER_ADMIN), API Secret 재발급(SUPER_ADMIN, DEVELOPER — 재발급 응답에만 평문이 1회 노출되는 모달, 이후 조회는 `secret_rotated_at`만 표시). `company_id`/`project_code`/`api_key`는 표시만(수정 불가)
 - **연관 API:**
 

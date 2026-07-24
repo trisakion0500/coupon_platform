@@ -1,6 +1,68 @@
 import { apiClient } from '@/api/client';
-import type { ApiEnvelope } from '@/types/api';
+import type { ApiEnvelope, PaginatedResult } from '@/types/api';
+import type {
+  CreateProjectRequest,
+  Project,
+  ProjectCreateResult,
+  ProjectListQuery,
+  RotateApiSecretResult,
+  UpdateProjectRequest,
+} from '@/types/project';
 import type { RoleCode } from '@/types/role';
+
+/** 11_PROJECT_API.md 2.2. */
+export async function listProjects(
+  query: ProjectListQuery,
+): Promise<PaginatedResult<Project>> {
+  const { data } = await apiClient.get<ApiEnvelope<PaginatedResult<Project>>>(
+    '/projects',
+    { params: query },
+  );
+  return data.data;
+}
+
+/** 11_PROJECT_API.md 2.3. */
+export async function getProject(projectId: number): Promise<Project> {
+  const { data } = await apiClient.get<ApiEnvelope<Project>>(
+    `/projects/${projectId}`,
+  );
+  return data.data;
+}
+
+/** 11_PROJECT_API.md 2.1. */
+export async function createProject(
+  dto: CreateProjectRequest,
+): Promise<ProjectCreateResult> {
+  const { data } = await apiClient.post<ApiEnvelope<ProjectCreateResult>>(
+    '/projects',
+    dto,
+  );
+  return data.data;
+}
+
+/** 11_PROJECT_API.md 2.4 — edit_count 낙관적 락 필수. */
+export async function updateProject(
+  projectId: number,
+  dto: UpdateProjectRequest,
+): Promise<Project> {
+  const { data } = await apiClient.patch<ApiEnvelope<Project>>(
+    `/projects/${projectId}`,
+    dto,
+  );
+  return data.data;
+}
+
+/** 11_PROJECT_API.md 2.5 — edit_count 낙관적 락 필수, 재발급은 멱등하지 않다. */
+export async function rotateApiSecret(
+  projectId: number,
+  editCount: number,
+): Promise<RotateApiSecretResult> {
+  const { data } = await apiClient.post<ApiEnvelope<RotateApiSecretResult>>(
+    `/projects/${projectId}/api-secret/rotate`,
+    { edit_count: editCount },
+  );
+  return data.data;
+}
 
 interface MyRoleResponse {
   project_id: number;

@@ -188,29 +188,28 @@ export class ProjectService {
     };
   }
 
+  /**
+   * DEVELOPER의 스코핑은 더 이상 회사 단위가 아니다 — SUPER_ADMIN을 제외한 모든 호출자는
+   * 실제 활성 `user_role`이 배정된 프로젝트만 보게끔 SP가 행 단위로 필터링한다(2026-07-24,
+   * API Key/Secret을 다루는 화면이라 같은 회사 소속이라는 이유만으로 담당 아닌 프로젝트까지
+   * 보이는 걸 문제로 판단해 캠페인 도메인과 동일한 user_role 기준으로 통일). `query.company_id`는
+   * 스코핑이 아니라 누구나 쓸 수 있는 순수 필터라 role과 무관하게 그대로 전달한다.
+   */
   async list(
     query: ProjectListQueryDto,
     requester: ProjectRequester,
   ): Promise<PaginatedResult<ProjectRow>> {
-    const companyId =
-      requester.roleCode === RoleCode.SUPER_ADMIN
-        ? (query.company_id ?? null)
-        : requester.companyId;
-
     const offset = (query.page - 1) * query.page_size;
     const { result, data } = await this.spExecutor.callProcedure<
       ProjectListRow[]
     >('SP_PROJECT_LIST', [
-      companyId,
+      query.company_id ?? null,
       query.status ?? null,
       query.page_size,
       offset,
       requester.userId,
     ]);
 
-    if (result === 20001) {
-      throw new BusinessException(ResultCode.PERMISSION_DENIED);
-    }
     if (result !== 0) {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
@@ -241,6 +240,12 @@ export class ProjectService {
     return buildPaginatedResult(query, totalCount, items);
   }
 
+  /**
+   * DEVELOPER의 접근 판단 기준은 회사 소속이 아니라 실제 활성 `user_role` 배정 여부다
+   * (2026-07-24, list()와 동일한 이유). user_role 배정 여부는 앱이 JWT만으로 판단할 수 없는
+   * 정보라 앱 레이어에서 중복 검증하지 않는다 — SP(`FN_CHECK_PROJECT_ACCESS`)가 유일한
+   * 방어선이다(campaign 도메인의 getById와 동일한 패턴, 02_DEV_CONVENTIONS.md 3.2 예외).
+   */
   async getById(
     projectId: number,
     requester: ProjectRequester,
@@ -257,17 +262,7 @@ export class ProjectService {
       throw new BusinessException(ResultCode.PROJECT_NOT_FOUND);
     }
 
-    const project = data[0];
-    // SP가 이미 회사 접근을 재검증하지만(FN_CHECK_COMPANY_ACCESS), 앱 레이어에서도 동일한
-    // 판단을 한 번 더 확인한다 — 방어적 이중 체크(02_DEV_CONVENTIONS.md 3.2).
-    if (
-      requester.roleCode !== RoleCode.SUPER_ADMIN &&
-      project.company_id !== requester.companyId
-    ) {
-      throw new BusinessException(ResultCode.PERMISSION_DENIED);
-    }
-
-    return project;
+    return data[0];
   }
 
   async update(

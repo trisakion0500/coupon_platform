@@ -2483,26 +2483,34 @@ BEGIN
     --        "호출자가 최신 상태를 보고 요청한 게 맞는가"(concurrency)라 `coupon_campaign.edit_count`
     --        와 동일한 낙관적 락으로 해결한다(project.sql 헤더 주석 참고) — 더블클릭/재시도는 항상
     --        같은(오래된) edit_count를 들고 오므로 두 번째 요청이 정확히 충돌(30005)로 걸러진다.
-    --        내용 : 존재 확인(31002) 후, FN_IS_SUPER_ADMIN(i_user_id)이 아니면 FN_CHECK_PROJECT_ACCESS로
-    --        해당 project_id에 실제 활성 user_role 배정이 있는지 재검증한다(11_PROJECT_API.md 2.5
-    --        Business Rules — JWT의 role_code는 여러 프로젝트 중 최고 권한 하나뿐이라 이 project_id
-    --        기준으로는 다시 확인해야 함). 원래는 앱이 전달한 i_role_code로 SUPER_ADMIN 우회를
-    --        판단했으나, 02_DEV_CONVENTIONS.md 3.2 정책(SP는 호출자의 role_code 값을 앱으로부터
-    --        전달받아 신뢰하지 않는다) 전면 적용 때 이 SP만 누락돼 있던 것을 2026-07-19 감사에서
-    --        발견해 FN_IS_SUPER_ADMIN 재확인으로 교체했다(API Secret 재발급은 보안 민감 기능이라
-    --        다른 SP보다 오히려 더 엄격해야 함). 통과하면 기존 api_secret을 api_secret_prev로 옮기고
-    --        신규 값을 api_secret에 저장, secret_rotated_at을 갱신한다(07_AUTH_SECURITY.md 2.6
-    --        Grace Period 방식). api_key는 변경하지 않는다. 반환 컬럼에 api_secret(암호문)은
-    --        포함하지 않는다 — 평문은 앱 레이어가 자신이 생성한 값을 응답에 직접 얹는다.
+    --        내용 : 존재 확인(31002) 후, FN_IS_SUPER_ADMIN(i_user_id)이 아니면 FN_GET_PROJECT_ROLE_CODE로
+    --        해당 project_id에서의 실제 role_code를 확인해 DEVELOPER(20) 이상인지 재검증한다
+    --        (11_PROJECT_API.md 2.5 Business Rules — JWT의 role_code는 여러 프로젝트 중 최고
+    --        권한 하나뿐이라 이 project_id 기준으로는 다시 확인해야 함). 원래는 앱이 전달한
+    --        i_role_code로 SUPER_ADMIN 우회를 판단했으나, 02_DEV_CONVENTIONS.md 3.2 정책(SP는
+    --        호출자의 role_code 값을 앱으로부터 전달받아 신뢰하지 않는다) 전면 적용 때 이 SP만
+    --        누락돼 있던 것을 2026-07-19 감사에서 발견해 FN_IS_SUPER_ADMIN 재확인으로 교체했다
+    --        (API Secret 재발급은 보안 민감 기능이라 다른 SP보다 오히려 더 엄격해야 함). 통과하면
+    --        기존 api_secret을 api_secret_prev로 옮기고 신규 값을 api_secret에 저장,
+    --        secret_rotated_at을 갱신한다(07_AUTH_SECURITY.md 2.6 Grace Period 방식). api_key는
+    --        변경하지 않는다. 반환 컬럼에 api_secret(암호문)은 포함하지 않는다 — 평문은 앱
+    --        레이어가 자신이 생성한 값을 응답에 직접 얹는다.
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고, 결과 SELECT에 company_id/project_name(스코핑/표시명용)과
     --        before_json/after_json/requester_name을 추가했다. api_secret/api_secret_prev는
     --        '***'로 마스킹한다(13_LOG_AUDIT_API.md 2.4).
+    --        2026-07-24: 처음엔 FN_CHECK_PROJECT_ACCESS(배정 "존재 여부"만 boolean)를 썼는데,
+    --        이 프로젝트에서 OPERATOR(40)로만 배정된 사용자가 다른 프로젝트에서 DEVELOPER(20)라
+    --        JWT의 MIN role_code가 20이면 이 프로젝트의 Secret까지 재발급할 수 있는 결함이
+    --        있었다(SP_PROJECT_LIST/GET_BY_ID와 동일한 결함, 2026-07-24 그쪽 수정 참고).
+    --        FN_GET_PROJECT_ROLE_CODE로 실제 role_code 값을 가져와 20 이하인지까지 확인하도록
+    --        교체했다 — 재발급은 조회보다도 더 민감한 동작이라 이 결함의 영향이 더 컸다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
     DECLARE v_before_json JSON         DEFAULT NULL;
+    DECLARE v_role_code   TINYINT UNSIGNED DEFAULT NULL;
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS CONDITION 1
@@ -2516,9 +2524,12 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        IF NOT FN_IS_SUPER_ADMIN(i_user_id) AND NOT FN_CHECK_PROJECT_ACCESS(i_user_id, i_project_id) THEN
-            SELECT 20001 AS RESULT;
-            LEAVE proc_block;
+        IF NOT FN_IS_SUPER_ADMIN(i_user_id) THEN
+            SET v_role_code = FN_GET_PROJECT_ROLE_CODE(i_user_id, i_project_id);
+            IF v_role_code IS NULL OR v_role_code > 20 THEN
+                SELECT 20001 AS RESULT;
+                LEAVE proc_block;
+            END IF;
         END IF;
 
         SELECT JSON_OBJECT(             -- before_json: UPDATE 직전 스냅샷(api_secret류 마스킹)
@@ -2817,24 +2828,40 @@ DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_GET_BY_ID` (
     IN i_project_id        BIGINT UNSIGNED,  -- 조회할 프로젝트 ID
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '프로젝트 상세 조회 - company 조인, 회사 접근 재검증 (11_PROJECT_API.md 2.3)'
+) COMMENT '프로젝트 상세 조회 - company 조인, user_role 배정 재검증 (11_PROJECT_API.md 2.3)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_GET_BY_ID
     -- 작성 : 2026.07.19 trisakion
+    -- 수정 : 2026.07.24 trisakion — 접근 판단 기준을 "호출자가 이 프로젝트의 회사 소속인가"
+    --        (FN_CHECK_COMPANY_ACCESS)에서 "호출자가 이 프로젝트에 실제 활성 user_role로
+    --        배정되어 있는가"(FN_CHECK_PROJECT_ACCESS)로 전환 — SP_PROJECT_LIST와 동일한 이유
+    --        (2026-07-24 수정 참고), API Secret 재발급(SP_PROJECT_API_SECRET_ROTATE)이 이미
+    --        FN_CHECK_PROJECT_ACCESS를 쓰고 있어 이번 변경으로 조회/재발급 두 엔드포인트의
+    --        접근 기준이 비로소 일치한다.
+    -- 수정2: 2026.07.24 trisakion — FN_CHECK_PROJECT_ACCESS는 배정 "존재 여부"만 boolean으로
+    --        답해 role_code 수준을 구분하지 못했다(예: 이 프로젝트에서 OPERATOR(40)로만 배정된
+    --        사용자가 다른 프로젝트에서 DEVELOPER(20)라 JWT의 MIN role_code가 20이면, 관리메뉴
+    --        진입 자체는 허용되니 이 프로젝트 상세까지 조회·재발급 가능해지는 결함). 프로젝트
+    --        관리메뉴는 DEVELOPER(20) 이상만 접근 가능하다는 원칙(10_COMPANY_API.md 1.2)을
+    --        프로젝트 단위로 정확히 적용하기 위해 FN_GET_PROJECT_ROLE_CODE로 실제 role_code
+    --        값을 가져와 20 이하인지까지 확인하도록 교체했다.
     -- 내용 : project_id로 프로젝트 상세를 조회한다. company_code/company_name을 함께 반환하기
-    --        위해 company를 조인한다. 없으면 31002. DEVELOPER의 타사 프로젝트 접근 차단(20001)은
-    --        앱 레이어(ProjectService)가 조회 결과의 company_id를 요청자의 companyId와 비교해
-    --        1차로 판단하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로 호출자가 실제 그 프로젝트의 회사
-    --        소속인지 2차로 재검증한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2). 존재 확인이
-    --        먼저이고(31002), 그 다음 접근 재검증(20001) 순서다 - 없는 리소스는 권한 여부와
-    --        무관하게 항상 404가 맞다. SUPER_ADMIN 우회는 FN_IS_SUPER_ADMIN(i_requester_user_id)로
-    --        SP가 직접 DB에서 재확인한다 - 앱이 넘긴 role_code 값을 그대로 믿지 않는다.
+    --        위해 company를 조인한다. 없으면 31002. DEVELOPER 미만 배정/미배정 프로젝트 접근
+    --        차단(20001)은 앱 레이어(ProjectService)가 아니라 이 SP가 유일한 방어선이다(회사
+    --        매칭과 달리 user_role 배정 여부/role_code 값은 앱이 JWT만으로 판단할 수 없는
+    --        정보라, 02_DEV_CONVENTIONS.md 3.2의 "호출자가 이미 알고 있는 값은 앱이 먼저 걸러도
+    --        된다"는 예외에 해당하지 않음 — campaign 도메인의 getById와 동일한 패턴). 존재
+    --        확인이 먼저이고(31002), 그 다음 접근 재검증(20001) 순서다 - 없는 리소스는 권한
+    --        여부와 무관하게 항상 404가 맞다. SUPER_ADMIN 우회는 FN_IS_SUPER_ADMIN
+    --        (i_requester_user_id)로 SP가 직접 DB에서 재확인한다 - 앱이 넘긴 role_code 값을
+    --        그대로 믿지 않는다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
     DECLARE error_message VARCHAR(255) DEFAULT '';
-    DECLARE v_company_id  BIGINT UNSIGNED DEFAULT NULL;
+    DECLARE v_exists      TINYINT UNSIGNED DEFAULT 0;
+    DECLARE v_role_code   TINYINT UNSIGNED DEFAULT NULL;
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS CONDITION 1
@@ -2843,17 +2870,19 @@ BEGIN
     END;
 
     proc_block: BEGIN
-        SELECT `company_id` INTO v_company_id FROM `project` WHERE `project_id` = i_project_id;
+        SELECT COUNT(*) INTO v_exists FROM `project` WHERE `project_id` = i_project_id;
 
-        IF v_company_id IS NULL THEN
+        IF v_exists = 0 THEN
             SELECT 31002 AS RESULT;
             LEAVE proc_block;
         END IF;
 
-        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id)
-           AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, v_company_id) THEN
-            SELECT 20001 AS RESULT;
-            LEAVE proc_block;
+        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id) THEN
+            SET v_role_code = FN_GET_PROJECT_ROLE_CODE(i_requester_user_id, i_project_id);
+            IF v_role_code IS NULL OR v_role_code > 20 THEN
+                SELECT 20001 AS RESULT;
+                LEAVE proc_block;
+            END IF;
         END IF;
 
         SELECT 0 AS RESULT;
@@ -2875,33 +2904,43 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_PROJECT_LIST`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_LIST` (
-    IN i_company_id        BIGINT UNSIGNED,   -- 회사 필터 (NULL이면 전체 — DEVELOPER 호출 시 앱 레이어가 자기 회사로 강제)
+    IN i_company_id        BIGINT UNSIGNED,   -- 회사 필터 (NULL이면 전체) — 스코핑이 아니라 순수 필터
     IN i_status            TINYINT UNSIGNED,  -- 상태 필터 (NULL이면 전체)
     IN i_page_size         INT,               -- 페이지당 행 수
     IN i_offset            INT,               -- 시작 오프셋
     IN i_requester_user_id BIGINT UNSIGNED    -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '프로젝트 목록 조회 - 페이지네이션, company 조인, 회사 접근 재검증 (11_PROJECT_API.md 2.2)'
+) COMMENT '프로젝트 목록 조회 - 페이지네이션, company 조인, user_role 기반 행단위 스코핑 (11_PROJECT_API.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_LIST
     -- 작성 : 2026.07.19 trisakion
+    -- 수정 : 2026.07.24 trisakion — 스코핑 기준을 회사(company_id) 단위에서 실제 user_role 배정
+    --        단위로 전환. API Key/Secret처럼 민감한 자격증명을 다루는 화면이라, 같은 회사
+    --        소속이라는 사실만으로 담당이 아닌 프로젝트까지 보이는 게 문제로 지적됨(캠페인 등
+    --        쿠폰 도메인이 이미 쓰는 user_role 프로젝트 단위 스코핑과 통일, 17_CAMPAIGN_API.md
+    --        1.2 참고). i_company_id는 더 이상 "앱이 강제로 채우는 스코핑 값"이 아니라 누구나
+    --        선택적으로 쓸 수 있는 순수 필터로 의미가 바뀌었다 — SUPER_ADMIN이 아닌 호출자에게는
+    --        이 필터와 별개로 `user_role` 행단위 조건이 항상 함께 걸린다. 이 방식은
+    --        "권한 없음(20001)"을 던지는 대신 조용히 결과를 좁히는 필터형 스코핑이라(회사 목록
+    --        조회에 잘못된 값을 넣는 것과 달리, "내가 배정 안 된 프로젝트가 안 보이는 것"은 에러가
+    --        아니라 정상 동작이므로) FN_IS_SUPER_ADMIN 우회 확인 외의 별도 20001 분기가 필요 없다.
+    --        FN_IS_SUPER_ADMIN 호출을 행마다 반복하지 않도록 결과를 로컬 변수에 한 번만 담아 재사용.
+    -- 수정2: 2026.07.24 trisakion — 최초 전환 때는 "배정 존재 여부"만 보는 EXISTS였는데, 이는
+    --        role_code 수준을 구분하지 않는 결함이었다(예: 프로젝트 A에서 DEVELOPER(20), 프로젝트
+    --        B에서 OPERATOR(40)로 배정된 사용자는 JWT의 MIN role_code가 20이라 관리메뉴 진입
+    --        자체는 허용되는데, 존재 여부만 보면 프로젝트 B까지 노출·수정됐다). 프로젝트 관리메뉴는
+    --        DEVELOPER(20) 이상만 접근 가능하다는 원칙(10_COMPANY_API.md 1.2)을 프로젝트 단위로
+    --        정확히 적용하기 위해 `role_code <= 20` 조건을 추가했다.
     -- 내용 : 프로젝트 목록을 status DESC, project_name ASC로 정렬해 페이지 단위로 반환한다.
-    --        company_code/company_name을 함께 보여줘야 해서 company를 조인한다. DEVELOPER는
-    --        본인 소속 company_id만 봐야 하는데(11_PROJECT_API.md 2.2 Business Rules), 그 스코핑은
-    --        앱 레이어(ProjectService)가 i_company_id에 항상 자기 companyId를 채워 호출하는
-    --        방식으로 1차 강제하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로 호출자가 실제 그 회사
-    --        소속인지 2차로 재검증한다(앱 레이어 버그로 잘못된 company_id가 넘어와도 SP가
-    --        마지막 방어선 역할을 하도록, 02_DEV_CONVENTIONS.md 3.2). SUPER_ADMIN 우회는
-    --        FN_IS_SUPER_ADMIN(i_requester_user_id)로 SP가 직접 DB에서 재확인한다 - 앱이
-    --        role_code 값을 함께 넘겨 그 값을 그대로 믿는 방식은 쓰지 않는다(앱 레이어가 잘못된
-    --        role_code를 실어 보내는 버그가 있어도 이 SP는 영향받지 않는다).
+    --        company_code/company_name을 함께 보여줘야 해서 company를 조인한다.
     --        total_count는 SP_COMPANY_LIST와 동일한 이유로 COUNT(*) OVER()가 아니라 별도 서브쿼리
     --        + LEFT JOIN ... ON TRUE 패턴으로 반환한다(offset이 범위를 벗어나 0행이 반환돼도
     --        total_count가 0으로 사라지지 않도록, 2026-07-19 감사에서 발견된 버그 수정).
     -- ------------------------------------------------------------------------------------------------------------ --
-    DECLARE sql_state     CHAR(5)      DEFAULT '00000';
-    DECLARE error_no      INT          DEFAULT 0;
-    DECLARE error_message VARCHAR(255) DEFAULT '';
+    DECLARE sql_state       CHAR(5)      DEFAULT '00000';
+    DECLARE error_no        INT          DEFAULT 0;
+    DECLARE error_message   VARCHAR(255) DEFAULT '';
+    DECLARE v_is_super_admin BOOLEAN     DEFAULT FN_IS_SUPER_ADMIN(i_requester_user_id);
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS CONDITION 1
@@ -2910,12 +2949,6 @@ BEGIN
     END;
 
     proc_block: BEGIN
-        IF NOT FN_IS_SUPER_ADMIN(i_requester_user_id)
-           AND NOT FN_CHECK_COMPANY_ACCESS(i_requester_user_id, i_company_id) THEN
-            SELECT 20001 AS RESULT;
-            LEAVE proc_block;
-        END IF;
-
         SELECT 0 AS RESULT;
         SELECT
             pg.`project_id`, pg.`company_id`, pg.`company_code`, pg.`company_name`,
@@ -2927,6 +2960,16 @@ BEGIN
             FROM `project` p
             WHERE (i_company_id IS NULL OR p.`company_id` = i_company_id)
               AND (i_status IS NULL OR p.`status` = i_status)
+              AND (
+                  v_is_super_admin
+                  OR EXISTS (
+                      SELECT 1 FROM `user_role` ur
+                      WHERE ur.`project_id` = p.`project_id`
+                        AND ur.`user_id` = i_requester_user_id
+                        AND ur.`status` = 1
+                        AND ur.`role_code` <= 20  -- DEVELOPER(20) 이상만 — MANAGER/OPERATOR 배정은 프로젝트 관리메뉴 접근 불가
+                  )
+              )
         ) cnt
         LEFT JOIN (
             SELECT
@@ -2937,6 +2980,16 @@ BEGIN
             JOIN `company` c ON c.`company_id` = p.`company_id`
             WHERE (i_company_id IS NULL OR p.`company_id` = i_company_id)
               AND (i_status IS NULL OR p.`status` = i_status)
+              AND (
+                  v_is_super_admin
+                  OR EXISTS (
+                      SELECT 1 FROM `user_role` ur
+                      WHERE ur.`project_id` = p.`project_id`
+                        AND ur.`user_id` = i_requester_user_id
+                        AND ur.`status` = 1
+                        AND ur.`role_code` <= 20  -- DEVELOPER(20) 이상만 — MANAGER/OPERATOR 배정은 프로젝트 관리메뉴 접근 불가
+                  )
+              )
             ORDER BY p.`status` DESC, p.`project_name` ASC
             LIMIT i_page_size OFFSET i_offset
         ) pg ON TRUE;

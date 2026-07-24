@@ -237,19 +237,21 @@ script-src-attr 'none'; style-src 'self' https: 'unsafe-inline'; upgrade-insecur
 
 ---
 
-# 6. Health Check
+# 6. Health Check / 공개 설정 조회
 
-## Endpoint
+## 6.1 Health Check
+
+### Endpoint
 
 ```http
 GET /health
 ```
 
-## Permission
+### Permission
 
 Anonymous (인증 불필요)
 
-## Response
+### Response
 
 ```json
 {
@@ -260,12 +262,41 @@ Anonymous (인증 불필요)
 }
 ```
 
-## 용도
+### 용도
 
 ```text
 서버 기동 확인
 로드밸런서 헬스체크
 배포 후 정상 기동 여부 확인
+```
+
+---
+
+## 6.2 공개 설정 조회
+
+### Endpoint
+
+```http
+GET /config/public
+```
+
+### Permission
+
+Anonymous (인증 불필요)
+
+### Description
+
+화면 문구에 그대로 노출해야 하는 env 설정값을 프론트가 가져오기 위한 전용 엔드포인트다 — `.env` 원본을 그대로 반환하는 범용 설정 조회 API가 아니라, 민감정보가 아닌 값만 화이트리스트로 추가한다. 예: [11_PROJECT_API.md](./11_PROJECT_API.md) 2.5 API Secret 재발급 확인 문구에 유예기간 일수를 노출할 때 이 값을 쓴다([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2.6 `API_SECRET_GRACE_PERIOD_DAYS`).
+
+### Response
+
+```json
+{
+  "result": 0,
+  "data": {
+    "api_secret_grace_period_days": 7
+  }
+}
 ```
 
 ---

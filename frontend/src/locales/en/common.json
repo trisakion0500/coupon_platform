@@ -61,6 +61,92 @@
       }
     }
   },
+  "common": {
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    }
+  },
+  "admin": {
+    "companies": {
+      "backToList": "Back to List",
+      "list": {
+        "create": "New Company",
+        "statusFilterPlaceholder": "Filter by status"
+      },
+      "new": {
+        "title": "New Company",
+        "submit": "Create"
+      },
+      "detail": {
+        "title": "Company Detail (#{{id}})",
+        "save": "Save",
+        "saveSuccess": "Saved.",
+        "notFound": "This company does not exist."
+      },
+      "fields": {
+        "companyCode": "Company Code",
+        "companyCodeRequired": "Please enter the company code.",
+        "codeFormat": "Only letters, numbers, and _ . - are allowed.",
+        "companyName": "Company Name",
+        "companyNameRequired": "Please enter the company name.",
+        "description": "Description",
+        "status": "Status",
+        "createdAt": "Created At",
+        "updatedAt": "Updated At"
+      },
+      "errors": {
+        "32001": "This company code is already in use."
+      }
+    },
+    "projects": {
+      "backToList": "Back to List",
+      "list": {
+        "create": "New Project",
+        "statusFilterPlaceholder": "Filter by status"
+      },
+      "new": {
+        "title": "New Project",
+        "submit": "Create",
+        "secretModalTitle": "API Key/Secret Issued",
+        "secretModalWarning": "The API Secret is only shown here. Copy it now and configure your game server with it.",
+        "secretModalConfirm": "OK, Go to Detail"
+      },
+      "detail": {
+        "title": "Project Detail (#{{id}})",
+        "save": "Save",
+        "saveSuccess": "Saved.",
+        "notFound": "This project does not exist.",
+        "neverRotated": "Never rotated",
+        "rotateButton": "Rotate API Secret",
+        "rotateConfirmTitle": "Rotate the API Secret?",
+        "rotateConfirmContent": "A new Secret will be issued immediately; the old Secret remains valid only during the grace period ({{days}} days). The plaintext value cannot be retrieved again, so copy it right away.",
+        "rotateConfirmOk": "Rotate",
+        "rotateModalTitle": "API Secret Rotated"
+      },
+      "fields": {
+        "companyName": "Company",
+        "companyRequired": "Please select a company.",
+        "projectCode": "Project Code",
+        "projectCodeRequired": "Please enter the project code.",
+        "codeFormat": "Only letters, numbers, and _ . - are allowed.",
+        "projectName": "Project Name",
+        "projectNameRequired": "Please enter the project name.",
+        "description": "Description",
+        "status": "Status",
+        "apiKey": "API Key",
+        "apiSecret": "API Secret",
+        "secretRotatedAt": "Secret Rotated At",
+        "createdAt": "Created At",
+        "updatedAt": "Updated At"
+      },
+      "errors": {
+        "31001": "This company does not exist.",
+        "32001": "This project code is already in use.",
+        "30005": "Another administrator updated this first. The latest data has been reloaded."
+      }
+    }
+  },
   "myAccount": {
     "title": "My Account",
     "logout": "Log Out",

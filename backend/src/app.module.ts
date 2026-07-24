@@ -17,6 +17,7 @@ import { CouponUseLogModule } from './coupon-use-log/coupon-use-log.module';
 import { HealthModule } from './health/health.module';
 import { LogAuditModule } from './log-audit/log-audit.module';
 import { ProjectModule } from './project/project.module';
+import { PublicConfigModule } from './public-config/public-config.module';
 import { UserModule } from './user/user.module';
 import { UserRoleModule } from './user-role/user-role.module';
 
@@ -40,6 +41,7 @@ import { UserRoleModule } from './user-role/user-role.module';
     NonceCleanupModule,
     CodeGenerationStaleMonitorModule,
     HealthModule,
+    PublicConfigModule,
     AuthModule,
     CompanyModule,
     ProjectModule,

@@ -13,10 +13,13 @@ interface GlobalState {
   companyList: ActiveCompany[];
   projectList: ActiveProject[];
   projectRoleCode: RoleCode | null;
+  /** 08_API_COMMON.md 6.2 — 로그인/세션복원 1회 로드 캐시(화면 문구용, 예: Secret 유예기간). */
+  apiSecretGracePeriodDays: number | null;
   setHeaderData: (data: ActiveHeaderData) => void;
   setSelectedCompanyId: (companyId: number | null) => void;
   setSelectedProjectId: (projectId: number | null) => void;
   setProjectRoleCode: (roleCode: RoleCode | null) => void;
+  setApiSecretGracePeriodDays: (days: number) => void;
   reset: () => void;
 }
 
@@ -26,6 +29,7 @@ export const useGlobalStore = create<GlobalState>((set) => ({
   companyList: [],
   projectList: [],
   projectRoleCode: null,
+  apiSecretGracePeriodDays: null,
   setHeaderData: ({ companies, projects }) =>
     set({ companyList: companies, projectList: projects }),
   setSelectedCompanyId: (companyId) =>
@@ -34,6 +38,7 @@ export const useGlobalStore = create<GlobalState>((set) => ({
   setSelectedProjectId: (projectId) =>
     set({ selectedProjectId: projectId, projectRoleCode: null }),
   setProjectRoleCode: (roleCode) => set({ projectRoleCode: roleCode }),
+  setApiSecretGracePeriodDays: (days) => set({ apiSecretGracePeriodDays: days }),
   reset: () =>
     set({
       selectedCompanyId: null,
@@ -41,5 +46,6 @@ export const useGlobalStore = create<GlobalState>((set) => ({
       companyList: [],
       projectList: [],
       projectRoleCode: null,
+      apiSecretGracePeriodDays: null,
     }),
 }));

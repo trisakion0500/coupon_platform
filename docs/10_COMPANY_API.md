@@ -28,8 +28,8 @@
 
 ### DEVELOPER
 
-- 회사 관리메뉴(본 문서 2장) 접근 불가 — 프로젝트 관리메뉴 중 **프로젝트 리스트/상세 조회, API Secret 재발급**만 가능([11_PROJECT_API.md](./11_PROJECT_API.md) 2장 참고, 프로젝트 생성/정체성 필드 수정 권한은 없음)
-- 하위 권한(MANAGER/OPERATOR)의 쿠폰 도메인 컨트롤도 모두 가능, `user_role` 배정 프로젝트 단위 스코핑([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 1.2 참고 — 프로젝트 관리메뉴 조회와 달리 쿠폰 도메인은 회사 전체가 아니라 실제 배정된 프로젝트로 한정)
+- 회사 관리메뉴(본 문서 2장) 접근 불가 — 프로젝트 관리메뉴 중 **프로젝트 리스트/상세 조회, API Secret 재발급**만 가능([11_PROJECT_API.md](./11_PROJECT_API.md) 2장 참고, 프로젝트 생성/정체성 필드 수정 권한은 없음). 이 조회·재발급 권한은 회사 소속 여부가 아니라 **해당 프로젝트에서 실제 `role_code<=20`(DEVELOPER 이상)으로 활성 배정되어 있는지**로 한정된다([11_PROJECT_API.md](./11_PROJECT_API.md) 2.2/2.3/2.5 참고) — 같은 회사 소속이어도, 혹은 다른 프로젝트에서 DEVELOPER 이상이어도, 이 프로젝트에서의 배정이 MANAGER(30)/OPERATOR(40)뿐이면 API Key/Secret은 볼 수 없다(JWT의 `role_code`는 여러 프로젝트 중 최고 권한 하나뿐이라 이 판단에 쓸 수 없다)
+- 하위 권한(MANAGER/OPERATOR)의 쿠폰 도메인 컨트롤도 모두 가능, `user_role` 배정 프로젝트 단위 스코핑([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 1.2 참고 — 위 프로젝트 관리메뉴 조회와 동일한 스코핑 기준)
 
 ### MANAGER
 
