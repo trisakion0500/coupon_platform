@@ -19,12 +19,12 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
 | SCR-010 | 회사 목록           | `/admin/companies`                 | O           | -         | -       | -        |                                                             |
 | SCR-011 | 회사 등록           | `/admin/companies/new`             | O           | -         | -       | -        |                                                             |
 | SCR-012 | 회사 상세·수정      | `/admin/companies/:company_id`     | O           | -         | -       | -        |                                                             |
-| SCR-020 | 프로젝트 목록       | `/admin/projects`                  | O           | O         | -       | -        | DEVELOPER: 본인 소속 회사만                                |
+| SCR-020 | 프로젝트 목록       | `/admin/projects`                  | O           | O         | -       | -        | DEVELOPER: 역할보유(role_code<=20) 프로젝트만               |
 | SCR-021 | 프로젝트 등록       | `/admin/projects/new`              | O           | -         | -       | -        |                                                             |
 | SCR-022 | 프로젝트 상세·수정  | `/admin/projects/:project_id`      | O           | O         | -       | -        | 수정: SUPER_ADMIN만. Secret 재발급: SUPER_ADMIN, DEVELOPER(역할보유 프로젝트만) |
 | SCR-030 | 사용자 목록         | `/admin/users`                     | O           | O         | -       | -        | 상태 콤보박스(전체/승인대기/정상/반려/사용중지) 필터; DEVELOPER: 본인 소속 회사 전체 status |
 | SCR-031 | 사용자 상세·수정    | `/admin/users/:user_id`            | O           | O         | -       | -        | 수정·승인·반려·비밀번호초기화·권한관리: SUPER_ADMIN만, DEVELOPER는 조회만 |
-| SCR-040 | 감사 로그 목록      | `/admin/audit-logs`                | O           | O         | -       | -        | SUPER_ADMIN 외: 자사만                                     |
+| SCR-040 | 감사 로그 목록      | `/admin/audit-logs`                | O           | O         | -       | -        | DEVELOPER: 자사만(단 `project`/`user_role` 로그는 역할보유 프로젝트로 추가 제한) |
 | SCR-041 | 감사 로그 상세      | `/admin/audit-logs/:idx`           | O           | O         | -       | -        |                                                             |
 | **비관리 메뉴** |
 | SCR-100 | 캠페인 목록         | `/campaigns`                       | O           | O         | O       | O        | 헤더의 전역 프로젝트 선택을 그대로 필터로 사용, "전체 프로젝트" 상태로는 진입 불가 |
@@ -189,7 +189,7 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
 ### SCR-040. 감사 로그 목록
 
 - **Route:** `/admin/audit-logs`
-- **접근:** SUPER_ADMIN, DEVELOPER(SUPER_ADMIN 외: 자사만)
+- **접근:** SUPER_ADMIN, DEVELOPER(자사만, 단 `project`/`user_role` 로그는 역할보유(role_code<=20) 프로젝트로 추가 제한 — [13_LOG_AUDIT_API.md](./13_LOG_AUDIT_API.md) 3장)
 - **주요 기능:** 감사 로그 목록 조회. 회사 필터는 화면 자체가 아닌 헤더의 전역 회사 선택을 그대로 사용(SUPER_ADMIN만 "전체" 선택 가능), 화면에는 테이블 / 작업 유형 / 기간 필터·페이지네이션 존재(작업자 필터는 없음 — 대신 목록·상세 모두 회사/프로젝트를 원시 ID가 아닌 이름으로 표시), 상세 이동
 - **연관 API:**
 
