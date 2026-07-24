@@ -147,8 +147,13 @@
       }
     },
     "users": {
+      "backToList": "목록으로",
       "list": {
         "statusFilterPlaceholder": "상태 필터"
+      },
+      "detail": {
+        "title": "사용자 상세 (#{{id}})",
+        "notFound": "존재하지 않는 사용자입니다."
       },
       "status": {
         "pending": "승인대기",
@@ -161,10 +166,13 @@
         "loginId": "로그인 ID",
         "userName": "이름",
         "email": "이메일",
+        "phoneNumber": "휴대폰번호",
         "department": "부서",
         "position": "직급",
         "status": "상태",
-        "createdAt": "가입일시"
+        "lastLoginAt": "최근 로그인",
+        "createdAt": "가입일시",
+        "updatedAt": "수정일시"
       }
     }
   },

@@ -147,8 +147,13 @@
       }
     },
     "users": {
+      "backToList": "Back to List",
       "list": {
         "statusFilterPlaceholder": "Filter by status"
+      },
+      "detail": {
+        "title": "User Detail (#{{id}})",
+        "notFound": "This user does not exist."
       },
       "status": {
         "pending": "Pending Approval",
@@ -161,10 +166,13 @@
         "loginId": "Login ID",
         "userName": "Name",
         "email": "Email",
+        "phoneNumber": "Phone Number",
         "department": "Department",
         "position": "Position",
         "status": "Status",
-        "createdAt": "Signed Up At"
+        "lastLoginAt": "Last Login",
+        "createdAt": "Signed Up At",
+        "updatedAt": "Updated At"
       }
     }
   },

@@ -12,3 +12,9 @@ export async function listUsers(
   );
   return data.data;
 }
+
+/** 12_USER_API.md 1.3 — DEVELOPER가 타 회사 사용자를 조회하면 20001(PERMISSION_DENIED). */
+export async function getUser(userId: number): Promise<User> {
+  const { data } = await apiClient.get<ApiEnvelope<User>>(`/users/${userId}`);
+  return data.data;
+}
