@@ -44,7 +44,7 @@ mysql -u root -p coupon_platform < database/tables/all_tables.sql
 
 ## 3.3 Function 생성
 
-Procedure가 Function을 호출하는 경우가 있어(`SP_PROJECT_API_SECRET_ROTATE` → `FN_CHECK_PROJECT_ACCESS`)
+Procedure가 Function을 호출하는 경우가 있어(`SP_PROJECT_API_SECRET_ROTATE` → `FN_GET_PROJECT_ROLE_CODE`)
 Function을 먼저 만든다.
 
 ```bash
