@@ -1,6 +1,15 @@
 import { apiClient } from '@/api/client';
 import type { ApiEnvelope } from '@/types/api';
-import type { AuthUser, LoginResponse } from '@/types/auth';
+import type { AuthUser, LoginResponse, SignupRequest } from '@/types/auth';
+
+/** 09_AUTH_API.md 4장 — 응답은 user 원본 컬럼(password_hash 제외)이라 AuthUser와 셰이프 동일. */
+export async function signup(dto: SignupRequest): Promise<AuthUser> {
+  const { data } = await apiClient.post<ApiEnvelope<AuthUser>>(
+    '/auth/signup',
+    dto,
+  );
+  return data.data;
+}
 
 /** 09_AUTH_API.md 5장. */
 export async function login(

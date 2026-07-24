@@ -83,7 +83,7 @@ export class AuthService {
       'SP_USER_SIGNUP',
       [
         dto.company_id,
-        dto.requested_project_id,
+        dto.requested_project_id ?? null,
         dto.login_id,
         passwordHash,
         dto.user_name,

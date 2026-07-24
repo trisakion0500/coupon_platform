@@ -86,6 +86,37 @@ describe('AuthService', () => {
       expect(result).not.toHaveProperty('password_hash');
     });
 
+    it('passes null for requested_project_id when omitted (선택 입력)', async () => {
+      const { requested_project_id: _omit, ...dtoWithoutProject } = dto;
+      spExecutor.callProcedure.mockResolvedValueOnce({
+        result: 0,
+        data: [
+          {
+            user_id: 11,
+            company_id: 1,
+            requested_project_id: null,
+            login_id: 'newuser2',
+            user_name: 'New User',
+            email: 'new2@example.com',
+            phone_number: cryptoService.encrypt('010-1234-5678'),
+            department: null,
+            position: null,
+            status: 0,
+            last_login_at: null,
+            created_at: '2026-07-19 10:00:00',
+            updated_at: '2026-07-19 10:00:00',
+          },
+        ],
+      });
+
+      await service.signup(dtoWithoutProject);
+
+      expect(spExecutor.callProcedure).toHaveBeenCalledWith(
+        'SP_USER_SIGNUP',
+        expect.arrayContaining([1, null]),
+      );
+    });
+
     it('throws COMPANY_NOT_FOUND on 31001', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31001 });
       await expect(service.signup(dto)).rejects.toMatchObject({

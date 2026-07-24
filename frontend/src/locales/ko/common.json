@@ -19,7 +19,46 @@
       }
     },
     "signup": {
-      "comingSoon": "회원가입 폼은 준비 중입니다."
+      "title": "회원가입",
+      "codeGuide": "담당자에게 문의하여 회사/프로젝트 코드를 받아 입력하세요.",
+      "submit": "가입 신청",
+      "hasAccount": "이미 계정이 있으신가요?",
+      "login": "로그인",
+      "doneTitle": "가입 신청이 완료되었습니다.",
+      "doneSubtitle": "관리자 승인 후 로그인할 수 있습니다.",
+      "backToLogin": "로그인 화면으로",
+      "errors": {
+        "31001": "존재하지 않거나 비활성화된 회사 코드입니다.",
+        "31002": "존재하지 않거나 비활성화된 프로젝트 코드입니다.",
+        "32001": "이미 사용 중인 로그인 ID 또는 이메일입니다.",
+        "40001": "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
+        "default": "요청 처리 중 오류가 발생했습니다."
+      },
+      "fields": {
+        "companyCode": "회사 코드",
+        "companyCodeRequired": "회사 코드를 입력해주세요.",
+        "projectCode": "프로젝트 코드",
+        "projectCodeOptional": "담당 프로젝트가 있는 경우에만 입력하세요(선택).",
+        "codeFormat": "영문/숫자/_/./- 만 입력 가능합니다.",
+        "loginId": "로그인 ID",
+        "loginIdRequired": "로그인 ID를 입력해주세요.",
+        "loginIdFormat": "영문/숫자/_/./- 만 입력 가능합니다.",
+        "password": "비밀번호",
+        "passwordRequired": "비밀번호를 입력해주세요.",
+        "passwordLength": "4자 이상 72자 이하로 입력해주세요.",
+        "confirmPassword": "비밀번호 확인",
+        "confirmPasswordRequired": "비밀번호를 한번 더 입력해주세요.",
+        "confirmPasswordMismatch": "비밀번호가 일치하지 않습니다.",
+        "userName": "이름",
+        "userNameRequired": "이름을 입력해주세요.",
+        "email": "이메일",
+        "emailRequired": "이메일을 입력해주세요.",
+        "emailFormat": "올바른 이메일 형식이 아닙니다.",
+        "phoneNumber": "휴대폰번호",
+        "phoneNumberRequired": "휴대폰번호를 입력해주세요.",
+        "department": "부서",
+        "position": "직급"
+      }
     }
   },
   "myAccount": {

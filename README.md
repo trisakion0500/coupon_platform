@@ -167,7 +167,8 @@ coupon_platform/
   - ✅ 구조 스캐폴딩 — 레이아웃 3종(AuthLayout/MainLayout/AdminLayout), 라우트 전체 골격(`16_LAYOUT.md` 7장), role 기반 가드 4종(`RoleGuard`/`PermissionGuard`/`RequireAuth`/`RequireGuest`/`RequireProjectSelected`), Zustand `authStore`/`globalStore`, axios 클라이언트(Access Token 자동 첨부 + 만료 시 자동 재발급·재시도)
   - ✅ 로그인(SCR-001) + 내 계정 조회·로그아웃(SCR-200) — 실제 백엔드 연동, 브라우저 라이브 검증 완료
   - ✅ 다국어(i18n) — react-i18next로 ko/en 지원, 로그인 화면 포함 전체 공통 UI(헤더/사이드바/푸터/에러 페이지) 번역 + 언어 선택 드롭다운(`localStorage` 유지), 백엔드 에러 메시지는 한글 유지가 원칙(`01_TECH_STACK.md` 참고)
-  - ⬜ 회원가입, 캠페인 목록·등록·상세, 쿠폰 사용 로그, 관리메뉴(회사/프로젝트/사용자/감사로그) — 라우팅만 연결된 stub 상태, 다음 단계에서 도메인별로 구현 예정
+  - ✅ 회원가입(SCR-002) — 회사/프로젝트 코드 텍스트 입력(드롭다운 아님, 인증 불필요 lookup API 사용) + 제출 시점 검증, 실제 백엔드 연동, 브라우저 라이브 검증 완료. 구현 중 `requested_project_id`가 문서(선택)와 실제 백엔드(필수 강제)가 어긋난 걸 발견해 백엔드를 선택 입력으로 수정(`SignupDto`/`SP_USER_SIGNUP`)
+  - ⬜ 캠페인 목록·등록·상세, 쿠폰 사용 로그, 관리메뉴(회사/프로젝트/사용자/감사로그) — 라우팅만 연결된 stub 상태, 다음 단계에서 도메인별로 구현 예정
 
 ### 향후 개선사항 (우선순위 낮음, 별도 검토 필요)
 

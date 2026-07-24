@@ -17,6 +17,19 @@ export interface AuthUser {
   updated_at: string;
 }
 
+/** 09_AUTH_API.md 4장 POST /auth/signup 요청 — requested_project_id는 선택 입력. */
+export interface SignupRequest {
+  company_id: number;
+  requested_project_id?: number;
+  login_id: string;
+  password: string;
+  user_name: string;
+  email: string;
+  phone_number: string;
+  department?: string;
+  position?: string;
+}
+
 /** 09_AUTH_API.md 5장 POST /auth/login 응답. */
 export interface LoginResponse {
   access_token: string;

@@ -65,6 +65,8 @@
 
 `company_id`/`requested_project_id`는 회사/프로젝트 코드(`company_code`/`project_code`)를 미리 조회해 얻은 ID를 사용한다. 코드→ID 변환은 [10_COMPANY_API.md](./10_COMPANY_API.md) 2.5 `GET /companies/lookup`, [11_PROJECT_API.md](./11_PROJECT_API.md) 2.6 `GET /projects/lookup`을 따른다.
 
+`requested_project_id`는 선택 입력이다(`user.requested_project_id` 컬럼 자체가 `NULL` 허용, [15_SCREEN_LIST.md](./15_SCREEN_LIST.md) SCR-002 참고) — 미입력 시 `NULL`로 저장되며 소속 프로젝트 검증을 생략한다. `company_id`는 필수다.
+
 #### 처리 정책
 
 ```text

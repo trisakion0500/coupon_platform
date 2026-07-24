@@ -2,7 +2,7 @@ DROP PROCEDURE IF EXISTS `SP_USER_SIGNUP`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_SIGNUP` (
     IN i_company_id            BIGINT UNSIGNED,  -- 가입 신청 회사 ID
-    IN i_requested_project_id  BIGINT UNSIGNED,  -- 가입 신청 프로젝트 ID (영구 보관, 이후 변경 불가)
+    IN i_requested_project_id  BIGINT UNSIGNED,  -- 가입 신청 프로젝트 ID (선택, 영구 보관, 이후 변경 불가)
     IN i_login_id              VARCHAR(100),      -- 로그인 ID
     IN i_password_hash         VARCHAR(255),      -- bcrypt 해시(앱 레이어에서 해시 완료 후 전달)
     IN i_user_name             VARCHAR(100),      -- 사용자명
@@ -15,8 +15,9 @@ BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_SIGNUP
     -- 작성 : 2026.07.19 trisakion
-    -- 내용 : 회원가입 처리. company_id/requested_project_id 존재 및 소속 관계를 검증하고,
-    --        login_id/email 중복을 확인한 뒤 status=0(가입승인대기)으로 user를 생성한다.
+    -- 내용 : 회원가입 처리. company_id 존재, requested_project_id(선택 — NULL이면 검증 생략)
+    --        존재 및 소속 관계를 검증하고, login_id/email 중복을 확인한 뒤
+    --        status=0(가입승인대기)으로 user를 생성한다.
     --        password_hash/phone_number 암호화는 이미 앱 레이어(bcrypt/CryptoService)에서 끝난 값을
     --        그대로 저장한다 — SP는 암호화 로직을 모른다.
     --        아래 IF EXISTS 사전 체크는 일반적인 경우엔 빠르고 명확하지만 원자적이지 않다 — 동시에
@@ -49,7 +50,7 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        IF NOT EXISTS (
+        IF i_requested_project_id IS NOT NULL AND NOT EXISTS (
             SELECT 1 FROM `project`
             WHERE `project_id` = i_requested_project_id AND `company_id` = i_company_id
         ) THEN

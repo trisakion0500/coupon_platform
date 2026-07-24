@@ -17,8 +17,9 @@ export class SignupDto {
   @IsInt()
   company_id!: number;
 
+  @IsOptional()
   @IsInt()
-  requested_project_id!: number;
+  requested_project_id?: number;
 
   @IsString()
   @Matches(/^[A-Za-z0-9_.-]+$/)

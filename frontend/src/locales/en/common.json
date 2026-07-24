@@ -19,7 +19,46 @@
       }
     },
     "signup": {
-      "comingSoon": "The signup form is coming soon."
+      "title": "Sign Up",
+      "codeGuide": "Ask your administrator for the company/project code and enter it below.",
+      "submit": "Submit Application",
+      "hasAccount": "Already have an account?",
+      "login": "Log In",
+      "doneTitle": "Your signup application has been submitted.",
+      "doneSubtitle": "You can log in once an administrator approves your account.",
+      "backToLogin": "Back to Login",
+      "errors": {
+        "31001": "This company code does not exist or is inactive.",
+        "31002": "This project code does not exist or is inactive.",
+        "32001": "This login ID or email is already in use.",
+        "40001": "Too many requests. Please try again later.",
+        "default": "An error occurred while processing your request."
+      },
+      "fields": {
+        "companyCode": "Company Code",
+        "companyCodeRequired": "Please enter the company code.",
+        "projectCode": "Project Code",
+        "projectCodeOptional": "Enter this only if you have an assigned project (optional).",
+        "codeFormat": "Only letters, numbers, and _ . - are allowed.",
+        "loginId": "Login ID",
+        "loginIdRequired": "Please enter a login ID.",
+        "loginIdFormat": "Only letters, numbers, and _ . - are allowed.",
+        "password": "Password",
+        "passwordRequired": "Please enter a password.",
+        "passwordLength": "Must be between 4 and 72 characters.",
+        "confirmPassword": "Confirm Password",
+        "confirmPasswordRequired": "Please re-enter your password.",
+        "confirmPasswordMismatch": "Passwords do not match.",
+        "userName": "Name",
+        "userNameRequired": "Please enter your name.",
+        "email": "Email",
+        "emailRequired": "Please enter your email.",
+        "emailFormat": "Please enter a valid email address.",
+        "phoneNumber": "Phone Number",
+        "phoneNumberRequired": "Please enter your phone number.",
+        "department": "Department",
+        "position": "Position"
+      }
     }
   },
   "myAccount": {

@@ -9,3 +9,19 @@ export async function getActiveHeaderData(): Promise<ActiveHeaderData> {
   );
   return data.data;
 }
+
+interface CompanyLookupResponse {
+  company_id: number;
+  company_name: string;
+}
+
+/** 10_COMPANY_API.md 2.5 — 회원가입 화면 전용, 인증 불필요. 미존재/비활성 시 31001. */
+export async function lookupCompany(
+  companyCode: string,
+): Promise<CompanyLookupResponse> {
+  const { data } = await apiClient.get<ApiEnvelope<CompanyLookupResponse>>(
+    '/companies/lookup',
+    { params: { company_code: companyCode } },
+  );
+  return data.data;
+}
