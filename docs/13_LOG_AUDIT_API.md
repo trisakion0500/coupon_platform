@@ -114,11 +114,13 @@ after_json = 상태 변경 후 전체 Row
 | Role      | 조회 범위                     |
 | --------- | ------------------------------ |
 | SUPER_ADMIN | 모든 감사 로그 조회 가능      |
-| DEVELOPER | 본인 소속 `company_id` 데이터만 조회 가능 |
+| DEVELOPER | 본인 소속 `company_id` 데이터만 조회 가능(단 `project`/`user_role` 테이블 로그는 아래 참고) |
 | MANAGER   | 조회 불가                      |
 | OPERATOR  | 조회 불가                      |
 
 MANAGER/OPERATOR는 회사/프로젝트/사용자 관리메뉴 자체에 접근 권한이 없으므로([10_COMPANY_API.md](./10_COMPANY_API.md) 1.2 참고) 그 변경 이력인 감사 로그도 조회 대상이 아니다.
+
+**DEVELOPER의 `project`/`user_role` 테이블 로그 추가 스코핑(2026-07-24)**: 프로젝트 관리메뉴(목록/상세/API Secret 재발급)의 스코핑을 "본인 소속 회사 전체"에서 "실제 `role_code<=20`(DEVELOPER 이상)으로 배정된 프로젝트"로 좁힌 것([11_PROJECT_API.md](./11_PROJECT_API.md) 2.2/2.3)과 같은 방향으로, 감사 로그도 `project`/`user_role` 테이블의 로그는 회사 소속만으로는 부족하고 **그 로그의 `project_id`에 실제 `role_code<=20`으로 배정돼 있어야 조회 가능**하다. `company`/`user` 테이블 로그는 이 추가 제한을 받지 않고 기존과 동일하게 회사 단위로 조회 가능하다 — `company`는 프로젝트 단위 정보가 아예 없는 회사 자체 변경이고, `user`는 회사 소속 사용자 전체에 걸친 변경이라 특정 프로젝트로 좁힐 근거가 없기 때문이다.
 
 ---
 
@@ -144,7 +146,7 @@ GET /log-audits
 ## Permission
 
 - SUPER_ADMIN
-- DEVELOPER (본인 소속 회사로 스코핑)
+- DEVELOPER (본인 소속 회사로 스코핑, `project`/`user_role` 테이블 로그는 실제 `role_code<=20`으로 배정된 프로젝트로 추가 스코핑 — 3장 참고)
 
 ## Query Parameters
 
@@ -222,7 +224,7 @@ GET /log-audits/{idx}
 ## Permission
 
 - SUPER_ADMIN
-- DEVELOPER (본인 소속 회사로 스코핑)
+- DEVELOPER (본인 소속 회사로 스코핑, `project`/`user_role` 테이블 로그는 실제 `role_code<=20`으로 배정된 프로젝트로 추가 스코핑 — 3장 참고)
 
 ## Response
 

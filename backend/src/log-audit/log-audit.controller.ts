@@ -30,8 +30,8 @@ export class LogAuditController {
 
   @Get()
   list(@Query() query: LogAuditListQueryDto, @Req() req: AuthenticatedRequest) {
-    const { roleCode, companyId } = req.user!;
-    return this.logAuditService.list(query, { roleCode, companyId });
+    const { userId, roleCode, companyId } = req.user!;
+    return this.logAuditService.list(query, { userId, roleCode, companyId });
   }
 
   @Get(':idx')
@@ -39,7 +39,7 @@ export class LogAuditController {
     @Param('idx', ParseIntPipe) idx: number,
     @Req() req: AuthenticatedRequest,
   ) {
-    const { roleCode, companyId } = req.user!;
-    return this.logAuditService.getById(idx, { roleCode, companyId });
+    const { userId, roleCode, companyId } = req.user!;
+    return this.logAuditService.getById(idx, { userId, roleCode, companyId });
   }
 }

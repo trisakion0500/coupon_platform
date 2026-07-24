@@ -9,7 +9,8 @@ CREATE PROCEDURE `SP_LOG_AUDIT_LIST` (
     IN i_from_created_at DATETIME,          -- 조회 시작일시(NULL이면 하한 없음)
     IN i_to_created_at   DATETIME,          -- 조회 종료일시(NULL이면 상한 없음)
     IN i_page_size       INT,               -- 페이지당 행 수
-    IN i_offset          INT                -- 시작 오프셋
+    IN i_offset          INT,               -- 시작 오프셋
+    IN i_developer_project_ids VARCHAR(4000) -- DEVELOPER의 project/user_role 로그 추가 스코핑용 콤마 목록(NULL=제한없음, SUPER_ADMIN 전용)
 ) COMMENT '감사 로그 목록 조회 - 페이지네이션 (13_LOG_AUDIT_API.md 5장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -33,6 +34,18 @@ BEGIN
     --        스모크 테스트에서 CREATE가 UPDATE보다 나중에 나오는(최신순이 아닌) 경우가 재현됨
     --        (2026-07-22). `idx`는 AUTO_INCREMENT라 생성 순서와 완전히 동일하므로 2차 키로 쓰면
     --        타이밍에 의존하지 않고 항상 정확한 최신순이 보장된다.
+    --        i_developer_project_ids(2026-07-24 추가): DEVELOPER의 project/user_role 테이블
+    --        로그 조회 범위를 "본인 소속 회사 전체"에서 "실제 role_code<=20으로 배정된 프로젝트"로
+    --        좁히기 위한 필터(13_LOG_AUDIT_API.md 3장) - 프로젝트 관리메뉴 스코핑을 회사 단위에서
+    --        배정 프로젝트 단위로 좁힌 것(02_DEV_CONVENTIONS.md 3.2)과 같은 방향이다. company/user
+    --        테이블 로그는 이 필터의 영향을 받지 않는다(회사 단위 스코핑 그대로 유지) - 두 테이블은
+    --        프로젝트 단위 정보가 없거나(company) 간접적이라(user) 같은 기준으로 좁힐 근거가 없다고
+    --        판단했다. 앱 레이어(LogAuditService)가 SP_USER_ROLE_LIST_DEVELOPER_PROJECT_IDS(메인
+    --        DB)로 미리 조회한 콤마 문자열을 그대로 전달한다 - NULL이면 제한 없음(SUPER_ADMIN
+    --        전용), 빈 문자열이면 배정된 프로젝트가 하나도 없다는 뜻으로 project/user_role 로그를
+    --        전부 걸러낸다(company/user 로그는 여전히 통과). FIND_IN_SET은 이 프로젝트에서 처음
+    --        쓰는 함수이지만, 목록 param을 위해 JSON_TABLE 같은 별도 장치를 새로 들이는 것보다
+    --        간단해 선택했다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -59,6 +72,11 @@ BEGIN
           AND (i_action IS NULL OR `action` = i_action)
           AND (i_from_created_at IS NULL OR `created_at` >= i_from_created_at)
           AND (i_to_created_at IS NULL OR `created_at` <= i_to_created_at)
+          AND (
+              i_developer_project_ids IS NULL
+              OR `table_name` NOT IN ('project', 'user_role')
+              OR FIND_IN_SET(`project_id`, i_developer_project_ids) > 0
+          )
     ) cnt
     LEFT JOIN (
         SELECT `idx`, `company_id`, `project_id`, `table_name`, `target_id`,
@@ -71,6 +89,11 @@ BEGIN
           AND (i_action IS NULL OR `action` = i_action)
           AND (i_from_created_at IS NULL OR `created_at` >= i_from_created_at)
           AND (i_to_created_at IS NULL OR `created_at` <= i_to_created_at)
+          AND (
+              i_developer_project_ids IS NULL
+              OR `table_name` NOT IN ('project', 'user_role')
+              OR FIND_IN_SET(`project_id`, i_developer_project_ids) > 0
+          )
         ORDER BY `created_at` DESC, `idx` DESC
         LIMIT i_page_size OFFSET i_offset
     ) lg ON TRUE;
