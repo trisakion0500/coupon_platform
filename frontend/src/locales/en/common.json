@@ -145,6 +145,27 @@
         "32001": "This project code is already in use.",
         "30005": "Another administrator updated this first. The latest data has been reloaded."
       }
+    },
+    "users": {
+      "list": {
+        "statusFilterPlaceholder": "Filter by status"
+      },
+      "status": {
+        "pending": "Pending Approval",
+        "active": "Active",
+        "rejected": "Rejected",
+        "suspended": "Suspended",
+        "unknown": "Unknown"
+      },
+      "fields": {
+        "loginId": "Login ID",
+        "userName": "Name",
+        "email": "Email",
+        "department": "Department",
+        "position": "Position",
+        "status": "Status",
+        "createdAt": "Signed Up At"
+      }
     }
   },
   "myAccount": {

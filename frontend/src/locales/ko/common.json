@@ -145,6 +145,27 @@
         "32001": "이미 사용 중인 프로젝트 코드입니다.",
         "30005": "다른 관리자가 먼저 수정했습니다. 최신 정보를 다시 불러왔습니다."
       }
+    },
+    "users": {
+      "list": {
+        "statusFilterPlaceholder": "상태 필터"
+      },
+      "status": {
+        "pending": "승인대기",
+        "active": "정상",
+        "rejected": "반려",
+        "suspended": "사용중지",
+        "unknown": "알수없음"
+      },
+      "fields": {
+        "loginId": "로그인 ID",
+        "userName": "이름",
+        "email": "이메일",
+        "department": "부서",
+        "position": "직급",
+        "status": "상태",
+        "createdAt": "가입일시"
+      }
     }
   },
   "myAccount": {
