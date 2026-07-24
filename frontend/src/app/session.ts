@@ -32,10 +32,16 @@ export async function loadSessionData(roleCode: RoleCode): Promise<void> {
     return;
   }
 
-  useGlobalStore
-    .getState()
-    .setSelectedCompanyId(headerData.companies[0]?.company_id ?? null);
-  useGlobalStore
-    .getState()
-    .setSelectedProjectId(headerData.projects[0]?.project_id ?? null);
+  const defaultCompanyId = headerData.companies[0]?.company_id ?? null;
+  useGlobalStore.getState().setSelectedCompanyId(defaultCompanyId);
+
+  // headerData.projects는 회사 필터 없이 본인의 모든 user_role 배정을 반환한다(예외적으로
+  // 타사 프로젝트에 배정된 경우 포함 — SP_COMPANY_GET_ACTIVE_HEADER_DATA). 그런데 Header의
+  // 프로젝트 콤보박스는 selectedCompanyId로 필터링해서 보여주고, non-SUPER_ADMIN은 회사를
+  // 바꿀 방법이 없다. 필터 없이 그냥 projects[0]을 기본 선택하면 그 프로젝트가 타사 소속일 때
+  // 콤보박스 옵션에는 없는 값이 선택돼 antd가 라벨 대신 원본 project_id를 그대로 표시하는
+  // 버그가 있었다(2026-07-24 발견) — 기본값도 본인 회사 범위 안에서만 고른다.
+  const defaultProject =
+    headerData.projects.find((p) => p.company_id === defaultCompanyId) ?? null;
+  useGlobalStore.getState().setSelectedProjectId(defaultProject?.project_id ?? null);
 }
