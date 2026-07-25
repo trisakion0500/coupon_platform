@@ -10,6 +10,8 @@ import { getErrorMessage } from '@/api/errors';
 import { useGlobalStore } from '@/stores/globalStore';
 import type { User } from '@/types/user';
 
+const STATUS_FILTER_ALL = 'ALL';
+
 /**
  * SCR-030. 12_USER_API.md 1.1 — 회사 필터는 화면 자체가 아니라 헤더의 전역 회사 선택을
  * 그대로 사용한다(15_SCREEN_LIST.md). DEVELOPER가 보내는 company_id는 서버가 무시하고
@@ -68,15 +70,15 @@ export function UserListPage() {
       <PageHeader title={t('nav.admin.users')} />
 
       <Select
-        allowClear
         placeholder={t('admin.users.list.statusFilterPlaceholder')}
         style={{ width: 180, marginBottom: 16 }}
-        value={status}
+        value={status ?? STATUS_FILTER_ALL}
         onChange={(value) => {
-          setStatus(value);
+          setStatus(value === STATUS_FILTER_ALL ? undefined : (value as number));
           setPage(1);
         }}
         options={[
+          { value: STATUS_FILTER_ALL, label: t('common.filterAll') },
           { value: 0, label: t('admin.users.status.pending') },
           { value: 1, label: t('admin.users.status.active') },
           { value: 2, label: t('admin.users.status.rejected') },

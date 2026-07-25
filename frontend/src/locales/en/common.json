@@ -62,6 +62,7 @@
     }
   },
   "common": {
+    "filterAll": "All",
     "status": {
       "active": "Active",
       "inactive": "Inactive"
@@ -209,6 +210,39 @@
         "lastLoginAt": "Last Login",
         "createdAt": "Signed Up At",
         "updatedAt": "Updated At"
+      }
+    },
+    "auditLogs": {
+      "backToList": "Back to List",
+      "list": {
+        "tableNameFilterPlaceholder": "Filter by table",
+        "actionFilterPlaceholder": "Filter by action"
+      },
+      "detail": {
+        "title": "Audit Log Detail (#{{id}})",
+        "notFound": "This audit log does not exist."
+      },
+      "tableNames": {
+        "company": "Company",
+        "project": "Project",
+        "user": "User",
+        "user_role": "User Role"
+      },
+      "actions": {
+        "10": "Create",
+        "20": "Update",
+        "30": "Status Change"
+      },
+      "fields": {
+        "tableName": "Table",
+        "target": "Target",
+        "action": "Action",
+        "company": "Company",
+        "project": "Project",
+        "createdByName": "Performed By",
+        "createdAt": "Performed At",
+        "beforeJson": "Before",
+        "afterJson": "After"
       }
     }
   },

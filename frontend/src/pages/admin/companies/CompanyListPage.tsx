@@ -9,6 +9,8 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { getErrorMessage } from '@/api/errors';
 import type { Company } from '@/types/company';
 
+const STATUS_FILTER_ALL = 'ALL';
+
 /** SCR-010. 10_COMPANY_API.md 2.2. */
 export function CompanyListPage() {
   const { t } = useTranslation();
@@ -60,15 +62,15 @@ export function CompanyListPage() {
       />
 
       <Select
-        allowClear
         placeholder={t('admin.companies.list.statusFilterPlaceholder')}
         style={{ width: 160, marginBottom: 16 }}
-        value={status}
+        value={status ?? STATUS_FILTER_ALL}
         onChange={(value) => {
-          setStatus(value);
+          setStatus(value === STATUS_FILTER_ALL ? undefined : (value as number));
           setPage(1);
         }}
         options={[
+          { value: STATUS_FILTER_ALL, label: t('common.filterAll') },
           { value: 1, label: t('common.status.active') },
           { value: 0, label: t('common.status.inactive') },
         ]}

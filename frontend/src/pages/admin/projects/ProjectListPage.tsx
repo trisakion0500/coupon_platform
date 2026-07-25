@@ -12,6 +12,8 @@ import { useGlobalStore } from '@/stores/globalStore';
 import { RoleCode } from '@/types/role';
 import type { Project } from '@/types/project';
 
+const STATUS_FILTER_ALL = 'ALL';
+
 /**
  * SCR-020. 11_PROJECT_API.md 2.2 — DEVELOPER 스코핑은 회사가 아니라 실제 배정된 `user_role`
  * 기준이라(2026-07-24), 헤더의 전역 회사 선택은 SUPER_ADMIN에게만 추가 필터로 적용한다 —
@@ -81,15 +83,15 @@ export function ProjectListPage() {
       />
 
       <Select
-        allowClear
         placeholder={t('admin.projects.list.statusFilterPlaceholder')}
         style={{ width: 160, marginBottom: 16 }}
-        value={status}
+        value={status ?? STATUS_FILTER_ALL}
         onChange={(value) => {
-          setStatus(value);
+          setStatus(value === STATUS_FILTER_ALL ? undefined : (value as number));
           setPage(1);
         }}
         options={[
+          { value: STATUS_FILTER_ALL, label: t('common.filterAll') },
           { value: 1, label: t('common.status.active') },
           { value: 0, label: t('common.status.inactive') },
         ]}

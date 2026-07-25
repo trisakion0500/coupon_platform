@@ -62,6 +62,7 @@
     }
   },
   "common": {
+    "filterAll": "전체",
     "status": {
       "active": "사용",
       "inactive": "중지"
@@ -209,6 +210,39 @@
         "lastLoginAt": "최근 로그인",
         "createdAt": "가입일시",
         "updatedAt": "수정일시"
+      }
+    },
+    "auditLogs": {
+      "backToList": "목록으로",
+      "list": {
+        "tableNameFilterPlaceholder": "테이블 필터",
+        "actionFilterPlaceholder": "작업유형 필터"
+      },
+      "detail": {
+        "title": "감사 로그 상세 (#{{id}})",
+        "notFound": "존재하지 않는 감사 로그입니다."
+      },
+      "tableNames": {
+        "company": "회사",
+        "project": "프로젝트",
+        "user": "사용자",
+        "user_role": "사용자 권한"
+      },
+      "actions": {
+        "10": "등록",
+        "20": "수정",
+        "30": "상태변경"
+      },
+      "fields": {
+        "tableName": "테이블",
+        "target": "대상",
+        "action": "작업유형",
+        "company": "회사",
+        "project": "프로젝트",
+        "createdByName": "작업자",
+        "createdAt": "작업일시",
+        "beforeJson": "변경 전",
+        "afterJson": "변경 후"
       }
     }
   },
