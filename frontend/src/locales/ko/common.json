@@ -153,7 +153,42 @@
       },
       "detail": {
         "title": "사용자 상세 (#{{id}})",
-        "notFound": "존재하지 않는 사용자입니다."
+        "notFound": "존재하지 않는 사용자입니다.",
+        "save": "저장",
+        "saveSuccess": "저장되었습니다.",
+        "approve": "승인",
+        "approveConfirm": "이 사용자의 가입을 승인하시겠습니까?",
+        "approveSuccess": "승인되었습니다.",
+        "reject": "반려",
+        "rejectConfirm": "이 사용자의 가입을 반려하시겠습니까?",
+        "rejectSuccess": "반려되었습니다.",
+        "suspend": "사용중지",
+        "suspendConfirm": "이 사용자를 사용중지 처리하시겠습니까? 활성 세션이 즉시 종료됩니다.",
+        "suspendSuccess": "사용중지되었습니다.",
+        "reactivate": "재활성화",
+        "reactivateConfirm": "이 사용자를 다시 활성화하시겠습니까?",
+        "reactivateSuccess": "재활성화되었습니다.",
+        "backToPending": "승인대기로 되돌리기",
+        "backToPendingConfirm": "이 사용자를 다시 승인대기 상태로 되돌리시겠습니까? 재검토 후 승인 또는 반려할 수 있습니다.",
+        "backToPendingSuccess": "승인대기 상태로 되돌렸습니다.",
+        "resetPassword": "비밀번호 초기화",
+        "resetPasswordModalTitle": "비밀번호 강제 초기화",
+        "resetPasswordSuccess": "비밀번호가 초기화되었습니다. 활성 세션이 즉시 종료됩니다.",
+        "newPassword": "새 비밀번호",
+        "roleAssignment": {
+          "title": "프로젝트 권한 배정",
+          "add": "배정 추가",
+          "addModalTitle": "프로젝트 권한 배정 추가",
+          "editModalTitle": "프로젝트 권한 배정 수정",
+          "project": "프로젝트",
+          "roleCode": "역할",
+          "edit": "수정",
+          "createSuccess": "배정되었습니다.",
+          "updateSuccess": "저장되었습니다.",
+          "errors": {
+            "32001": "이미 이 프로젝트에 배정되어 있습니다."
+          }
+        }
       },
       "status": {
         "pending": "승인대기",
@@ -170,6 +205,7 @@
         "department": "부서",
         "position": "직급",
         "status": "상태",
+        "requestedProject": "가입 시 요청 프로젝트",
         "lastLoginAt": "최근 로그인",
         "createdAt": "가입일시",
         "updatedAt": "수정일시"

@@ -153,7 +153,42 @@
       },
       "detail": {
         "title": "User Detail (#{{id}})",
-        "notFound": "This user does not exist."
+        "notFound": "This user does not exist.",
+        "save": "Save",
+        "saveSuccess": "Saved.",
+        "approve": "Approve",
+        "approveConfirm": "Approve this user's signup?",
+        "approveSuccess": "Approved.",
+        "reject": "Reject",
+        "rejectConfirm": "Reject this user's signup?",
+        "rejectSuccess": "Rejected.",
+        "suspend": "Suspend",
+        "suspendConfirm": "Suspend this user? Their active sessions will be terminated immediately.",
+        "suspendSuccess": "Suspended.",
+        "reactivate": "Reactivate",
+        "reactivateConfirm": "Reactivate this user?",
+        "reactivateSuccess": "Reactivated.",
+        "backToPending": "Revert to Pending",
+        "backToPendingConfirm": "Revert this user to pending approval? It can then be approved or rejected again after review.",
+        "backToPendingSuccess": "Reverted to pending approval.",
+        "resetPassword": "Reset Password",
+        "resetPasswordModalTitle": "Force Password Reset",
+        "resetPasswordSuccess": "Password reset. Their active sessions have been terminated immediately.",
+        "newPassword": "New Password",
+        "roleAssignment": {
+          "title": "Project Role Assignments",
+          "add": "Add Assignment",
+          "addModalTitle": "Add Project Role Assignment",
+          "editModalTitle": "Edit Project Role Assignment",
+          "project": "Project",
+          "roleCode": "Role",
+          "edit": "Edit",
+          "createSuccess": "Assigned.",
+          "updateSuccess": "Saved.",
+          "errors": {
+            "32001": "Already assigned to this project."
+          }
+        }
       },
       "status": {
         "pending": "Pending Approval",
@@ -170,6 +205,7 @@
         "department": "Department",
         "position": "Position",
         "status": "Status",
+        "requestedProject": "Requested Project (at Signup)",
         "lastLoginAt": "Last Login",
         "createdAt": "Signed Up At",
         "updatedAt": "Updated At"

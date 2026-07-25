@@ -22,3 +22,18 @@ export interface UserListQuery extends PaginationQuery {
   company_id?: number;
   status?: number;
 }
+
+/** 12_USER_API.md 1.6 PATCH /users/{user_id} 요청 — status는 화면이 액션 버튼으로만 전송한다. */
+export interface UpdateUserRequest {
+  user_name?: string;
+  email?: string;
+  phone_number?: string;
+  department?: string;
+  position?: string;
+  status?: number;
+}
+
+/** 12_USER_API.md 1.7 POST /users/{user_id}/reset-password 요청. */
+export interface ResetPasswordRequest {
+  new_password: string;
+}
