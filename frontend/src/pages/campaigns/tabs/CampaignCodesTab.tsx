@@ -14,11 +14,14 @@ import {
   message,
 } from 'antd';
 import type { TablePaginationConfig } from 'antd';
+import dayjs from 'dayjs';
+import { DownloadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { abortCodeGeneration, issueCodes, listCodes, retryCodeIssuance } from '@/api/campaign';
 import { getErrorMessage } from '@/api/errors';
 import { CodeStatusTag } from '@/components/common/CodeStatusTag';
 import { GenerationStatusTag } from '@/components/common/GenerationStatusTag';
+import { downloadCsv } from '@/lib/csvExport';
 import { RoleCode } from '@/types/role';
 import {
   CampaignStatus,
@@ -27,6 +30,8 @@ import {
   type Campaign,
   type CouponCode,
 } from '@/types/campaign';
+
+const EXPORT_PAGE_SIZE = 100;
 
 const FILTER_ALL = 'ALL';
 
@@ -54,6 +59,7 @@ export function CampaignCodesTab({
 
   const [issuing, setIssuing] = useState(false);
   const [aborting, setAborting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [fixedForm] = Form.useForm<{ code_value: string }>();
 
   function loadCodes() {
@@ -145,6 +151,35 @@ export function CampaignCodesTab({
     }
   }
 
+  async function handleExportCsv() {
+    setExporting(true);
+    setErrorMessage(null);
+    try {
+      const codeValues: string[] = [];
+      let currentPage = 1;
+      let total = Infinity;
+      while (codeValues.length < total) {
+        const result = await listCodes(campaign.coupon_campaign_id, {
+          page: currentPage,
+          page_size: EXPORT_PAGE_SIZE,
+          status,
+        });
+        total = result.total_count;
+        codeValues.push(...result.items.map((item) => item.code_value));
+        if (result.items.length === 0) break;
+        currentPage += 1;
+      }
+      const safeName = campaign.name.replace(/[\\/:*?"<>|]/g, '_');
+      const filename = `${safeName}_${t('campaigns.codes.exportFilenameSuffix')}_${dayjs().format('YYYYMMDDHHmmss')}.csv`;
+      downloadCsv(filename, [t('campaigns.codes.fields.codeValue')], codeValues.map((value) => [value]));
+      message.success(t('campaigns.codes.exportSuccess'));
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const canAbort = projectRoleCode !== null && projectRoleCode <= RoleCode.MANAGER;
   const campaignEnded = campaign.status === CampaignStatus.ENDED;
 
@@ -215,28 +250,38 @@ export function CampaignCodesTab({
         )}
       </Card>
 
-      <Select
-        placeholder={t('campaigns.codes.statusFilterPlaceholder')}
-        style={{ width: 160, marginBottom: 16 }}
-        value={status ?? FILTER_ALL}
-        onChange={(value) => {
-          setStatus(value === FILTER_ALL ? undefined : (value as number));
-          setPage(1);
-        }}
-        options={[
-          { value: FILTER_ALL, label: t('common.filterAll') },
-          { value: 0, label: t('campaigns.codeStatus.0') },
-          {
-            value: 1,
-            label: t(
-              campaign.code_type === CodeType.FIXED
-                ? 'campaigns.codeStatus.1_fixed'
-                : 'campaigns.codeStatus.1',
-            ),
-          },
-          { value: 2, label: t('campaigns.codeStatus.2') },
-        ]}
-      />
+      <Space style={{ marginBottom: 16 }}>
+        <Select
+          placeholder={t('campaigns.codes.statusFilterPlaceholder')}
+          style={{ width: 160 }}
+          value={status ?? FILTER_ALL}
+          onChange={(value) => {
+            setStatus(value === FILTER_ALL ? undefined : (value as number));
+            setPage(1);
+          }}
+          options={[
+            { value: FILTER_ALL, label: t('common.filterAll') },
+            { value: 0, label: t('campaigns.codeStatus.0') },
+            {
+              value: 1,
+              label: t(
+                campaign.code_type === CodeType.FIXED
+                  ? 'campaigns.codeStatus.1_fixed'
+                  : 'campaigns.codeStatus.1',
+              ),
+            },
+            { value: 2, label: t('campaigns.codeStatus.2') },
+          ]}
+        />
+        <Button
+          icon={<DownloadOutlined />}
+          loading={exporting}
+          disabled={totalCount === 0}
+          onClick={handleExportCsv}
+        >
+          {t('campaigns.codes.exportCsv')}
+        </Button>
+      </Space>
 
       <Table<CouponCode>
         rowKey="coupon_code_id"

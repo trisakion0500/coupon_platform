@@ -380,9 +380,26 @@ export function CampaignInfoTab({
               name="usable_qty"
               label={t('campaigns.fields.usableQty')}
               rules={[{ required: true }]}
-              extra={t('campaigns.fields.usableQtyHint')}
+              extra={
+                campaign.generated_qty === 0
+                  ? t('campaigns.fields.usableQtyDisabledHint')
+                  : t('campaigns.fields.usableQtyHint')
+              }
             >
-              <InputNumber min={0} max={campaign.generated_qty} style={{ width: '100%' }} />
+              <Tooltip
+                title={
+                  campaign.generated_qty === 0
+                    ? t('campaigns.fields.usableQtyDisabledHint')
+                    : undefined
+                }
+              >
+                <InputNumber
+                  min={0}
+                  max={campaign.generated_qty}
+                  disabled={campaign.generated_qty === 0}
+                  style={{ width: '100%' }}
+                />
+              </Tooltip>
             </Form.Item>
             <Form.Item
               name="reward_data"
