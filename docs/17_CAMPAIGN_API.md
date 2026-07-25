@@ -340,23 +340,25 @@ POST /campaigns/{coupon_campaign_id}/status
 
 ### Allowed State Transition
 
-| From        | To          | 추가 조건                              |
-| ----------- | ----------- | --------------------------------------- |
-| 1(대기)     | 2(활성)     | `approval_status IN (1,3)` 필요           |
-| 1(대기)     | 4(종료)     | 활성화 전 취소                          |
-| 2(활성)     | 3(일시중지) | -                                       |
-| 2(활성)     | 4(종료)     | -                                       |
-| 3(일시중지) | 2(활성)     | `approval_status IN (1,3)` 필요(재확인)   |
-| 3(일시중지) | 4(종료)     | -                                       |
+| From        | To          | 추가 조건                                                   |
+| ----------- | ----------- | ------------------------------------------------------------ |
+| 1(대기)     | 2(활성)     | `approval_status IN (1,3)` AND `campaign_end > NOW()` 필요    |
+| 1(대기)     | 4(종료)     | 활성화 전 취소                                               |
+| 2(활성)     | 3(일시중지) | -                                                             |
+| 2(활성)     | 4(종료)     | -                                                             |
+| 3(일시중지) | 2(활성)     | `approval_status IN (1,3)` AND `campaign_end > NOW()` 필요(재확인) |
+| 3(일시중지) | 4(종료)     | -                                                             |
 
 `4`(종료)는 최종 상태이며 이후 전이가 없다. 표에 없는 조합(예: `1→3`)과 승인 조건 미충족은 30004(상태 전이 불가)를 반환한다.
+
+**`campaign_end > NOW()` 조건(2026-07-25 추가)**: 활성화(`1→2`)/재활성화(`3→2`) 전이에만 적용된다 — 이미 사용기간이 지난 캠페인이 "활성" 상태로 진입하는 것 자체를 막기 위함이다. 이 조건이 없으면 활성화 직후부터 `status=2`(활성)로 보이지만 reserve는 자체 시간 조건(`coupon_campaign.sql` 동시성 절 참고)에 걸려 즉시 거부되는, 겉보기와 실제가 어긋나는 상태에 바로 진입할 수 있었다. **이미 활성 상태인 캠페인이 그 상태로 있는 도중 사용기간이 자연스럽게 지나는 것은 이 조건과 무관한 별개 문제**이며(진입을 막는 게 아니라 이미 들어간 뒤 시간이 흐르는 경우라 별도 검토 대상), 수정([2.4](#24-update-campaign))·승인·반려·코드발급([3장](#3-coupon-code-issuance-apis))은 사용기간 만료와 무관하게 계속 허용한다 — 특히 수정으로 `campaign_end`를 연장해 되살리는 경로를 막지 않기 위해 이 전이(2.5)에만 좁게 적용했다.
 
 ### Business Rules
 
 - 조건부 UPDATE로 원자성 확보:
   ```sql
   UPDATE coupon_campaign SET status=?, edit_count=edit_count+1
-  WHERE coupon_campaign_id=? AND edit_count=? AND status=? [AND approval_status IN (1,3)]
+  WHERE coupon_campaign_id=? AND edit_count=? AND status=? [AND approval_status IN (1,3) AND campaign_end > NOW()]
   ```
 - `log_coupon_campaign`에 `action=30`(STATUS_CHANGE) 스냅샷 기록
 

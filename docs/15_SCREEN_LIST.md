@@ -231,7 +231,7 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
 
 - **Route:** `/campaigns/new`
 - **접근:** SUPER_ADMIN, DEVELOPER, MANAGER, OPERATOR (스코핑 내 `project_id`만)
-- **주요 기능:** 캠페인명 / 사용기간 / 코드발급방식(RANDOM·FIXED) / 하이픈여부(RANDOM만) / 목표수량(RANDOM만) / 사용자당 한도 / 보상내용(JSON) 입력 및 등록. OPERATOR가 등록하면 승인대기 상태로, 그 외 역할은 즉시 승인불요로 시작([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.1 참고). 등록 직후 상세 화면(SCR-102)으로 이동해 코드 발급을 이어서 진행하도록 안내
+- **주요 기능:** 캠페인명 / 사용기간 / 코드발급방식(RANDOM·FIXED) / 하이픈여부(RANDOM만) / 수량(RANDOM·FIXED 공통 필수 — RANDOM은 발급할 코드 개수, FIXED는 단일 코드가 지원할 총 사용가능 횟수를 의미, 2026-07-22부터 두 유형 모두 필수 입력, [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.1 참고) / 사용자당 한도 / 보상내용(JSON) 입력 및 등록. OPERATOR가 등록하면 승인대기 상태로, 그 외 역할은 즉시 승인불요로 시작. 등록 직후 상세 화면(SCR-102)으로 이동해 코드 발급을 이어서 진행하도록 안내
 - **연관 API:**
 
   | Method | Endpoint     | 설명      |

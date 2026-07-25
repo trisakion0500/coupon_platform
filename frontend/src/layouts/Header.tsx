@@ -1,13 +1,15 @@
 import { useMemo } from 'react';
-import { Layout, Select, Button, Dropdown, Space, Typography } from 'antd';
+import { Layout, Select, Button, Dropdown, Space, Tooltip, Typography } from 'antd';
 import type { MenuProps } from 'antd';
-import { UserOutlined, DownOutlined } from '@ant-design/icons';
+import { ClockCircleOutlined, UserOutlined, DownOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useGlobalStore } from '@/stores/globalStore';
 import { RoleCode } from '@/types/role';
 import { useProjectRoleSync } from '@/hooks/useProjectRoleSync';
+import { useServerClock } from '@/hooks/useServerClock';
 import { logout } from '@/api/auth';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 
@@ -43,6 +45,7 @@ export function Header() {
   );
 
   useProjectRoleSync();
+  const serverNow = useServerClock();
 
   const isAdminRoute = location.pathname.startsWith('/admin');
   const headerLocked =
@@ -158,6 +161,15 @@ export function Header() {
       />
 
       <div style={{ flex: 1 }} />
+
+      <Tooltip title={t('header.serverTimeTooltip')}>
+        <Space size={4} style={{ color: 'rgba(0, 0, 0, 0.45)', whiteSpace: 'nowrap' }}>
+          <ClockCircleOutlined />
+          <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {dayjs(serverNow).format('YYYY-MM-DD HH:mm:ss')}
+          </span>
+        </Space>
+      </Tooltip>
 
       {canOpenAdmin && (
         <Button type="text" onClick={() => navigate('/admin')}>

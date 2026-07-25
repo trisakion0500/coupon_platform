@@ -19,7 +19,7 @@ POST /campaigns/{id}/codes   코드 발급(RANDOM 대량생성 또는 FIXED 단�
 
 RANDOM 대량생성은 수천~수만 건을 만들 수 있어 시간이 걸리고 실패 가능성도 있다. 캠페인 생성 요청 안에 이 처리까지 묶으면 캠페인 생성 자체가 타임아웃/부분실패 위험을 떠안게 된다. 분리하면 캠페인은 항상 즉시·단순하게 생성되고, 코드 발급은 독립적으로 재시도·모니터링할 수 있다. `coupon_campaign.requested_qty`(목표)/`generated_qty`(실제) 컬럼이 이미 "코드 발급 전 캠페인"이라는 상태를 표현할 수 있게 설계돼 있었다는 점도 이 분리와 자연스럽게 맞는다.
 
-캠페인 승인 워크플로우(`approval_status`)는 코드 발급과 독립적으로 동작한다 — 승인 여부와 무관하게 코드는 미리 만들어 둘 수 있으며, `coupon_campaign.status`가 활성(2)으로 전환되는 시점에만 승인 여부(`approval_status IN (1,3)`)를 체크한다(자세한 내용은 `coupon_campaign.sql` 헤더 주석, `04_DATABASE_SCHEMA.md` 참고).
+캠페인 승인 워크플로우(`approval_status`)는 코드 발급과 독립적으로 동작한다 — 승인 여부와 무관하게 코드는 미리 만들어 둘 수 있으며, `coupon_campaign.status`가 활성(2)으로 전환되는 시점에만 승인 여부(`approval_status IN (1,3)`)와 사용기간(`campaign_end > NOW()`, 2026-07-25 추가 — 이미 기간이 지난 캠페인이 활성 상태로 진입하는 것 자체를 막기 위함, [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.5 참고)을 체크한다(자세한 내용은 `coupon_campaign.sql` 헤더 주석, `04_DATABASE_SCHEMA.md` 참고).
 
 ---
 

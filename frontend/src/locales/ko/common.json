@@ -246,6 +246,161 @@
       }
     }
   },
+  "campaigns": {
+    "backToList": "목록으로",
+    "list": {
+      "create": "캠페인 등록",
+      "statusFilterPlaceholder": "상태 필터",
+      "approvalStatusFilterPlaceholder": "승인상태 필터",
+      "generationStatusFilterPlaceholder": "발급상태 필터",
+      "codeTypeFilterPlaceholder": "코드유형 필터"
+    },
+    "new": {
+      "title": "캠페인 등록",
+      "submit": "등록"
+    },
+    "detail": {
+      "title": "캠페인 상세 (#{{id}})",
+      "notFound": "존재하지 않는 캠페인입니다.",
+      "justCreatedNotice": "캠페인이 등록되었습니다. 이어서 코드 발급을 진행하세요.",
+      "tabs": {
+        "info": "캠페인 정보",
+        "codes": "코드 목록",
+        "usages": "사용 이력",
+        "logs": "변경 이력"
+      },
+      "editTitle": "캠페인 정보",
+      "edit": "수정",
+      "save": "저장",
+      "cancelEdit": "취소",
+      "saveSuccess": "저장되었습니다.",
+      "activate": "활성화",
+      "cancel": "취소(종료)",
+      "pause": "일시중지",
+      "reactivate": "재활성화",
+      "end": "종료",
+      "statusChangeConfirm": "{{action}} 하시겠습니까?",
+      "statusChangeSuccess": "상태가 변경되었습니다.",
+      "approve": "승인",
+      "approveConfirm": "이 캠페인을 승인하시겠습니까?",
+      "approveSuccess": "승인되었습니다.",
+      "reject": "반려",
+      "rejectModalTitle": "캠페인 반려",
+      "rejectSuccess": "반려되었습니다.",
+      "approvalPendingNotice": "현재 승인대기 상태입니다. 승인 권한이 있는 관리자(매니저 이상)가 검토해야 합니다.",
+      "operatorReapproveConfirmTitle": "수정 시 재승인이 필요합니다",
+      "operatorReapproveConfirmContent": "지금 수정하면 캠페인이 일시중지되고 승인대기 상태로 전환됩니다. 계속하시겠습니까?",
+      "usableQtyHint": "발급된 수량(generated_qty) 이하로만 설정할 수 있습니다.",
+      "activateBlockedByExpiry": "사용 종료일시가 이미 지났습니다. 캠페인 정보를 수정해 기간을 연장한 뒤 다시 시도하세요."
+    },
+    "status": {
+      "1": "대기",
+      "2": "활성",
+      "3": "일시중지",
+      "4": "종료"
+    },
+    "approvalStatus": {
+      "1": "승인불요",
+      "2": "승인대기",
+      "3": "승인완료",
+      "4": "반려"
+    },
+    "generationStatus": {
+      "1": "대기",
+      "2": "진행중",
+      "3": "완료",
+      "4": "실패"
+    },
+    "codeType": {
+      "1": "RANDOM",
+      "2": "FIXED"
+    },
+    "codeStatus": {
+      "0": "중지",
+      "1": "미사용",
+      "1_fixed": "사용중",
+      "2": "사용완료"
+    },
+    "fields": {
+      "name": "캠페인명",
+      "nameRequired": "캠페인명을 입력해주세요.",
+      "period": "사용 기간",
+      "periodRequired": "사용 기간을 선택해주세요.",
+      "codeType": "코드 발급 방식",
+      "useHyphen": "하이픈 포함",
+      "requestedQtyRandom": "목표 발급 수량",
+      "requestedQtyFixed": "총 사용가능 횟수",
+      "requestedQtyRequired": "수량을 입력해주세요.",
+      "useLimitPerUser": "유저당 사용 한도",
+      "rewardData": "보상 내용 (JSON)",
+      "rewardDataRequired": "보상 내용을 입력해주세요.",
+      "rewardDataHint": "쿠폰서버는 이 내용을 해석하지 않고 그대로 저장합니다.",
+      "rewardDataInvalidJson": "올바른 JSON 형식이 아닙니다.",
+      "status": "상태",
+      "approvalStatus": "승인상태",
+      "generationStatus": "발급상태",
+      "generationError": "발급 실패 사유",
+      "qty": "발급 수량",
+      "usableQty": "사용 가능 수량",
+      "usedQty": "사용된 수량",
+      "rejectReason": "반려 사유",
+      "createdAt": "생성일시",
+      "updatedAt": "수정일시"
+    },
+    "codes": {
+      "statusFilterPlaceholder": "상태 필터",
+      "issue": "코드 발급",
+      "issueStarted": "코드 발급을 시작했습니다.",
+      "issueSuccess": "코드가 등록되었습니다.",
+      "retry": "재시도",
+      "retryStarted": "재시도를 시작했습니다.",
+      "abort": "발급 중단",
+      "abortConfirm": "진행 중인 발급을 중단하시겠습니까? 최근 진행 흔적이 있으면 아직 중단할 수 없습니다.",
+      "abortSuccess": "중단되었습니다. 재시도로 이어서 진행할 수 있습니다.",
+      "codeValuePlaceholder": "코드 값 입력 (최대 50자)",
+      "registerFixed": "코드 등록",
+      "fields": {
+        "codeValue": "코드 값",
+        "status": "상태",
+        "createdAt": "생성일시"
+      }
+    },
+    "usages": {
+      "gameUserIdPlaceholder": "게임 유저 ID 검색",
+      "confirmedFilterPlaceholder": "컨펌 여부 필터",
+      "unconfirmedOnly": "미컨슘만",
+      "confirmedOnly": "컨펌완료만",
+      "unconfirmed": "미컨슘",
+      "fields": {
+        "codeValue": "코드 값",
+        "gameUserId": "게임 유저 ID",
+        "confirmedAt": "컨펌일시",
+        "createdAt": "사용일시"
+      }
+    },
+    "logs": {
+      "actionFilterPlaceholder": "작업유형 필터",
+      "actions": {
+        "10": "등록",
+        "20": "수정",
+        "30": "상태변경",
+        "40": "승인",
+        "50": "반려"
+      },
+      "createdSnapshot": "최초 생성",
+      "noFieldChange": "변경된 필드 없음",
+      "changesUnavailableWhenFiltered": "작업유형 필터 적용 중에는 변경 내용을 비교해 표시하지 않습니다.",
+      "fields": {
+        "createdAt": "작업일시",
+        "action": "작업유형",
+        "createdByName": "작업자",
+        "changes": "변경 내용"
+      }
+    },
+    "errors": {
+      "30005": "다른 관리자가 먼저 수정했습니다. 최신 정보를 다시 불러왔습니다."
+    }
+  },
   "myAccount": {
     "title": "내 계정",
     "logout": "로그아웃",
@@ -273,7 +428,8 @@
     "manage": "관리",
     "allCompanies": "전체 회사",
     "allProjects": "전체 프로젝트",
-    "projectPlaceholder": "프로젝트 선택"
+    "projectPlaceholder": "프로젝트 선택",
+    "serverTimeTooltip": "서버 시각(실시간) — 캠페인 활성화 등 기간 판정의 실제 기준입니다."
   },
   "footer": {
     "inquiry": "문의"

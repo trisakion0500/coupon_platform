@@ -151,6 +151,15 @@ BEGIN
     -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
     --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다
     --        (SP_CAMPAIGN_CREATE와 동일한 이유/패턴).
+    -- 수정2: 2026.07.25 trisakion — 활성화(1→2)/재활성화(3→2) 전이에 `campaign_end > NOW()`
+    --        조건을 추가. 기존엔 approval_status만 확인해 이미 사용기간이 지난 캠페인도
+    --        활성화할 수 있었고, 그러면 진입하자마자 "활성" 상태인데 reserve는 자체 시간
+    --        조건(coupon_campaign.sql 동시성 절 참고) 때문에 즉시 막혀 겉보기와 실제가
+    --        어긋나는 상태가 됐다. 기간이 이미 지난 상태에서 "활성"으로 들어가는 진입 자체를
+    --        막는 것이며, 이미 활성인 캠페인이 활성 상태로 있는 도중 기간이 지나는 것(자연 만료)
+    --        은 이 조건과 무관한 별개 문제라 여기서 다루지 않는다 — 수정/승인/반려/코드발급은
+    --        기간 만료와 무관하게 계속 허용해야 하므로(연장 수정으로 되살리는 경로 보존) 이
+    --        전이(2.5)에만 좁게 적용한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -187,11 +196,11 @@ BEGIN
         WHERE `coupon_campaign_id` = i_coupon_campaign_id
           AND `edit_count` = i_edit_count
           AND (
-              (`status` = 1 AND i_status = 2 AND `approval_status` IN (1, 3)) OR
+              (`status` = 1 AND i_status = 2 AND `approval_status` IN (1, 3) AND `campaign_end` > NOW()) OR
               (`status` = 1 AND i_status = 4) OR
               (`status` = 2 AND i_status = 3) OR
               (`status` = 2 AND i_status = 4) OR
-              (`status` = 3 AND i_status = 2 AND `approval_status` IN (1, 3)) OR
+              (`status` = 3 AND i_status = 2 AND `approval_status` IN (1, 3) AND `campaign_end` > NOW()) OR
               (`status` = 3 AND i_status = 4)
           );
 

@@ -32,7 +32,9 @@
 --  승인된 캠페인"과 "승인 자체가 안 된 캠페인"을 같은 값(status=1)으로 표현하게 되어 구분이 안 된다.
 --  - MANAGER 이상이 생성/컨트롤 → approval_status=1(승인불요)로 즉시 시작, 승인 절차 없음
 --  - OPERATOR가 생성/컨트롤    → approval_status=2(승인대기)로 시작, 10/20/30이 승인/반려
---  - status를 2(활성)로 전환하는 SP는 approval_status IN (1,3)(승인불요/승인완료)일 때만 허용한다.
+--  - status를 2(활성)로 전환하는 SP는 approval_status IN (1,3)(승인불요/승인완료) AND
+--    campaign_end > NOW()(2026-07-25 추가 - 이미 사용기간이 지난 캠페인이 활성 상태로 진입하는
+--    것 자체를 막음, 17_CAMPAIGN_API.md 2.5 참고)일 때만 허용한다.
 --    reserve 시점의 조건부 UPDATE(위 동시성 절)는 status=2만 체크하면 되고 approval_status를
 --    매번 다시 검사할 필요는 없다 — 애초에 미승인 캠페인은 status=2에 도달할 수 없기 때문.
 --  변경 이력(누가 언제 승인/반려했는지)은 log_coupon_campaign에 append-only로 별도 기록한다.

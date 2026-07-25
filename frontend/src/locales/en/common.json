@@ -246,6 +246,161 @@
       }
     }
   },
+  "campaigns": {
+    "backToList": "Back to List",
+    "list": {
+      "create": "New Campaign",
+      "statusFilterPlaceholder": "Filter by status",
+      "approvalStatusFilterPlaceholder": "Filter by approval status",
+      "generationStatusFilterPlaceholder": "Filter by generation status",
+      "codeTypeFilterPlaceholder": "Filter by code type"
+    },
+    "new": {
+      "title": "New Campaign",
+      "submit": "Create"
+    },
+    "detail": {
+      "title": "Campaign Detail (#{{id}})",
+      "notFound": "This campaign does not exist.",
+      "justCreatedNotice": "Campaign created. Continue by issuing codes below.",
+      "tabs": {
+        "info": "Info",
+        "codes": "Codes",
+        "usages": "Usage History",
+        "logs": "Change Log"
+      },
+      "editTitle": "Campaign Info",
+      "edit": "Edit",
+      "save": "Save",
+      "cancelEdit": "Cancel",
+      "saveSuccess": "Saved.",
+      "activate": "Activate",
+      "cancel": "Cancel (End)",
+      "pause": "Pause",
+      "reactivate": "Reactivate",
+      "end": "End",
+      "statusChangeConfirm": "{{action}}?",
+      "statusChangeSuccess": "Status changed.",
+      "approve": "Approve",
+      "approveConfirm": "Approve this campaign?",
+      "approveSuccess": "Approved.",
+      "reject": "Reject",
+      "rejectModalTitle": "Reject Campaign",
+      "rejectSuccess": "Rejected.",
+      "approvalPendingNotice": "This campaign is pending approval. It must be reviewed by an admin with approval privilege (Manager or above).",
+      "operatorReapproveConfirmTitle": "Re-approval required after editing",
+      "operatorReapproveConfirmContent": "Editing now will pause the campaign and revert it to pending approval. Continue?",
+      "usableQtyHint": "Must be less than or equal to the generated quantity (generated_qty).",
+      "activateBlockedByExpiry": "The usage end date has already passed. Edit the campaign to extend the period, then try again."
+    },
+    "status": {
+      "1": "Pending",
+      "2": "Active",
+      "3": "Paused",
+      "4": "Ended"
+    },
+    "approvalStatus": {
+      "1": "Not Required",
+      "2": "Pending Approval",
+      "3": "Approved",
+      "4": "Rejected"
+    },
+    "generationStatus": {
+      "1": "Waiting",
+      "2": "In Progress",
+      "3": "Done",
+      "4": "Failed"
+    },
+    "codeType": {
+      "1": "RANDOM",
+      "2": "FIXED"
+    },
+    "codeStatus": {
+      "0": "Suspended",
+      "1": "Unused",
+      "1_fixed": "In Use",
+      "2": "Used"
+    },
+    "fields": {
+      "name": "Campaign Name",
+      "nameRequired": "Please enter a campaign name.",
+      "period": "Usage Period",
+      "periodRequired": "Please select the usage period.",
+      "codeType": "Code Type",
+      "useHyphen": "Include Hyphens",
+      "requestedQtyRandom": "Target Quantity",
+      "requestedQtyFixed": "Total Redemptions",
+      "requestedQtyRequired": "Please enter a quantity.",
+      "useLimitPerUser": "Uses per User",
+      "rewardData": "Reward Data (JSON)",
+      "rewardDataRequired": "Please enter the reward data.",
+      "rewardDataHint": "The coupon server stores this as-is without interpreting it.",
+      "rewardDataInvalidJson": "This is not valid JSON.",
+      "status": "Status",
+      "approvalStatus": "Approval Status",
+      "generationStatus": "Generation Status",
+      "generationError": "Generation Failure Reason",
+      "qty": "Generated Quantity",
+      "usableQty": "Usable Quantity",
+      "usedQty": "Used Quantity",
+      "rejectReason": "Reject Reason",
+      "createdAt": "Created At",
+      "updatedAt": "Updated At"
+    },
+    "codes": {
+      "statusFilterPlaceholder": "Filter by status",
+      "issue": "Issue Codes",
+      "issueStarted": "Code generation started.",
+      "issueSuccess": "Code registered.",
+      "retry": "Retry",
+      "retryStarted": "Retry started.",
+      "abort": "Abort",
+      "abortConfirm": "Abort the in-progress generation? If it has made recent progress, it cannot be aborted yet.",
+      "abortSuccess": "Aborted. You can continue with retry.",
+      "codeValuePlaceholder": "Enter code value (max 50 chars)",
+      "registerFixed": "Register Code",
+      "fields": {
+        "codeValue": "Code Value",
+        "status": "Status",
+        "createdAt": "Created At"
+      }
+    },
+    "usages": {
+      "gameUserIdPlaceholder": "Search by game user ID",
+      "confirmedFilterPlaceholder": "Filter by confirmation",
+      "unconfirmedOnly": "Unconfirmed Only",
+      "confirmedOnly": "Confirmed Only",
+      "unconfirmed": "Unconfirmed",
+      "fields": {
+        "codeValue": "Code Value",
+        "gameUserId": "Game User ID",
+        "confirmedAt": "Confirmed At",
+        "createdAt": "Used At"
+      }
+    },
+    "logs": {
+      "actionFilterPlaceholder": "Filter by action",
+      "actions": {
+        "10": "Create",
+        "20": "Update",
+        "30": "Status Change",
+        "40": "Approve",
+        "50": "Reject"
+      },
+      "createdSnapshot": "Initial creation",
+      "noFieldChange": "No field changes",
+      "changesUnavailableWhenFiltered": "Changes are not compared while an action filter is applied.",
+      "fields": {
+        "createdAt": "Performed At",
+        "action": "Action",
+        "createdByName": "Performed By",
+        "changes": "Changes"
+      }
+    },
+    "errors": {
+      "30005": "Another administrator updated this first. The latest data has been reloaded."
+    }
+  },
   "myAccount": {
     "title": "My Account",
     "logout": "Log Out",
@@ -273,7 +428,8 @@
     "manage": "Admin",
     "allCompanies": "All Companies",
     "allProjects": "All Projects",
-    "projectPlaceholder": "Select a project"
+    "projectPlaceholder": "Select a project",
+    "serverTimeTooltip": "Server time (live) — the actual basis for period checks like campaign activation."
   },
   "footer": {
     "inquiry": "Contact"
