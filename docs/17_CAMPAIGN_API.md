@@ -891,7 +891,38 @@ ORDER BY created_at DESC, idx DESC
 
 ---
 
-# 5. 관련 문서
+# 5. 시스템 자동 처리 (API 호출 없이 발생하는 상태변경)
+
+## 5.1 사용기간 만료 자동 종료
+
+API 엔드포인트가 아니라 서버 배치(`CampaignExpiryService`, `CAMPAIGN_EXPIRY_CRON` 스케줄, 기본 5분 주기)가 주기적으로 트리거하는 시스템 상태변경이다(2026-07-25 추가).
+
+### 대상
+
+```text
+status = 2(활성) AND approval_status IN (1, 3)(승인불요/승인완료) AND campaign_end <= 서버 시각(NOW())
+```
+
+`status = 1`(대기)인 캠페인은 대상이 아니다 — 관리자가 나중에 쓰려고 일부러 활성화하지 않고 대기 상태로 남겨둔 캠페인까지 자동으로 건드리지 않기 위함이다. `approval_status IN (1,3)` 조건은 `status=2` 도달 시점에 이미 보장되는 불변조건([2.5](#25-change-campaign-status) 참고)이라 이론상 항상 참이지만, 호출자 조건을 그대로 안 믿는 이 문서의 일반 원칙과 같은 결로 방어적으로 명시한다.
+
+### 동작
+
+- `status`만 `4`(종료)로 전환한다 — `approval_status`/`generation_status`/`reject_reason` 등 다른 축은 건드리지 않는다(수동 종료와 동일 원칙)
+- `updated_by`는 `NULL`로 남긴다. `log_coupon_campaign`에는 `action=30`(STATUS_CHANGE)로 기록하되, 이 로그 테이블의 행위자 컬럼(`created_by`)은 `NOT NULL`이라 사람이 아닌 배치가 한 액션임을 나타내는 sentinel(`created_by=0`/`created_by_name='SYSTEM'`)을 채운다([02_DEV_CONVENTIONS.md](./02_DEV_CONVENTIONS.md) 4.2) — 캠페인 변경이력(4.2 API) 화면에 "작업자: SYSTEM"으로 그대로 노출된다
+- `edit_count`는 다른 상태변경 SP와 동일하게 `+1`된다 — 이 시점에 관리자가 들고 있던 `edit_count`로 수정/승인/반려/상태변경을 시도하면 정확히 30005(동시 수정 충돌)로 거부되어, "이미 자동 종료됐다"는 사실을 자연스럽게 알아챌 수 있다
+
+### 이 시점 이후엔 되돌릴 수 없음
+
+`status=4`(종료)에 도달하면 [1.3](#13-종료된-캠페인status4-잠금-원칙)에 따라 이 캠페인의 모든 쓰기(수정으로 `campaign_end` 연장 포함)가 영구히 차단된다. 즉 관리자의 기간 연장 PATCH와 이 배치가 거의 동시에 경합하는 경우, 배치가 이기면 그 캠페인은 되살릴 방법이 없고 새 캠페인을 생성해야 한다 — "이미 만료된 걸 계속 수정 가능하게 두는 것"보다 "한번 종료되면 예외 없이 잠근다"는 원칙을 우선한 결과다(2026-07-25 논의).
+
+### 다른 메커니즘과의 관계
+
+- **reserve API에는 영향 없음** — reserve는 이미 자체 시간조건(`NOW() BETWEEN campaign_start AND campaign_end`)으로 막혀 있어, 이 배치가 돌기 전이든 후든 만료된 캠페인의 reserve 성공 여부는 달라지지 않는다. 이 배치는 순수하게 화면 표시(상태 라벨)를 실제와 맞추는 목적이다
+- **RANDOM 백그라운드 코드생성과의 레이스** — 이 배치가 캠페인을 종료시키는 순간에도 [05_COUPON_ISSUANCE_SCENARIO.md](./05_COUPON_ISSUANCE_SCENARIO.md) 2.5의 기존 `status<>4` 가드가 그대로 적용되어 새로 손볼 부분이 없다
+
+---
+
+# 6. 관련 문서
 
 - 캠페인/코드 발급 흐름 근거: [05_COUPON_ISSUANCE_SCENARIO.md](./05_COUPON_ISSUANCE_SCENARIO.md)
 - 쿠폰 사용(reserve/confirm) 상세 API: [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md)

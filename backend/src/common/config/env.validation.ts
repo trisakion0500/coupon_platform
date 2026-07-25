@@ -94,4 +94,8 @@ export const envValidationSchema = Joi.object({
   // 설정에서 계산한 동일한 "정체 판정" 임계값으로 SP_CAMPAIGN_CODE_GENERATION_STALE_LIST를
   // 주기 조회해 서버 로그로 경고만 남긴다(자동 복구는 하지 않음).
   CODE_GENERATION_STALE_MONITOR_CRON: Joi.string().default('*/5 * * * *'),
+
+  // 사용기간이 지난 활성 캠페인 자동 종료 배치(SP_CAMPAIGN_EXPIRE, 2026-07-25) 스케줄.
+  // 초 단위로 급박한 처리가 아니라 5분 기본값이면 충분하다고 판단.
+  CAMPAIGN_EXPIRY_CRON: Joi.string().default('*/5 * * * *'),
 });

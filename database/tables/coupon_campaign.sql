@@ -68,6 +68,17 @@
 --  (동시 수정 충돌)로 거부한다. MySQL의 행 단위 락이 UPDATE 간 순서를 직렬화해주므로 두 요청이
 --  아무리 가깝게 들어와도 이 값 하나로 충돌을 확실하게 잡을 수 있다(17_CAMPAIGN_API.md 2.4
 --  Concurrency 참고).
+-- 사용기간 만료 자동 종료 (SP_CAMPAIGN_EXPIRE, 2026-07-25 추가)
+--  status=2(활성) AND approval_status IN(1,3) AND campaign_end<=NOW()인 캠페인을 배치
+--  (CampaignExpiryService, CAMPAIGN_EXPIRY_CRON)가 주기적으로 status=4(종료)로 전환한다 —
+--  기간이 지났는데도 화면엔 "활성"으로 남아있는 상태를 없애기 위함(reserve는 이미 자체
+--  시간조건으로 막혀있어 정합성 문제는 아니고 순수 표시 문제). status=1(대기)은 대상이
+--  아니다 — 관리자가 나중에 쓰려고 일부러 활성화하지 않은 캠페인까지 건드리지 않는다.
+--  updated_by는 NULL로 남기지만(이 컬럼은 원래 nullable), log_coupon_campaign.created_by는
+--  NOT NULL이라 배치는 created_by=0/created_by_name='SYSTEM' sentinel로 기록한다(사람이 아닌
+--  시스템이 한 액션이라는 뜻, 02_DEV_CONVENTIONS.md 4.2). 상세는 17_CAMPAIGN_API.md 5장,
+--  SP_CAMPAIGN_EXPIRE 헤더 주석 참고. 이 조건에 맞는 후보를 빠르게 찾기 위해
+--  ix_status_campaign_end(status, campaign_end) 인덱스를 함께 추가했다.
 -- ------------------------------------------------------------------------------------------------------------ --
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `coupon_campaign`;
@@ -102,6 +113,7 @@ CREATE TABLE `coupon_campaign` (
   KEY `ix_project_approval_status` (`project_id`,`approval_status`),
   KEY `ix_project_generation_status` (`project_id`,`generation_status`),
   KEY `ix_code_type` (`code_type`),
+  KEY `ix_status_campaign_end` (`status`,`campaign_end`),
   CONSTRAINT `fk_coupon_campaign_project` FOREIGN KEY (`project_id`) REFERENCES `project` (`project_id`),
   CONSTRAINT `fk_coupon_campaign_created_by` FOREIGN KEY (`created_by`) REFERENCES `user` (`user_id`),
   CONSTRAINT `fk_coupon_campaign_updated_by` FOREIGN KEY (`updated_by`) REFERENCES `user` (`user_id`),

@@ -162,6 +162,7 @@ coupon_platform/
   - ✅ Coupon Usage History / Campaign Change Log / Coupon Use Log 조회 API
   - ✅ Coupon Usage API(S2S) — reserve / confirm(즉시확정 모델) / 미컨슘 조회 + `log_coupon_use` 적재
   - ✅ 스케일아웃(수평 확장) 대응 — graceful shutdown, DB 커넥션 풀 크기 env화, 크론 배치 중복실행 방지(`runExclusive`), nonce 정리 배치, 정체 코드생성 감지 모니터링
+  - ✅ 사용기간 만료 캠페인 자동 종료 — 활성+승인완료(또는 승인불요) 상태에서 `campaign_end`가 지나면 배치가 `status=4`(종료)로 전환(`CampaignExpiryService`, 종료 후엔 예외 없이 모든 수정 차단)
   - ✅ 운영 보완 — 로그 파일 일별 로테이션 + ERROR 전용 분리, S2S 호출자 IP 기록, 전역 API 실행 타임아웃, reserve/confirm 프로젝트 단위 rate limiter(토큰 버킷)
 - 🚧 Frontend 구현 진행 중(`docs/19_DEV_SETUP.md`, React 18 + TypeScript + Vite + Ant Design + Zustand + Axios)
   - ✅ 구조 스캐폴딩 — 레이아웃 3종(AuthLayout/MainLayout/AdminLayout), 라우트 전체 골격(`16_LAYOUT.md` 7장), role 기반 가드 4종(`RoleGuard`/`PermissionGuard`/`RequireAuth`/`RequireGuest`/`RequireProjectSelected`), Zustand `authStore`/`globalStore`, axios 클라이언트(Access Token 자동 첨부 + 만료 시 자동 재발급·재시도)

@@ -205,7 +205,17 @@ LEFT JOIN (
 
 **해결**: `SpExecutorService.runExclusive(lockName, fn)` — MySQL 세션 수준 advisory lock(`GET_LOCK`/`RELEASE_LOCK`, timeout=0 non-blocking)으로 감싸 한 시점에 한 레플리카만 실제로 `fn`을 실행하도록 한다. Redis 등 별도 분산 락 인프라를 새로 들이지 않고 이미 쓰고 있는 MySQL만으로 해결한 것 — `GET_LOCK`은 락을 커넥션 세션에 묶어 관리하므로 반드시 pool에서 커넥션 하나를 직접 뽑아 잡고 있어야 하고(`callProcedure`처럼 매 호출마다 pool이 임의로 골라주는 커넥션으로는 락을 건 커넥션과 푸는 커넥션이 달라질 수 있음), timeout=0으로 시도해 이미 다른 레플리카가 실행 중이면 대기 없이 즉시 포기한다(크론은 다음 스케줄에 또 돌아오므로 기다릴 이유가 없음).
 
-**새로 크론 배치를 추가할 때는 이 패턴을 그대로 재사용한다** — `SP_SESSION_CLEANUP`/`SP_PROJECT_API_SECRET_CLEANUP`/`SP_NONCE_CLEANUP`(`NonceCleanupService`, 스케일아웃 점검 4번, 2026-07-23 뒤늦게 구현 완료)/`SP_CAMPAIGN_CODE_GENERATION_STALE_LIST`(`CodeGenerationStaleMonitorService`, 스케일아웃 점검 5번)까지 4개 크론 배치 전부 이미 이렇게 감싸져 있다.
+**새로 크론 배치를 추가할 때는 이 패턴을 그대로 재사용한다** — `SP_SESSION_CLEANUP`/`SP_PROJECT_API_SECRET_CLEANUP`/`SP_NONCE_CLEANUP`(`NonceCleanupService`, 스케일아웃 점검 4번, 2026-07-23 뒤늦게 구현 완료)/`SP_CAMPAIGN_CODE_GENERATION_STALE_LIST`(`CodeGenerationStaleMonitorService`, 스케일아웃 점검 5번)/`SP_CAMPAIGN_EXPIRE`(`CampaignExpiryService`, 2026-07-25)까지 5개 크론 배치 전부 이미 이렇게 감싸져 있다.
+
+## 4.2 배치가 도메인 로그에 남기는 "시스템 행위자"
+
+`log_audit`/`log_coupon_campaign` 같은 도메인 변경이력 테이블은 지금까지 항상 "실제로 그 액션을 수행한 사람"(`created_by`/`created_by_name`)을 전제로 설계돼 있었다 — 그런데 `SP_CAMPAIGN_EXPIRE`(사용기간 만료 자동 종료, 2026-07-25)처럼 **사람이 아니라 배치가 직접 도메인 행을 변경**하는 경우가 처음 생기면서, 행위자 컬럼에 무엇을 넣을지 정할 필요가 생겼다.
+
+**결정**: `created_by=0`(실제 `user.user_id`는 AUTO_INCREMENT라 1부터 시작하므로 0은 항상 안전한 sentinel) + `created_by_name='SYSTEM'`을 그대로 채운다. 이 값들은 사람이 남긴 다른 로그 행과 완전히 동일한 컬럼/조회 경로를 타므로, 화면(예: 캠페인 변경이력)에도 별도 분기 없이 "작업자: SYSTEM"으로 자연스럽게 노출된다.
+
+- 로그 테이블은 `created_by`에 FK를 걸지 않는 원칙(1장 "로깅 원칙")이라 0을 넣어도 제약 위반이 없다 — 컬럼을 nullable로 바꾸는 스키마 변경 없이 해결한 이유
+- 배치가 바꾸는 원본 도메인 테이블(`coupon_campaign` 등)의 `updated_by`는 이 sentinel을 쓰지 않고 그냥 `NULL`로 남긴다 — 이 컬럼은 애초부터 nullable이라(관리 콘솔 CREATE 시점처럼 특정 행위자가 없는 경우가 이미 있었음) 별도 관례가 필요 없다. sentinel이 필요한 건 로그 테이블의 행위자 컬럼(`created_by`)이 `NOT NULL`인 경우뿐이다
+- **앞으로 사람 없이 배치가 직접 도메인 로그를 남겨야 하는 경우 이 sentinel(`0`/`'SYSTEM'`)을 그대로 재사용한다** — 배치마다 제각각 다른 sentinel을 정의하지 않는다
 
 ---
 

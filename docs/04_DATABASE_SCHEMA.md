@@ -137,6 +137,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 - `reward_data`는 완전 자유 스키마 JSON — 쿠폰서버는 내용을 해석하지 않고 게임서버로 그대로 pass-through
 - 쿠폰 코드 생성 규칙(RANDOM 전용): `nanoid.customAlphabet('23456789ABCDEFGHJKLMNPQRSTUVWXYZ', 12)().match(/.{1,4}/g)?.join('-')` → `XXXX-XXXX-XXXX` 형식
 - **`edit_count`(낙관적 동시성 제어)**: 이 행을 바꾸는 쓰기 API(수정/상태변경/승인/반려) 전부가 성공할 때마다 1씩 증가하는 전용 정수 카운터. `PATCH /campaigns/{id}`는 이 값을 필수로 받아 서버의 현재 값과 다르면(그 사이 다른 관리자가 먼저 수정) 30005로 거부한다([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.4 Concurrency). 처음엔 자동 갱신 컬럼 `updated_at`을 재사용했으나 `DATETIME`이 초 단위까지만 기록돼 같은 초 안의 동시 수정을 놓치는 사례가 실제로 재현되어, 타이밍에 의존하지 않는 정수 카운터로 교체함
+- **사용기간 만료 자동 종료(2026-07-25 추가)**: `status=2`(활성) AND `approval_status IN(1,3)` AND `campaign_end<=NOW()`인 캠페인을 배치(`CampaignExpiryService`, `CAMPAIGN_EXPIRY_CRON`)가 주기적으로 `status=4`(종료)로 전환한다 — 기간이 지났는데도 "활성"으로 보이는 상태를 없애기 위함(API 호출 없이 발생하는 시스템 상태변경, [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 5장). 이 조건에 맞는 후보를 빠르게 찾도록 `ix_status_campaign_end(status, campaign_end)` 인덱스를 뒀다
 
 ### 상태 (`status`)
 
