@@ -33,3 +33,4 @@ coverage/
 
 # Local project instructions (not for repo)
 CLAUDE.md
+.claude/
