@@ -9,6 +9,7 @@ import { AppModule } from '../../src/app.module';
 import { HttpExceptionFilter } from '../../src/common/response/http-exception.filter';
 import { ResponseInterceptor } from '../../src/common/response/response.interceptor';
 import { TimeoutInterceptor } from '../../src/common/response/timeout.interceptor';
+import { applyE2eEnvOverrides } from './env';
 
 /**
  * `main.ts`의 부트스트랩(버전관리/전역 파이프·필터·인터셉터)을 그대로 재현해, 실제 서버와 동일한
@@ -19,6 +20,11 @@ import { TimeoutInterceptor } from '../../src/common/response/timeout.intercepto
  * @author trisakion
  */
 export async function createE2eApp(): Promise<INestApplication> {
+  // AppModule이 컴파일되기 전에 반드시 먼저 호출해야 한다 — ConfigModule.forRoot()가 내부적으로
+  // .env를 로드할 때 이미 process.env에 있는 값은 덮어쓰지 않는 dotenv 특성을 이용해
+  // .env.test(있으면)를 .env보다 우선 적용한다(env.ts 참고).
+  applyE2eEnvOverrides();
+
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();

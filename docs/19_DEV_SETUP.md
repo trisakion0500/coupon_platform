@@ -219,6 +219,69 @@ npm run lint
 npm run test
 ```
 
+## 5.3 E2E 테스트
+
+`test/*.e2e-spec.ts` — 기본은 별도 테스트 DB를 두지 않고 로컬 개발 DB
+(`coupon_platform`/`coupon_platform_log`)를 그대로 재사용해, 서버 부트스트랩 → 실제 HTTP 요청 →
+SP 실행 → 응답 검증까지 전 구간을 확인한다(2026-07-24 결정 — "개발 DB는 언제든 리셋 가능한 것으로
+취급한다"는 전제). 원하면 완전히 분리된 전용 테스트 DB로 돌릴 수도 있다(아래 "전용 테스트 DB로
+분리하기" 참고, 2026-07-26).
+
+```bash
+npm run test:e2e
+```
+
+**⚠️ 주의**: 이 명령은 실행할 때마다 대상 DB(기본은 dev DB, `.env.test`가 있으면 그쪽)의 전
+테이블을 TRUNCATE한 뒤 `all_tables.sql`의 시드 데이터만 다시 채운다 — 수동으로 만들어둔 데이터가
+있다면 전부 사라진다. 운영 DB나 다른 사람과 공유하는 DB를 가리키게 두지 말 것.
+DB 리셋만 따로 하고 싶으면 `npm run test:e2e:reset`.
+
+**구성**(`test/utils/`, 도메인 무관 공용):
+
+| 파일                | 역할                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------- |
+| `global-setup.ts`   | Jest globalSetup — `npm run test:e2e` 실행당 딱 1회 `reset-db.ts`로 DB를 리셋한다      |
+| `reset-db.ts`       | TRUNCATE + `all_tables.sql`의 INSERT문 재실행(DDL을 유일한 소스로 재사용, 직접 베끼지 않음) + `fix-seed-phone.ts`와 동일하게 시드 계정 `phone_number` 재암호화 |
+| `env.ts`            | `.env`를 기본값으로, `.env.test`(있으면)로 DB 접속 정보만 오버라이드하는 병합 로더(`loadE2eEnv`/`applyE2eEnvOverrides`) — `reset-db.ts`와 `test-app.ts`가 공유해서 쓴다 |
+| `test-app.ts`       | `main.ts`의 부트스트랩(버전관리/파이프/필터/인터셉터/`rawBody:true`)을 그대로 재현 — `app.listen()` 없이 supertest가 내부 서버를 직접 구동해 개발 서버와 포트 충돌 없이 실행 |
+| `envelope.ts`       | `{result,data}` 응답 봉투를 실제 응답 DTO 타입으로 캐스트하는 `success<T>()`/`failure()` 헬퍼          |
+| `s2s.ts`            | S2S(API Key+HMAC-SHA256) 서명 헤더를 `S2sAuthGuard`와 동일한 규칙으로 계산(`coupon-usage`/`coupon-use-log` 도메인 전용) |
+
+`test/tsconfig.json`은 메인 `tsconfig.json`(`rootDir: ./src`)과 별개로 `test/` 디렉터리까지
+포함하도록 `rootDir`을 오버라이드한 ts-jest 전용 설정이다 — 메인 프로젝트 빌드(`tsconfig.build.json`)나
+VS Code 에디터의 `test/` 파일 타입체크에는 영향을 주지 않는다.
+
+### 5.3.1 전용 테스트 DB로 분리하기(선택)
+
+기본은 dev DB를 그대로 재사용하지만, dev DB에 수동으로 쌓아둔 데이터를 E2E가 매번 지우는 게
+싫으면 `backend/.env.test.example`을 `.env.test`로 복사해 `DB_NAME`/`LOG_DB_NAME`(필요하면
+`DB_HOST`/`DB_USER`/`DB_PASSWORD` 등도) 값을 채운다 — `test/utils/env.ts`가 `.env`를 기본값으로
+깔고 이 파일의 값으로 오버라이드하므로, `JWT_SECRET`/`ENCRYPTION_KEY` 등 DB 접속과 무관한 값은
+그대로 `.env`를 재사용한다. `.env.test`를 만들지 않으면 이전과 동일하게 `.env`(dev DB)만 쓴다.
+
+이 파일이 가리키는 DB는 실제로 존재해야 하고, 스키마도 dev DB와 동일하게 적용돼 있어야 한다 —
+3장(메인/로그 DB 생성·테이블·Function·Procedure 생성)을 새 DB 이름으로 동일하게 반복하면 된다.
+`.env.test`는 `.env`와 마찬가지로 gitignore 대상이라 각자 로컬에서만 관리한다.
+
+현재 8개 도메인(auth/company/project/user·user_role/campaign(+코드발급)/coupon-usage(S2S)/
+coupon-use-log/log-audit) 141개 테스트로 `docs/09~18`에 문서화된 API 전체를 커버한다. 새 API를
+추가하면 해당 도메인 스펙 파일에 케이스를 이어 붙이고, 새 도메인이면 위 유틸을 재사용해
+`test/<domain>.e2e-spec.ts`를 신설한다.
+
+**작성 시 주의할 점 2가지**:
+
+- **Rate limiter 예산** — `/auth/login`/`/auth/signup`은 IP당 rate limiter(기본 15분당 10회,
+  `LOGIN_RATE_LIMIT_MAX`)를 공유한다. signup을 반복 호출하는 스펙(예: `auth.e2e-spec.ts`)은 한
+  파일 안의 signup+login 총 호출 수가 이 한도를 넘지 않도록 설계할 것(스펙 파일마다 별도 앱
+  인스턴스라 파일 간에는 이 예산이 공유되지 않는다 — 권한거부처럼 대상의 실제 상태가 중요하지
+  않은 케이스는 새로 가입시키지 말고 기존 계정을 재사용해 예산을 아낀다).
+- **크로스 파일 DB 상태 공유** — globalSetup은 전체 실행당 1회만 리셋하고, 그 안의 모든 스펙
+  파일이 같은 DB를 공유한다. 각 파일이 자기만의 네임스페이스(고유 코드/이름)로 데이터를 만드는
+  한 서로 간섭하지 않지만, "전체 활성 회사/프로젝트"처럼 **전역 집계성 조회**를 검증하는 테스트는
+  다른 파일이 만드는 데이터까지 자연히 포함되므로 정확한 개수/목록을 단정하지 말고
+  `toBeGreaterThanOrEqual`/`expect.arrayContaining`으로 "최소 포함"만 검증할 것 — 실제로
+  company/project 도메인에서 이 가정을 두 번 깬 전례가 있다.
+
 ---
 
 # 6. 프론트엔드

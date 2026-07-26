@@ -3,6 +3,7 @@ import { join } from 'path';
 import { ConfigService } from '@nestjs/config';
 import mysql from 'mysql2/promise';
 import { CryptoService } from '../../src/common/crypto/crypto.service';
+import { loadE2eEnv } from './env';
 
 /** src/scripts/fix-seed-phone.ts와 동일한 더미값 — 시드 계정 phone_number를 실제 로컬
  * ENCRYPTION_KEY로 복호화 가능하게 다시 암호화하는 데 쓴다. */
@@ -33,17 +34,6 @@ const LOG_TABLES_TRUNCATE_ORDER = [
   'log_audit',
 ];
 
-/** `.env`를 최소한으로 파싱한다(fix-seed-phone.ts와 동일 — dotenv를 새 의존성으로 추가하지 않는다). */
-function loadEnv(): Record<string, string> {
-  const content = readFileSync(join(__dirname, '..', '..', '.env'), 'utf8');
-  const env: Record<string, string> = {};
-  for (const line of content.split('\n')) {
-    const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
-    if (match) env[match[1]] = match[2];
-  }
-  return env;
-}
-
 /**
  * `database/tables/all_tables.sql`에서 `INSERT INTO ...;` 블록만 그대로 뽑아온다 — 시드 데이터를
  * 이 스크립트에 다시 베껴 적으면 DDL이 바뀔 때마다 둘 다 고쳐야 하는 이격 위험이 생기므로,
@@ -56,17 +46,18 @@ function extractSeedInserts(ddlPath: string): string[] {
 }
 
 /**
- * E2E 테스트 전용 DB 리셋 — 별도 테스트 DB를 두지 않고 실제 로컬 개발 DB
- * (`coupon_platform`/`coupon_platform_log`)를 그대로 재사용해, 매 실행마다 전 테이블을
- * TRUNCATE한 뒤 `all_tables.sql`의 시드 데이터(company/project/user/user_role)만 다시 채운다
- * (2026-07-24 "E2E는 개발 DB를 리셋 가능한 것으로 취급한다" 결정 반영). `npm run test:e2e`의
- * Jest globalSetup으로 매번 자동 실행되고, `ts-node`로 단독 실행(`npm run test:e2e:reset`)도
- * 가능하다.
+ * E2E 테스트 전용 DB 리셋 — 기본은 별도 테스트 DB를 두지 않고 실제 로컬 개발 DB
+ * (`coupon_platform`/`coupon_platform_log`)를 그대로 재사용하되(2026-07-24 "E2E는 개발 DB를
+ * 리셋 가능한 것으로 취급한다" 결정), `.env.test`로 DB 접속 정보만 오버라이드해 완전히 분리된
+ * 전용 테스트 DB를 쓸 수도 있다(2026-07-26, `loadE2eEnv` 참고 — `.env.test`가 없으면 이전과
+ * 동일하게 `.env`만 쓴다). 매 실행마다 전 테이블을 TRUNCATE한 뒤 `all_tables.sql`의 시드
+ * 데이터(company/project/user/user_role)만 다시 채운다. `npm run test:e2e`의 Jest globalSetup으로
+ * 매번 자동 실행되고, `ts-node`로 단독 실행(`npm run test:e2e:reset`)도 가능하다.
  *
  * @author trisakion
  */
 export async function resetDatabase(): Promise<void> {
-  const env = loadEnv();
+  const env = loadE2eEnv();
   const configService = {
     getOrThrow: (key: string) => env[key],
   } as unknown as ConfigService;
