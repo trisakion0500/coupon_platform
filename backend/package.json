@@ -18,6 +18,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:e2e:reset": "ts-node -r tsconfig-paths/register test/utils/reset-db.ts",
     "keygen": "node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
     "fix-seed-phone": "ts-node -r tsconfig-paths/register src/scripts/fix-seed-phone.ts"
   },

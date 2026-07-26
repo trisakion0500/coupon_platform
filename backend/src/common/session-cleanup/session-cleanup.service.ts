@@ -1,6 +1,12 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as cron from 'node-cron';
+import type { ScheduledTask } from 'node-cron';
 import { SpExecutorService } from '../database/sp-executor.service';
 
 /**
@@ -10,8 +16,9 @@ import { SpExecutorService } from '../database/sp-executor.service';
  * @author trisakion
  */
 @Injectable()
-export class SessionCleanupService implements OnModuleInit {
+export class SessionCleanupService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SessionCleanupService.name);
+  private task: ScheduledTask | undefined;
 
   constructor(
     private readonly configService: ConfigService,
@@ -23,9 +30,18 @@ export class SessionCleanupService implements OnModuleInit {
     const schedule = this.configService.getOrThrow<string>(
       'SESSION_CLEANUP_CRON',
     );
-    cron.schedule(schedule, () => {
+    this.task = cron.schedule(schedule, () => {
       void this.cleanup();
     });
+  }
+
+  /**
+   * 서버 정상 종료(SIGTERM 등, `main.ts`의 `enableShutdownHooks`) 시 크론 스케줄을 멈춘다 —
+   * 이게 없으면 `SpExecutorService`의 DB pool이 먼저 닫힌 뒤에도 스케줄이 계속 발동해
+   * "Pool is closed" 오류를 남길 수 있다(E2E 테스트에서 실제로 재현됨, 2026-07-26).
+   */
+  async onModuleDestroy(): Promise<void> {
+    await this.task?.stop();
   }
 
   /**

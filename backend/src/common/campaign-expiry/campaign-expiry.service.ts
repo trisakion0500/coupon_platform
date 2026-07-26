@@ -1,6 +1,12 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as cron from 'node-cron';
+import type { ScheduledTask } from 'node-cron';
 import { LogSpExecutorService } from '../database/log-sp-executor.service';
 import { SpExecutorService } from '../database/sp-executor.service';
 
@@ -54,8 +60,9 @@ const SYSTEM_ACTOR_NAME = 'SYSTEM';
  * @author trisakion
  */
 @Injectable()
-export class CampaignExpiryService implements OnModuleInit {
+export class CampaignExpiryService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CampaignExpiryService.name);
+  private task: ScheduledTask | undefined;
 
   constructor(
     private readonly configService: ConfigService,
@@ -68,9 +75,14 @@ export class CampaignExpiryService implements OnModuleInit {
     const schedule = this.configService.getOrThrow<string>(
       'CAMPAIGN_EXPIRY_CRON',
     );
-    cron.schedule(schedule, () => {
+    this.task = cron.schedule(schedule, () => {
       void this.expire();
     });
+  }
+
+  /** 서버 정상 종료 시 크론 스케줄을 멈춘다(`SessionCleanupService`와 동일 이유). */
+  async onModuleDestroy(): Promise<void> {
+    await this.task?.stop();
   }
 
   /**

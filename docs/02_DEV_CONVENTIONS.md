@@ -215,6 +215,14 @@ LEFT JOIN (
 
 **새로 크론 배치를 추가할 때는 이 패턴을 그대로 재사용한다** — `SP_SESSION_CLEANUP`/`SP_PROJECT_API_SECRET_CLEANUP`/`SP_NONCE_CLEANUP`(`NonceCleanupService`, 스케일아웃 점검 4번, 2026-07-23 뒤늦게 구현 완료)/`SP_CAMPAIGN_CODE_GENERATION_STALE_LIST`(`CodeGenerationStaleMonitorService`, 스케일아웃 점검 5번)/`SP_CAMPAIGN_EXPIRE`(`CampaignExpiryService`, 2026-07-25)까지 5개 크론 배치 전부 이미 이렇게 감싸져 있다.
 
+### 서버 정상 종료 시 크론 스케줄도 반드시 멈춰야 한다(2026-07-26)
+
+`main.ts`는 스케일아웃 점검(2026-07-23) 때 `app.enableShutdownHooks()`를 이미 추가해, SIGTERM 수신 시 `SpExecutorService`/`LogSpExecutorService`의 `onModuleDestroy`(mysql2 pool `end()`)가 호출되도록 해뒀다. 하지만 위 5개 크론 서비스는 전부 `OnModuleInit`에서 `cron.schedule(...)`만 호출하고 그 반환값(`ScheduledTask`)을 어디에도 저장하지 않아, `OnModuleDestroy`로 스케줄 자체를 멈출 방법이 없었다 — DB pool은 먼저 정리되는데 아직 살아있는 크론 스케줄이 그 사이에 발동하면 "Pool is closed" 에러가 난다. 이 결함은 실제 운영 SIGTERM 그레이스풀 셧다운에서도 동일하게 재현될 수 있었지만, 지금까지 수동 스모크 테스트로만 검증해와서 드러나지 않고 있었다 — E2E 테스트 스위트를 처음 실제 로컬 DB로 돌려본 뒤(`npm run test:e2e`가 매 실행마다 `app.close()`를 호출하는 여러 Nest 앱 인스턴스를 짧은 시간에 만들고 정리하는 과정에서) 로그에 "Pool is closed" 에러가 남는 것을 보고 처음 발견됐다.
+
+**해결**: 5개 서비스 전부 `OnModuleDestroy`를 구현 — `cron.schedule()`의 반환값을 `private task: ScheduledTask | undefined` 필드에 저장해두고, `onModuleDestroy`에서 `await this.task?.stop()`으로 멈춘다. `node-cron` 4.6.0이 자체 번들 타입(`node_modules/node-cron/dist/node-cron.d.ts`)에서 `stop(): void | Promise<void>`로 선언해뒀다 — 실행 중인 job이 있으면 그 완료를 기다렸다 멈출 수 있다는 뜻이라, `onModuleDestroy` 자체를 `async`로 선언하고 `void` 캐스팅으로 얼버무리지 않고 제대로 `await`해야 한다(eslint `no-floating-promises`도 이 타입을 보고 정확히 그 지점을 잡아낸다).
+
+이 수정은 코드 자체는 5개 파일 각각 몇 줄씩이라 사소해 보이지만, **정상 종료 훅은 "DB 연결을 정리하는 것"과 "그 DB 연결을 계속 쓰려는 백그라운드 작업을 먼저 멈추는 것" 두 가지를 항상 짝으로 갖춰야 한다**는 일반 원칙을 보여준다 — 스케일아웃 점검 때는 전자만 다루고 후자를 놓쳤었다. 앞으로 새로 추가하는 크론 배치도 `OnModuleInit`에서 `cron.schedule()`의 반환값을 반드시 필드에 저장하고 `OnModuleDestroy`에서 `stop()`해야 한다 — 이 패턴을 빠뜨리면 겉보기엔 정상 동작하다가 배포/재시작 타이밍에만 드물게 에러 로그가 남는, 알아채기 어려운 결함이 된다.
+
 ## 4.2 배치가 도메인 로그에 남기는 "시스템 행위자"
 
 `log_audit`/`log_coupon_campaign` 같은 도메인 변경이력 테이블은 지금까지 항상 "실제로 그 액션을 수행한 사람"(`created_by`/`created_by_name`)을 전제로 설계돼 있었다 — 그런데 `SP_CAMPAIGN_EXPIRE`(사용기간 만료 자동 종료, 2026-07-25)처럼 **사람이 아니라 배치가 직접 도메인 행을 변경**하는 경우가 처음 생기면서, 행위자 컬럼에 무엇을 넣을지 정할 필요가 생겼다.

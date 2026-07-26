@@ -1,6 +1,7 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as cron from 'node-cron';
+import type { ScheduledTask } from 'node-cron';
 import { computeCodeGenerationStaleThresholdSec } from '../config/code-generation-stale-threshold.util';
 import { SpExecutorService } from '../database/sp-executor.service';
 import { getCodeGenerationStaleLogger } from '../logging/log4js-logger.service';
@@ -33,11 +34,14 @@ interface StaleGenerationRow {
  * @author trisakion
  */
 @Injectable()
-export class CodeGenerationStaleMonitorService implements OnModuleInit {
+export class CodeGenerationStaleMonitorService
+  implements OnModuleInit, OnModuleDestroy
+{
   // 일반 NestJS Logger(-> app.log)가 아니라 전용 카테고리(logs/code-generation-stale.log)로
   // 직접 로깅한다 — 운영자가 액션을 취해야 하는 경고라 일반 앱 로그와 분리해 별도로
   // tail/알림 연동할 수 있게 한다(2026-07-23, 스케일아웃 점검 5번 후속).
   private readonly logger = getCodeGenerationStaleLogger();
+  private task: ScheduledTask | undefined;
 
   private readonly maxGenerationDbRetries: number;
   private readonly generationRetryBaseDelayMs: number;
@@ -63,9 +67,14 @@ export class CodeGenerationStaleMonitorService implements OnModuleInit {
     const schedule = this.configService.getOrThrow<string>(
       'CODE_GENERATION_STALE_MONITOR_CRON',
     );
-    cron.schedule(schedule, () => {
+    this.task = cron.schedule(schedule, () => {
       void this.check();
     });
+  }
+
+  /** 서버 정상 종료 시 크론 스케줄을 멈춘다(`SessionCleanupService`와 동일 이유). */
+  async onModuleDestroy(): Promise<void> {
+    await this.task?.stop();
   }
 
   /**

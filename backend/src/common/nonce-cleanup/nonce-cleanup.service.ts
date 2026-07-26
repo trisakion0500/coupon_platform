@@ -1,6 +1,12 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as cron from 'node-cron';
+import type { ScheduledTask } from 'node-cron';
 import { SpExecutorService } from '../database/sp-executor.service';
 
 /**
@@ -13,8 +19,9 @@ import { SpExecutorService } from '../database/sp-executor.service';
  * @author trisakion
  */
 @Injectable()
-export class NonceCleanupService implements OnModuleInit {
+export class NonceCleanupService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(NonceCleanupService.name);
+  private task: ScheduledTask | undefined;
 
   constructor(
     private readonly configService: ConfigService,
@@ -26,9 +33,14 @@ export class NonceCleanupService implements OnModuleInit {
     const schedule = this.configService.getOrThrow<string>(
       'S2S_NONCE_CLEANUP_CRON',
     );
-    cron.schedule(schedule, () => {
+    this.task = cron.schedule(schedule, () => {
       void this.cleanup();
     });
+  }
+
+  /** 서버 정상 종료 시 크론 스케줄을 멈춘다(`SessionCleanupService`와 동일 이유). */
+  async onModuleDestroy(): Promise<void> {
+    await this.task?.stop();
   }
 
   /**
