@@ -165,6 +165,7 @@ coupon_platform/
   - ✅ 사용기간 만료 캠페인 자동 종료 — 활성+승인완료(또는 승인불요) 상태에서 `campaign_end`가 지나면 배치가 `status=4`(종료)로 전환(`CampaignExpiryService`, 종료 후엔 예외 없이 모든 수정 차단)
   - ✅ 운영 보완 — 로그 파일 일별 로테이션 + ERROR 전용 분리, S2S 호출자 IP 기록, 전역 API 실행 타임아웃, reserve/confirm 프로젝트 단위 rate limiter(토큰 버킷)
   - ✅ Swagger 문서화 — `nest-cli.json`에 swagger CLI 플러그인(`classValidatorShim`) 등록 + 전체 요청 DTO(32개)에 `@ApiProperty()`/`@ApiPropertyOptional()`(설명/예시 포함) 추가. 응답 스키마도 문서화 완료 — 응답 타입(순수 TS interface)을 데코레이터 붙은 클래스로 옮기고, `{result, data}` 응답 봉투까지 그대로 반영하는 공용 데코레이터(`ApiEnvelopedResponse`/`ApiEnvelopedPaginatedResponse`/`ApiEnvelopedEmptyResponse`)를 신설해 전체 엔드포인트에 연결. `SWAGGER_ENABLED=true`일 때 `/docs`에서 요청/응답 스키마·example이 실제 API 응답 모양 그대로 채워진 문서로 확인 가능
+  - ✅ E2E 테스트 스위트(`docs/19_DEV_SETUP.md` 5.3) — 문서화된 42개 엔드포인트 전체를 실제 로컬 DB로 검증하는 E2E 테스트 8개 도메인/141개(`npm run test:e2e`). 실행마다 DB를 TRUNCATE 후 시드 재적용하는 자동 리셋(`test/global-setup.ts`), `.env.test`로 dev DB와 분리된 전용 테스트 DB 지정 가능(선택). 이 과정에서 실제 애플리케이션 결함(크론 배치 5개의 그레이스풀 셧다운 미비)도 발견해 함께 수정
 - ✅ Frontend 구현 완료(`docs/19_DEV_SETUP.md`, React 18 + TypeScript + Vite + Ant Design + Zustand + Axios)
   - ✅ 구조 스캐폴딩 — 레이아웃 3종(AuthLayout/MainLayout/AdminLayout), 라우트 전체 골격(`16_LAYOUT.md` 7장), role 기반 가드 4종(`RoleGuard`/`PermissionGuard`/`RequireAuth`/`RequireGuest`/`RequireProjectSelected`), Zustand `authStore`/`globalStore`, axios 클라이언트(Access Token 자동 첨부 + 만료 시 자동 재발급·재시도)
   - ✅ 로그인(SCR-001) + 내 계정 조회·로그아웃(SCR-200) — 실제 백엔드 연동, 브라우저 라이브 검증 완료
