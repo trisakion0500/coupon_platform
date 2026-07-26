@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsIn, IsOptional } from 'class-validator';
 import { PaginationQueryDto } from '../../common/response/pagination';
@@ -8,6 +9,11 @@ import { PaginationQueryDto } from '../../common/response/pagination';
  * @author trisakion
  */
 export class CodeListQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({
+    description:
+      '코드 상태 필터(0:중지/1:미사용(RANDOM)·사용중(FIXED)/2:사용완료(RANDOM))',
+    enum: [0, 1, 2],
+  })
   @IsOptional()
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsIn([0, 1, 2])

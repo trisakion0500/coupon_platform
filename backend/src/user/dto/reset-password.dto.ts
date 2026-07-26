@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { IsString, Length } from 'class-validator';
 
 /**
@@ -7,6 +8,10 @@ import { IsString, Length } from 'class-validator';
  * @author trisakion
  */
 export class ResetPasswordDto {
+  @ApiProperty({
+    description: '새 비밀번호(관리자 강제 초기화)',
+    example: 'NewPassw0rd!45',
+  })
   @IsString()
   @Length(4, 72)
   new_password!: string;

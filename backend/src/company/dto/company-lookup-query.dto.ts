@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { IsString, Matches, MaxLength } from 'class-validator';
 
 /**
@@ -6,6 +7,7 @@ import { IsString, Matches, MaxLength } from 'class-validator';
  * @author trisakion
  */
 export class CompanyLookupQueryDto {
+  @ApiProperty({ description: '회사 코드', example: 'ACME' })
   @IsString()
   @Matches(/^[A-Za-z0-9_.-]+$/)
   @MaxLength(20)

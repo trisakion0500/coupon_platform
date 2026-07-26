@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsIn,
@@ -22,22 +23,36 @@ import type { PageSize } from '../../common/response/pagination';
  * @author trisakion
  */
 export class UnconfirmedQueryDto {
+  @ApiPropertyOptional({
+    description:
+      '특정 유저로 좁힘(지정 시 페이지네이션 없이 전체 반환, 미지정 시 page/page_size 필수)',
+    example: 'player_1001',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   game_user_id?: string;
 
+  @ApiPropertyOptional({ description: '캠페인 ID 필터', example: 1 })
   @IsOptional()
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsInt()
   campaign_id?: number;
 
+  @ApiPropertyOptional({
+    description: '페이지 번호(game_user_id 미지정 시 필수)',
+    example: 1,
+  })
   @IsOptional()
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsInt()
   @Min(1)
   page?: number;
 
+  @ApiPropertyOptional({
+    description: '페이지당 항목 수(game_user_id 미지정 시 필수)',
+    enum: PAGE_SIZE_OPTIONS,
+  })
   @IsOptional()
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsIn(PAGE_SIZE_OPTIONS)

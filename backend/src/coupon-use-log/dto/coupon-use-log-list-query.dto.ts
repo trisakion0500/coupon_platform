@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsIn,
@@ -22,40 +23,70 @@ const RESULT_TYPES = [0, 10, 20, 30, 40, 50] as const;
  * @author trisakion
  */
 export class CouponUseLogListQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({
+    description: '프로젝트 ID(필수, 스코핑 기준)',
+    example: 1,
+  })
   @IsOptional()
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsInt()
   project_id?: number;
 
+  @ApiPropertyOptional({ description: '캠페인 ID 필터', example: 1 })
   @IsOptional()
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsInt()
   coupon_campaign_id?: number;
 
+  @ApiPropertyOptional({
+    description: '게임 유저 ID 필터',
+    example: 'player_1001',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   game_user_id?: string;
 
+  @ApiPropertyOptional({
+    description: '코드 값 필터',
+    example: '23A4-B7C9-DEF2',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(50)
   code_value?: string;
 
+  @ApiPropertyOptional({
+    description: '작업유형 필터(10:RESERVE/20:CONFIRM)',
+    enum: ACTIONS,
+  })
   @IsOptional()
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsIn(ACTIONS)
   action?: number;
 
+  @ApiPropertyOptional({
+    description:
+      '결과유형 필터(0:성공/10:코드없음/20:이미소모·중지/30:캠페인 사용불가/40:사용자한도초과/50:소모기록없음)',
+    enum: RESULT_TYPES,
+  })
   @IsOptional()
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsIn(RESULT_TYPES)
   result_type?: number;
 
+  @ApiPropertyOptional({
+    description: '조회 시작일시',
+    example: '2026-08-01 00:00:00',
+  })
   @IsOptional()
   @Matches(DATETIME_FORMAT)
   from_created_at?: string;
 
+  @ApiPropertyOptional({
+    description: '조회 종료일시',
+    example: '2026-08-31 23:59:59',
+  })
   @IsOptional()
   @Matches(DATETIME_FORMAT)
   to_created_at?: string;

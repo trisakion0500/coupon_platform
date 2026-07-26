@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsIn, IsOptional } from 'class-validator';
 
@@ -10,11 +11,16 @@ import { IsIn, IsOptional } from 'class-validator';
  * @author trisakion
  */
 export class UpdateUserRoleDto {
+  @ApiPropertyOptional({
+    description: '역할 코드(10은 SP가 30003으로 거부)',
+    enum: [10, 20, 30, 40],
+  })
   @IsOptional()
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsIn([10, 20, 30, 40])
   role_code?: number;
 
+  @ApiPropertyOptional({ description: '상태(0:중지/1:활성)', enum: [0, 1] })
   @IsOptional()
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsIn([0, 1])

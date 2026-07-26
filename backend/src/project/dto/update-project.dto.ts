@@ -1,3 +1,4 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsIn,
@@ -19,20 +20,31 @@ import {
  * @author trisakion
  */
 export class UpdateProjectDto {
+  @ApiProperty({
+    description:
+      '낙관적 동시성 제어 토큰 — GET /projects/{id}에서 받은 값을 그대로 전달',
+    example: 0,
+  })
   @IsInt()
   @Min(0)
   edit_count!: number;
 
+  @ApiPropertyOptional({
+    description: '프로젝트명',
+    example: '게임 프로젝트 A',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   project_name?: string;
 
+  @ApiPropertyOptional({ description: '설명', example: '모바일 RPG' })
   @IsOptional()
   @IsString()
   @MaxLength(1000)
   description?: string;
 
+  @ApiPropertyOptional({ description: '상태(0:중지/1:활성)', enum: [0, 1] })
   @IsOptional()
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsIn([0, 1])

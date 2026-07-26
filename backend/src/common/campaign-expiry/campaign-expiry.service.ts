@@ -81,9 +81,10 @@ export class CampaignExpiryService implements OnModuleInit {
       const ran = await this.spExecutor.runExclusive(
         'coupon_platform:campaign_expiry',
         async () => {
-          const { result, data } = await this.spExecutor.callProcedure<
-            ExpiredCampaignRow[]
-          >('SP_CAMPAIGN_EXPIRE');
+          const { result, data } =
+            await this.spExecutor.callProcedure<ExpiredCampaignRow[]>(
+              'SP_CAMPAIGN_EXPIRE',
+            );
 
           if (result !== 0) {
             this.logger.error(`SP_CAMPAIGN_EXPIRE returned RESULT=${result}`);

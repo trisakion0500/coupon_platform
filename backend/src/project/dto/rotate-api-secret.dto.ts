@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { IsInt, Min } from 'class-validator';
 
 /**
@@ -11,6 +12,11 @@ import { IsInt, Min } from 'class-validator';
  * @author trisakion
  */
 export class RotateApiSecretDto {
+  @ApiProperty({
+    description:
+      '낙관적 동시성 제어 토큰 — GET /projects/{id}에서 받은 값을 그대로 전달',
+    example: 0,
+  })
   @IsInt()
   @Min(0)
   edit_count!: number;

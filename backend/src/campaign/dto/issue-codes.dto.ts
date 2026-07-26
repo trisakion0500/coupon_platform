@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, Length } from 'class-validator';
 
 /**
@@ -11,6 +12,10 @@ import { IsOptional, IsString, Length } from 'class-validator';
  * @author trisakion
  */
 export class IssueCodesDto {
+  @ApiPropertyOptional({
+    description: 'FIXED 캠페인의 코드 값(RANDOM은 바디 자체가 없어도 됨)',
+    example: 'SUMMER2026',
+  })
   @IsOptional()
   @IsString()
   @Length(1, 50)

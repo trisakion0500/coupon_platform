@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsIn, IsInt, Min } from 'class-validator';
 
@@ -11,13 +12,21 @@ export type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
  * @author trisakion
  */
 export class PaginationQueryDto {
-  /** 페이지 번호 (1부터 시작) */
+  @ApiPropertyOptional({
+    description: '페이지 번호 (1부터 시작)',
+    example: 1,
+    default: 1,
+  })
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsInt()
   @Min(1)
   page = 1;
 
-  /** 페이지당 항목 수 (20/30/50/100, 기본 20) */
+  @ApiPropertyOptional({
+    description: '페이지당 항목 수',
+    enum: PAGE_SIZE_OPTIONS,
+    default: 20,
+  })
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsInt()
   @IsIn(PAGE_SIZE_OPTIONS)

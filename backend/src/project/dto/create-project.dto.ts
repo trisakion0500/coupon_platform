@@ -1,3 +1,4 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsInt,
   IsOptional,
@@ -12,18 +13,22 @@ import {
  * @author trisakion
  */
 export class CreateProjectDto {
+  @ApiProperty({ description: '소속 회사 ID', example: 1 })
   @IsInt()
   company_id!: number;
 
+  @ApiProperty({ description: '프로젝트 코드', example: 'GAME01' })
   @IsString()
   @Matches(/^[A-Za-z0-9_.-]+$/)
   @MaxLength(20)
   project_code!: string;
 
+  @ApiProperty({ description: '프로젝트명', example: '게임 프로젝트 A' })
   @IsString()
   @MaxLength(100)
   project_name!: string;
 
+  @ApiPropertyOptional({ description: '설명', example: '모바일 RPG' })
   @IsOptional()
   @IsString()
   @MaxLength(1000)

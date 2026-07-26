@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsIn, IsInt, IsOptional } from 'class-validator';
 import { PaginationQueryDto } from '../../common/response/pagination';
@@ -8,11 +9,16 @@ import { PaginationQueryDto } from '../../common/response/pagination';
  * @author trisakion
  */
 export class ProjectListQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ description: '회사 ID 필터', example: 1 })
   @IsOptional()
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsInt()
   company_id?: number;
 
+  @ApiPropertyOptional({
+    description: '상태 필터(0:중지/1:활성)',
+    enum: [0, 1],
+  })
   @IsOptional()
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsIn([0, 1])

@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { IsIn, IsInt, Min } from 'class-validator';
 
 /**
@@ -13,10 +14,19 @@ import { IsIn, IsInt, Min } from 'class-validator';
  * @author trisakion
  */
 export class ChangeCampaignStatusDto {
+  @ApiProperty({
+    description:
+      '낙관적 동시성 제어 토큰 — GET /campaigns/{id}에서 받은 값을 그대로 전달',
+    example: 0,
+  })
   @IsInt()
   @Min(0)
   edit_count!: number;
 
+  @ApiProperty({
+    description: '목표 상태(2:활성/3:일시중지/4:종료)',
+    enum: [2, 3, 4],
+  })
   @IsIn([2, 3, 4])
   status!: number;
 }

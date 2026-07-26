@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { IsString, MaxLength } from 'class-validator';
 
 /**
@@ -6,6 +7,7 @@ import { IsString, MaxLength } from 'class-validator';
  * @author trisakion
  */
 export class ReserveCouponDto {
+  @ApiProperty({ description: '게임 유저 ID', example: 'player_1001' })
   @IsString()
   @MaxLength(100)
   game_user_id!: string;

@@ -1,3 +1,4 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsInt,
   IsObject,
@@ -29,34 +30,57 @@ const DATETIME_FORMAT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
  * @author trisakion
  */
 export class UpdateCampaignDto {
+  @ApiProperty({
+    description:
+      '낙관적 동시성 제어 토큰 — GET /campaigns/{id}에서 받은 값을 그대로 전달',
+    example: 0,
+  })
   @IsInt()
   @Min(0)
   edit_count!: number;
 
+  @ApiPropertyOptional({ description: '캠페인명', example: '여름 이벤트' })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   name?: string;
 
+  @ApiPropertyOptional({
+    description: '사용 시작일시',
+    example: '2026-08-01 00:00:00',
+  })
   @IsOptional()
   @Matches(DATETIME_FORMAT)
   campaign_start?: string;
 
+  @ApiPropertyOptional({
+    description: '사용 종료일시',
+    example: '2026-08-31 23:59:59',
+  })
   @IsOptional()
   @Matches(DATETIME_FORMAT)
   @IsAfter('campaign_start')
   campaign_end?: string;
 
+  @ApiPropertyOptional({ description: '유저당 사용 한도', example: 1 })
   @IsOptional()
   @IsInt()
   @Min(1)
   use_limit_per_user?: number;
 
+  @ApiPropertyOptional({
+    description: '사용 가능 수량(발급된 수량 이하로만 설정 가능)',
+    example: 50,
+  })
   @IsOptional()
   @IsInt()
   @Min(0)
   usable_qty?: number;
 
+  @ApiPropertyOptional({
+    description: '보상 내용(쿠폰서버는 해석하지 않고 그대로 저장)',
+    example: { item_id: 1001, item_amount: 100 },
+  })
   @IsOptional()
   @IsObject()
   reward_data?: Record<string, unknown>;

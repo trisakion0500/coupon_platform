@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsInt, IsString, Matches, MaxLength } from 'class-validator';
 
@@ -7,10 +8,12 @@ import { IsInt, IsString, Matches, MaxLength } from 'class-validator';
  * @author trisakion
  */
 export class ProjectLookupQueryDto {
+  @ApiProperty({ description: '소속 회사 ID', example: 1 })
   @Transform(({ value }) => parseInt(value as string, 10))
   @IsInt()
   company_id!: number;
 
+  @ApiProperty({ description: '프로젝트 코드', example: 'GAME01' })
   @IsString()
   @Matches(/^[A-Za-z0-9_.-]+$/)
   @MaxLength(20)

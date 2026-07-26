@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { IsString, Length, Matches, MaxLength } from 'class-validator';
 
 /**
@@ -7,11 +8,13 @@ import { IsString, Length, Matches, MaxLength } from 'class-validator';
  * @author trisakion
  */
 export class LoginDto {
+  @ApiProperty({ description: '로그인 ID', example: 'user01' })
   @IsString()
   @Matches(/^[A-Za-z0-9_.-]+$/)
   @MaxLength(100)
   login_id!: string;
 
+  @ApiProperty({ description: '비밀번호', example: 'Passw0rd!23' })
   @IsString()
   @Length(4, 72)
   password!: string;
