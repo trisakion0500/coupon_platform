@@ -211,6 +211,8 @@ LEFT JOIN (
 
 **해결**: `SpExecutorService.runExclusive(lockName, fn)` — MySQL 세션 수준 advisory lock(`GET_LOCK`/`RELEASE_LOCK`, timeout=0 non-blocking)으로 감싸 한 시점에 한 레플리카만 실제로 `fn`을 실행하도록 한다. Redis 등 별도 분산 락 인프라를 새로 들이지 않고 이미 쓰고 있는 MySQL만으로 해결한 것 — `GET_LOCK`은 락을 커넥션 세션에 묶어 관리하므로 반드시 pool에서 커넥션 하나를 직접 뽑아 잡고 있어야 하고(`callProcedure`처럼 매 호출마다 pool이 임의로 골라주는 커넥션으로는 락을 건 커넥션과 푸는 커넥션이 달라질 수 있음), timeout=0으로 시도해 이미 다른 레플리카가 실행 중이면 대기 없이 즉시 포기한다(크론은 다음 스케줄에 또 돌아오므로 기다릴 이유가 없음).
 
+`GET_LOCK`/`RELEASE_LOCK`은 도입 당시(2026-07-23) `SpExecutorService`가 `conn.query('SELECT GET_LOCK(?, 0) AS acquired', ...)`로 raw SQL을 직접 호출했다 — 이 프로젝트의 "ORM/Native SQL 직접 작성 금지, SP 전용" 정책(01_TECH_STACK.md)의 유일한 예외였다. 운영 DB 계정을 SP 실행(EXECUTE) 권한만 허용하는 모델로 굳힐 계획이 확정되면서(2026-07-26) 이 raw SQL이 실제로 실행 불가능해질 수 있다는 게 드러나, `SP_LOCK_ACQUIRE`/`SP_LOCK_RELEASE`(`database/procedures/`) 2개로 감쌌다 — `CALL SP_LOCK_ACQUIRE(?)`/`CALL SP_LOCK_RELEASE(?)`도 여전히 `runExclusive`가 붙잡고 있는 동일 커넥션 위에서 호출해야 하는 제약은 그대로다(SP로 감싼다고 세션 종속성이 사라지지 않음). 두 SP 모두 특정 도메인에 속하지 않는 인프라 전용이라 `SP_LOCK_ACQUIRE`/`SP_LOCK_RELEASE`처럼 `LOCK`을 도메인처럼 취급하는 이름을 쓴다.
+
 **새로 크론 배치를 추가할 때는 이 패턴을 그대로 재사용한다** — `SP_SESSION_CLEANUP`/`SP_PROJECT_API_SECRET_CLEANUP`/`SP_NONCE_CLEANUP`(`NonceCleanupService`, 스케일아웃 점검 4번, 2026-07-23 뒤늦게 구현 완료)/`SP_CAMPAIGN_CODE_GENERATION_STALE_LIST`(`CodeGenerationStaleMonitorService`, 스케일아웃 점검 5번)/`SP_CAMPAIGN_EXPIRE`(`CampaignExpiryService`, 2026-07-25)까지 5개 크론 배치 전부 이미 이렇게 감싸져 있다.
 
 ## 4.2 배치가 도메인 로그에 남기는 "시스템 행위자"

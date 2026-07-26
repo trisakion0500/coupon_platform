@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import mysql, { Pool } from 'mysql2/promise';
+import mysql, { Pool, PoolConnection } from 'mysql2/promise';
 import { callStoredProcedure, SpCallResult } from './sp-result.util';
 
 export type { SpCallResult };
@@ -55,12 +55,15 @@ export class SpExecutorService implements OnModuleDestroy {
   }
 
   /**
-   * MySQL 세션 수준 advisory lock(`GET_LOCK`/`RELEASE_LOCK`)으로 여러 인스턴스(레플리카)가
-   * 동시에 같은 크론 배치를 중복 실행하지 않도록 한다(스케일아웃 점검 3번, 2026-07-23) — 이미
-   * 쓰고 있는 MySQL만으로 해결해 Redis 등 별도 분산 락 인프라를 새로 들이지 않는다.
+   * MySQL 세션 수준 advisory lock(`SP_LOCK_ACQUIRE`/`SP_LOCK_RELEASE`, 내부적으로
+   * `GET_LOCK`/`RELEASE_LOCK`)으로 여러 인스턴스(레플리카)가 동시에 같은 크론 배치를 중복
+   * 실행하지 않도록 한다(스케일아웃 점검 3번, 2026-07-23) — 이미 쓰고 있는 MySQL만으로 해결해
+   * Redis 등 별도 분산 락 인프라를 새로 들이지 않는다.
    * `GET_LOCK`은 락을 커넥션 세션에 묶어 관리하므로(그 커넥션이 끝날 때까지 유지) pool에서
    * 커넥션 하나를 직접 뽑아 잡고 있어야 한다 — `callProcedure`처럼 매 호출마다 pool이 임의로
-   * 골라주는 커넥션을 쓰면 락을 건 커넥션과 푸는 커넥션이 달라질 수 있어 안 된다.
+   * 골라주는 커넥션을 쓰면 락을 건 커넥션과 푸는 커넥션이 달라질 수 있어 안 된다. 이 제약 때문에
+   * 공용 `callProcedure`(pool 기반)를 재사용하지 못하고, `acquireLock`/`releaseLock`에서 같은
+   * 커넥션에 직접 `CALL`한다.
    * timeout=0(non-blocking)으로 시도해 이미 다른 인스턴스가 실행 중이면 대기하지 않고 즉시
    * 포기한다 — 크론은 다음 스케줄에 또 돌아오므로 여기서 기다릴 이유가 없다.
    *
@@ -74,11 +77,7 @@ export class SpExecutorService implements OnModuleDestroy {
   ): Promise<boolean> {
     const conn = await this.pool.getConnection();
     try {
-      const [rows] = await conn.query('SELECT GET_LOCK(?, 0) AS acquired', [
-        lockName,
-      ]);
-      const acquired =
-        (rows as unknown as Array<{ acquired: number }>)[0]?.acquired === 1;
+      const acquired = await this.acquireLock(conn, lockName);
       if (!acquired) {
         return false;
       }
@@ -86,11 +85,45 @@ export class SpExecutorService implements OnModuleDestroy {
       try {
         await fn();
       } finally {
-        await conn.query('SELECT RELEASE_LOCK(?)', [lockName]);
+        await this.releaseLock(conn, lockName);
       }
       return true;
     } finally {
       conn.release();
     }
+  }
+
+  /**
+   * `SP_LOCK_ACQUIRE`를 호출해 advisory lock 획득을 시도한다. RESULT SELECT 규약을 따르되
+   * `callProcedure`(pool 기반)를 쓰지 않고 `runExclusive`가 붙잡고 있는 커넥션에 직접 CALL한다.
+   * SP가 50001(시스템 오류)을 반환해도 예외를 던지지 않고 "락을 못 잡음"으로 안전하게 처리한다 —
+   * 크론 배치 하나가 이번 스케줄을 건너뛰는 것이 예외를 밖으로 던져 크론 스케줄러 자체를
+   * 흔드는 것보다 안전하다.
+   */
+  private async acquireLock(
+    conn: PoolConnection,
+    lockName: string,
+  ): Promise<boolean> {
+    const [resultSets] = await conn.query('CALL SP_LOCK_ACQUIRE(?)', [
+      lockName,
+    ]);
+    const sets = resultSets as unknown as Array<Array<Record<string, unknown>>>;
+
+    if (sets[0]?.[0]?.RESULT !== 0) {
+      this.logger.warn(
+        `SP_LOCK_ACQUIRE(${lockName}) failed to run normally — treating as not acquired`,
+      );
+      return false;
+    }
+
+    return (sets[1]?.[0] as { acquired?: number } | undefined)?.acquired === 1;
+  }
+
+  /** `SP_LOCK_RELEASE`를 획득 때와 동일한 커넥션에서 호출한다. */
+  private async releaseLock(
+    conn: PoolConnection,
+    lockName: string,
+  ): Promise<void> {
+    await conn.query('CALL SP_LOCK_RELEASE(?)', [lockName]);
   }
 }

@@ -8,7 +8,7 @@
 | Framework       | NestJS                                                      |
 | Language        | TypeScript                                                  |
 | Database        | MySQL 8.4                                                   |
-| Data Access     | mysql2 — Stored Procedure / Function 전용 (Native SQL 직접 작성 금지) |
+| Data Access     | mysql2 — Stored Procedure / Function 전용 (Native SQL 직접 작성 금지) — 운영 DB 계정은 SP 실행(EXECUTE) 권한만 부여하는 걸 목표로 하므로, 테이블 직접 SELECT/INSERT는 물론 `GET_LOCK()` 같은 순수 세션 함수 호출조차 raw SQL로는 실행 안 될 수 있다(`02_DEV_CONVENTIONS.md` 4.1의 `SP_LOCK_ACQUIRE`/`RELEASE`가 이 원칙으로 raw SQL을 SP로 교체한 사례) |
 | Authentication  | JWT (HS256) + user_session (사용자 인증)                    |
 | S2S Authentication | API Key + HMAC-SHA256 요청 서명 — 게임서버 → 쿠폰서버, Secret은 AES-256-CBC 가역 암호화 저장(단방향 해시 아님), Timestamp+Nonce로 재전송 방지, grace period 방식 재발급 |
 | Password Hash   | bcrypt (rounds=12)                                          |
