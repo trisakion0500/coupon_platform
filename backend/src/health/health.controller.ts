@@ -1,4 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
+import { ApiEnvelopedResponse } from '../common/response/api-envelope.decorator';
+import { HealthResponseDto } from './dto/health-response.dto';
 
 /**
  * 08_API_COMMON.md 6장: 인증 불필요, 서버 기동/로드밸런서 헬스체크용.
@@ -15,6 +17,7 @@ export class HealthController {
    * @returns 응답 인터셉터가 `{result:0, data:{...}}`로 감싼다.
    */
   @Get()
+  @ApiEnvelopedResponse(HealthResponseDto)
   check(): { status: string; server_time: number } {
     return { status: 'ok', server_time: Date.now() };
   }

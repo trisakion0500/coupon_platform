@@ -15,6 +15,10 @@ import {
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../common/jwt-auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/jwt-auth/jwt-auth.guard';
+import {
+  ApiEnvelopedPaginatedResponse,
+  ApiEnvelopedResponse,
+} from '../common/response/api-envelope.decorator';
 import { RoleCode } from '../common/roles/role-code.enum';
 import { Roles } from '../common/roles/roles.decorator';
 import { RolesGuard } from '../common/roles/roles.guard';
@@ -22,9 +26,21 @@ import { CampaignCodeService } from './campaign-code.service';
 import { CampaignService } from './campaign.service';
 import { ApproveCampaignDto } from './dto/approve-campaign.dto';
 import { CampaignLogListQueryDto } from './dto/campaign-log-list-query.dto';
+import {
+  CampaignListItemDto,
+  CampaignLogListItemDto,
+  CampaignResponseDto,
+  UsageListItemDto,
+} from './dto/campaign-response.dto';
 import { ChangeCampaignStatusDto } from './dto/change-campaign-status.dto';
 import { CampaignListQueryDto } from './dto/campaign-list-query.dto';
 import { CodeListQueryDto } from './dto/code-list-query.dto';
+import {
+  AbortCodeGenerationResultDto,
+  CodeListItemDto,
+  IssueCodesResultDto,
+  RetryCodesResultDto,
+} from './dto/code-response.dto';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { IssueCodesDto } from './dto/issue-codes.dto';
 import { RejectCampaignDto } from './dto/reject-campaign.dto';
@@ -61,6 +77,7 @@ export class CampaignController {
   )
   @Post()
   @HttpCode(200)
+  @ApiEnvelopedResponse(CampaignResponseDto)
   create(@Body() dto: CreateCampaignDto, @Req() req: AuthenticatedRequest) {
     return this.campaignService.create(dto, req.user!.userId);
   }
@@ -73,6 +90,7 @@ export class CampaignController {
     RoleCode.OPERATOR,
   )
   @Get()
+  @ApiEnvelopedPaginatedResponse(CampaignListItemDto)
   list(@Query() query: CampaignListQueryDto, @Req() req: AuthenticatedRequest) {
     return this.campaignService.list(query, { userId: req.user!.userId });
   }
@@ -85,6 +103,7 @@ export class CampaignController {
     RoleCode.OPERATOR,
   )
   @Get(':coupon_campaign_id')
+  @ApiEnvelopedResponse(CampaignResponseDto)
   getById(
     @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
     @Req() req: AuthenticatedRequest,
@@ -103,6 +122,7 @@ export class CampaignController {
   )
   @Patch(':coupon_campaign_id')
   @HttpCode(200)
+  @ApiEnvelopedResponse(CampaignResponseDto)
   update(
     @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
     @Body() dto: UpdateCampaignDto,
@@ -120,6 +140,7 @@ export class CampaignController {
   )
   @Post(':coupon_campaign_id/status')
   @HttpCode(200)
+  @ApiEnvelopedResponse(CampaignResponseDto)
   changeStatus(
     @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
     @Body() dto: ChangeCampaignStatusDto,
@@ -132,6 +153,7 @@ export class CampaignController {
   @Roles(RoleCode.SUPER_ADMIN, RoleCode.DEVELOPER, RoleCode.MANAGER)
   @Post(':coupon_campaign_id/approve')
   @HttpCode(200)
+  @ApiEnvelopedResponse(CampaignResponseDto)
   approve(
     @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
     @Body() dto: ApproveCampaignDto,
@@ -144,6 +166,7 @@ export class CampaignController {
   @Roles(RoleCode.SUPER_ADMIN, RoleCode.DEVELOPER, RoleCode.MANAGER)
   @Post(':coupon_campaign_id/reject')
   @HttpCode(200)
+  @ApiEnvelopedResponse(CampaignResponseDto)
   reject(
     @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
     @Body() dto: RejectCampaignDto,
@@ -165,6 +188,14 @@ export class CampaignController {
     RoleCode.OPERATOR,
   )
   @Post(':coupon_campaign_id/codes')
+  @ApiEnvelopedResponse(IssueCodesResultDto, {
+    status: 200,
+    description: 'FIXED(동기 완료)',
+  })
+  @ApiEnvelopedResponse(IssueCodesResultDto, {
+    status: 202,
+    description: 'RANDOM(비동기 시작)',
+  })
   async issueCodes(
     @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
     @Body() dto: IssueCodesDto,
@@ -189,6 +220,7 @@ export class CampaignController {
   )
   @Post(':coupon_campaign_id/codes/retry')
   @HttpCode(200)
+  @ApiEnvelopedResponse(RetryCodesResultDto)
   retryCodeIssuance(
     @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
     @Req() req: AuthenticatedRequest,
@@ -207,6 +239,7 @@ export class CampaignController {
     RoleCode.OPERATOR,
   )
   @Get(':coupon_campaign_id/codes')
+  @ApiEnvelopedPaginatedResponse(CodeListItemDto)
   listCodes(
     @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
     @Query() query: CodeListQueryDto,
@@ -226,6 +259,7 @@ export class CampaignController {
   @Roles(RoleCode.SUPER_ADMIN, RoleCode.DEVELOPER, RoleCode.MANAGER)
   @Post(':coupon_campaign_id/codes/abort')
   @HttpCode(200)
+  @ApiEnvelopedResponse(AbortCodeGenerationResultDto)
   abortCodeGeneration(
     @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
     @Req() req: AuthenticatedRequest,
@@ -245,6 +279,7 @@ export class CampaignController {
     RoleCode.OPERATOR,
   )
   @Get(':coupon_campaign_id/usages')
+  @ApiEnvelopedPaginatedResponse(UsageListItemDto)
   listUsages(
     @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
     @Query() query: UsageListQueryDto,
@@ -264,6 +299,7 @@ export class CampaignController {
     RoleCode.OPERATOR,
   )
   @Get(':coupon_campaign_id/logs')
+  @ApiEnvelopedPaginatedResponse(CampaignLogListItemDto)
   listLogs(
     @Param('coupon_campaign_id', ParseIntPipe) campaignId: number,
     @Query() query: CampaignLogListQueryDto,

@@ -13,12 +13,17 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/jwt-auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/jwt-auth/jwt-auth.guard';
+import {
+  ApiEnvelopedPaginatedResponse,
+  ApiEnvelopedResponse,
+} from '../common/response/api-envelope.decorator';
 import { RoleCode } from '../common/roles/role-code.enum';
 import { Roles } from '../common/roles/roles.decorator';
 import { RolesGuard } from '../common/roles/roles.guard';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserListQueryDto } from './dto/user-list-query.dto';
+import { UserResponseDto } from './dto/user-response.dto';
 import { UserService } from './user.service';
 
 /**
@@ -34,6 +39,7 @@ export class UserController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleCode.SUPER_ADMIN, RoleCode.DEVELOPER)
   @Get()
+  @ApiEnvelopedPaginatedResponse(UserResponseDto)
   list(@Query() query: UserListQueryDto, @Req() req: AuthenticatedRequest) {
     const { userId, roleCode, companyId } = req.user!;
     return this.userService.list(query, { userId, roleCode, companyId });
@@ -42,6 +48,7 @@ export class UserController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleCode.SUPER_ADMIN, RoleCode.DEVELOPER)
   @Get(':user_id')
+  @ApiEnvelopedResponse(UserResponseDto)
   getById(
     @Param('user_id', ParseIntPipe) userId: number,
     @Req() req: AuthenticatedRequest,
@@ -58,6 +65,7 @@ export class UserController {
   @Roles(RoleCode.SUPER_ADMIN)
   @Post(':user_id/approve')
   @HttpCode(200)
+  @ApiEnvelopedResponse(UserResponseDto)
   approve(
     @Param('user_id', ParseIntPipe) userId: number,
     @Req() req: AuthenticatedRequest,
@@ -69,6 +77,7 @@ export class UserController {
   @Roles(RoleCode.SUPER_ADMIN)
   @Post(':user_id/reject')
   @HttpCode(200)
+  @ApiEnvelopedResponse(UserResponseDto)
   reject(
     @Param('user_id', ParseIntPipe) userId: number,
     @Req() req: AuthenticatedRequest,
@@ -80,6 +89,7 @@ export class UserController {
   @Roles(RoleCode.SUPER_ADMIN)
   @Patch(':user_id')
   @HttpCode(200)
+  @ApiEnvelopedResponse(UserResponseDto)
   update(
     @Param('user_id', ParseIntPipe) userId: number,
     @Body() dto: UpdateUserDto,
@@ -92,6 +102,7 @@ export class UserController {
   @Roles(RoleCode.SUPER_ADMIN)
   @Post(':user_id/reset-password')
   @HttpCode(200)
+  @ApiEnvelopedResponse(UserResponseDto)
   resetPassword(
     @Param('user_id', ParseIntPipe) userId: number,
     @Body() dto: ResetPasswordDto,

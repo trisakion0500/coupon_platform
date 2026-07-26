@@ -10,10 +10,17 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/jwt-auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/jwt-auth/jwt-auth.guard';
+import {
+  ApiEnvelopedEmptyResponse,
+  ApiEnvelopedResponse,
+} from '../common/response/api-envelope.decorator';
+import { UserResponseDto } from '../user/dto/user-response.dto';
 import { AuthService } from './auth.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
+import { LoginResponseDto } from './dto/login-response.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { RefreshResponseDto } from './dto/refresh-response.dto';
 import { SignupDto } from './dto/signup.dto';
 
 /**
@@ -28,12 +35,14 @@ export class AuthController {
 
   @Post('signup')
   @HttpCode(200)
+  @ApiEnvelopedResponse(UserResponseDto)
   signup(@Body() dto: SignupDto) {
     return this.authService.signup(dto);
   }
 
   @Post('login')
   @HttpCode(200)
+  @ApiEnvelopedResponse(LoginResponseDto)
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
@@ -41,6 +50,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(200)
+  @ApiEnvelopedEmptyResponse()
   async logout(
     @Req() req: AuthenticatedRequest,
   ): Promise<Record<string, never>> {
@@ -50,12 +60,14 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(200)
+  @ApiEnvelopedResponse(RefreshResponseDto)
   refresh(@Body() dto: RefreshDto) {
     return this.authService.refresh(dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
+  @ApiEnvelopedResponse(UserResponseDto)
   getMe(@Req() req: AuthenticatedRequest) {
     return this.authService.getMe(req.user!.userId);
   }
@@ -63,6 +75,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Patch('password')
   @HttpCode(200)
+  @ApiEnvelopedEmptyResponse()
   async changePassword(
     @Req() req: AuthenticatedRequest,
     @Body() dto: ChangePasswordDto,

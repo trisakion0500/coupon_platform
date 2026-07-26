@@ -9,10 +9,18 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/jwt-auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/jwt-auth/jwt-auth.guard';
+import {
+  ApiEnvelopedPaginatedResponse,
+  ApiEnvelopedResponse,
+} from '../common/response/api-envelope.decorator';
 import { RoleCode } from '../common/roles/role-code.enum';
 import { Roles } from '../common/roles/roles.decorator';
 import { RolesGuard } from '../common/roles/roles.guard';
 import { LogAuditListQueryDto } from './dto/log-audit-list-query.dto';
+import {
+  LogAuditDetailDto,
+  LogAuditListItemDto,
+} from './dto/log-audit-response.dto';
 import { LogAuditService } from './log-audit.service';
 
 /**
@@ -31,12 +39,14 @@ export class LogAuditController {
   constructor(private readonly logAuditService: LogAuditService) {}
 
   @Get()
+  @ApiEnvelopedPaginatedResponse(LogAuditListItemDto)
   list(@Query() query: LogAuditListQueryDto, @Req() req: AuthenticatedRequest) {
     const { userId, roleCode, companyId } = req.user!;
     return this.logAuditService.list(query, { userId, roleCode, companyId });
   }
 
   @Get(':idx')
+  @ApiEnvelopedResponse(LogAuditDetailDto)
   getById(
     @Param('idx', ParseIntPipe) idx: number,
     @Req() req: AuthenticatedRequest,

@@ -37,6 +37,12 @@
 - **두 번 이상 중복되는 코드는 모듈화한다**: 동일하거나 사소한 차이만 있는 로직이 두 곳 이상에서 쓰이게 되면 공통 함수/모듈로 분리한다.
 - **개발 초기에 자주 쓰일 공통 기능은 먼저 모듈화한다**: DB 커넥션(mysql2 풀 획득/해제, SP 호출 래퍼), 공통 응답 포맷(result/data) 빌더, S2S 인증 가드 등 프로젝트 전반에서 반복 호출될 인프라성 기능은 개별 도메인 로직을 만들기 전에 먼저 공통 모듈로 정리해둔다.
 
+## 2.1 요청/응답 DTO는 `@ApiProperty()`를 함께 작성한다
+
+`nest-cli.json`에 `@nestjs/swagger` CLI 플러그인(`classValidatorShim: true`)이 등록돼 있어 필수/타입 추론은 어느 정도 자동화되지만, 설명(description)과 example 값은 자동 생성되지 않는다. 새 요청 DTO(`*.dto.ts`)를 추가하거나 필드를 수정할 때는 `@ApiProperty()`(필수)/`@ApiPropertyOptional()`(선택)를 함께 붙여 `description`과 `example`을 채운다 — enum류 필드는 값의 실제 의미를 한글로 명시한다(예: `역할 코드(20:DEVELOPER/30:MANAGER/40:OPERATOR)`).
+
+**응답도 동일 컨벤션을 따른다** — 컨트롤러가 반환하는 값은 서비스 내부의 순수 TS interface(예: `CampaignRow`)를 그대로 노출하지 말고, `*-response.dto.ts`에 `@ApiProperty()` 붙은 클래스(예: `CampaignResponseDto`)를 별도로 두고 컨트롤러 메서드에 `common/response/api-envelope.decorator.ts`의 `ApiEnvelopedResponse(Model)`/`ApiEnvelopedPaginatedResponse(Model)`/`ApiEnvelopedEmptyResponse()`를 붙인다. 이 데코레이터들은 `ResponseInterceptor`가 모든 성공 응답을 감싸는 `{result, data}` 봉투(08_API_COMMON.md 1.4)까지 Swagger 스키마에 그대로 반영해준다 — 컨트롤러 메서드 자체의 반환 타입 어노테이션만으로는 `nest-cli` 플러그인이 `Object`로만 추론해(interface는 런타임 타입 정보가 없어서) 응답 스키마가 비어버리므로, 반드시 이 데코레이터를 명시적으로 붙여야 한다. 응답 셰이프가 상황에 따라 달라지는 드문 경우(예: `GET /v1/coupons/unconfirmed`)는 이 헬퍼 대신 `@ApiExtraModels`+`@ApiResponse`+`oneOf`를 직접 조합한다(`coupon-usage.controller.ts` 참고).
+
 ---
 
 # 3. Stored Procedure / Function 컨벤션

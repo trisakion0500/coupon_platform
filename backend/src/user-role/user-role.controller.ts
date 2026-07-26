@@ -15,11 +15,19 @@ import { Transform } from 'class-transformer';
 import { IsInt } from 'class-validator';
 import { JwtAuthGuard } from '../common/jwt-auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/jwt-auth/jwt-auth.guard';
+import {
+  ApiEnvelopedPaginatedResponse,
+  ApiEnvelopedResponse,
+} from '../common/response/api-envelope.decorator';
 import { RoleCode } from '../common/roles/role-code.enum';
 import { Roles } from '../common/roles/roles.decorator';
 import { RolesGuard } from '../common/roles/roles.guard';
 import { CreateUserRoleDto } from './dto/create-user-role.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import {
+  MyRoleForProjectDto,
+  UserRoleResponseDto,
+} from './dto/user-role-response.dto';
 import { UserRoleListQueryDto } from './dto/user-role-list-query.dto';
 import { UserRoleService } from './user-role.service';
 
@@ -43,6 +51,7 @@ export class UserRoleController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
+  @ApiEnvelopedResponse(MyRoleForProjectDto)
   getMyRole(
     @Query() query: GetMyRoleQueryDto,
     @Req() req: AuthenticatedRequest,
@@ -59,6 +68,7 @@ export class UserRoleController {
   @Roles(RoleCode.SUPER_ADMIN)
   @Post()
   @HttpCode(200)
+  @ApiEnvelopedResponse(UserRoleResponseDto)
   create(@Body() dto: CreateUserRoleDto, @Req() req: AuthenticatedRequest) {
     return this.userRoleService.create(dto, req.user!.userId);
   }
@@ -66,6 +76,7 @@ export class UserRoleController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleCode.SUPER_ADMIN)
   @Get()
+  @ApiEnvelopedPaginatedResponse(UserRoleResponseDto)
   list(@Query() query: UserRoleListQueryDto, @Req() req: AuthenticatedRequest) {
     return this.userRoleService.list(query, req.user!.userId);
   }
@@ -74,6 +85,7 @@ export class UserRoleController {
   @Roles(RoleCode.SUPER_ADMIN)
   @Patch(':user_id/:project_id')
   @HttpCode(200)
+  @ApiEnvelopedResponse(UserRoleResponseDto)
   update(
     @Param('user_id', ParseIntPipe) userId: number,
     @Param('project_id', ParseIntPipe) projectId: number,

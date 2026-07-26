@@ -1,5 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ApiEnvelopedResponse } from '../common/response/api-envelope.decorator';
+import { PublicConfigResponseDto } from './dto/public-config-response.dto';
 
 interface PublicConfigResponse {
   api_secret_grace_period_days: number;
@@ -16,6 +18,7 @@ export class PublicConfigController {
   constructor(private readonly configService: ConfigService) {}
 
   @Get('public')
+  @ApiEnvelopedResponse(PublicConfigResponseDto)
   getPublicConfig(): PublicConfigResponse {
     return {
       api_secret_grace_period_days: this.configService.getOrThrow<number>(

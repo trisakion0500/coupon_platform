@@ -9,10 +9,21 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiExtraModels, ApiResponse, getSchemaPath } from '@nestjs/swagger';
 import type { S2sRequest } from '../common/s2s-auth/s2s-auth.guard';
+import {
+  ApiResponseEnvelopeDto,
+  PaginatedEnvelopeMetaDto,
+} from '../common/response/api-envelope.dto';
+import { ApiEnvelopedResponse } from '../common/response/api-envelope.decorator';
 import { S2sAuthGuard } from '../common/s2s-auth/s2s-auth.guard';
 import { CouponUsageService } from './coupon-usage.service';
 import { ConfirmCouponDto } from './dto/confirm-coupon.dto';
+import {
+  ConfirmResultDto,
+  ReserveResultDto,
+  UnconfirmedItemDto,
+} from './dto/coupon-usage-response.dto';
 import { ReserveCouponDto } from './dto/reserve-coupon.dto';
 import { UnconfirmedQueryDto } from './dto/unconfirmed-query.dto';
 
@@ -32,6 +43,7 @@ export class CouponUsageController {
   @UseGuards(S2sAuthGuard)
   @Post(':code/reserve')
   @HttpCode(200)
+  @ApiEnvelopedResponse(ReserveResultDto)
   reserve(
     @Param('code') code: string,
     @Body() dto: ReserveCouponDto,
@@ -48,6 +60,7 @@ export class CouponUsageController {
   @UseGuards(S2sAuthGuard)
   @Post(':code/confirm')
   @HttpCode(200)
+  @ApiEnvelopedResponse(ConfirmResultDto)
   confirm(
     @Param('code') code: string,
     @Body() dto: ConfirmCouponDto,
@@ -63,6 +76,50 @@ export class CouponUsageController {
 
   @UseGuards(S2sAuthGuard)
   @Get('unconfirmed')
+  @ApiExtraModels(
+    ApiResponseEnvelopeDto,
+    PaginatedEnvelopeMetaDto,
+    UnconfirmedItemDto,
+  )
+  @ApiResponse({
+    status: 200,
+    description:
+      'game_user_id 지정 시 items만 반환(페이지네이션 없음), 미지정 시 페이지네이션 포함 전체 반환',
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiResponseEnvelopeDto) },
+        {
+          properties: {
+            data: {
+              oneOf: [
+                {
+                  properties: {
+                    items: {
+                      type: 'array',
+                      items: { $ref: getSchemaPath(UnconfirmedItemDto) },
+                    },
+                  },
+                },
+                {
+                  allOf: [
+                    { $ref: getSchemaPath(PaginatedEnvelopeMetaDto) },
+                    {
+                      properties: {
+                        items: {
+                          type: 'array',
+                          items: { $ref: getSchemaPath(UnconfirmedItemDto) },
+                        },
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      ],
+    },
+  })
   listUnconfirmed(@Query() query: UnconfirmedQueryDto, @Req() req: S2sRequest) {
     return this.couponUsageService.listUnconfirmed(
       req.s2sProject!.projectId,

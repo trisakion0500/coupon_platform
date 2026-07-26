@@ -1,10 +1,12 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/jwt-auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/jwt-auth/jwt-auth.guard';
+import { ApiEnvelopedPaginatedResponse } from '../common/response/api-envelope.decorator';
 import { RoleCode } from '../common/roles/role-code.enum';
 import { Roles } from '../common/roles/roles.decorator';
 import { RolesGuard } from '../common/roles/roles.guard';
 import { CouponUseLogListQueryDto } from './dto/coupon-use-log-list-query.dto';
+import { CouponUseLogItemDto } from './dto/coupon-use-log-response.dto';
 import { CouponUseLogService } from './coupon-use-log.service';
 
 /**
@@ -25,6 +27,7 @@ export class CouponUseLogController {
   constructor(private readonly couponUseLogService: CouponUseLogService) {}
 
   @Get()
+  @ApiEnvelopedPaginatedResponse(CouponUseLogItemDto)
   list(
     @Query() query: CouponUseLogListQueryDto,
     @Req() req: AuthenticatedRequest,

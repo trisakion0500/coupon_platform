@@ -13,12 +13,22 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/jwt-auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/jwt-auth/jwt-auth.guard';
+import {
+  ApiEnvelopedPaginatedResponse,
+  ApiEnvelopedResponse,
+} from '../common/response/api-envelope.decorator';
 import { RoleCode } from '../common/roles/role-code.enum';
 import { Roles } from '../common/roles/roles.decorator';
 import { RolesGuard } from '../common/roles/roles.guard';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ProjectListQueryDto } from './dto/project-list-query.dto';
 import { ProjectLookupQueryDto } from './dto/project-lookup-query.dto';
+import {
+  ApiSecretRotateResponseDto,
+  ProjectCreateResponseDto,
+  ProjectLookupResponseDto,
+  ProjectResponseDto,
+} from './dto/project-response.dto';
 import { RotateApiSecretDto } from './dto/rotate-api-secret.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectService } from './project.service';
@@ -36,6 +46,7 @@ export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
 
   @Get('lookup')
+  @ApiEnvelopedResponse(ProjectLookupResponseDto)
   lookup(@Query() query: ProjectLookupQueryDto) {
     return this.projectService.lookup(query.company_id, query.project_code);
   }
@@ -44,6 +55,7 @@ export class ProjectController {
   @Roles(RoleCode.SUPER_ADMIN)
   @Post()
   @HttpCode(200)
+  @ApiEnvelopedResponse(ProjectCreateResponseDto)
   create(@Body() dto: CreateProjectDto, @Req() req: AuthenticatedRequest) {
     return this.projectService.create(dto, req.user!.userId);
   }
@@ -51,6 +63,7 @@ export class ProjectController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleCode.SUPER_ADMIN, RoleCode.DEVELOPER)
   @Get()
+  @ApiEnvelopedPaginatedResponse(ProjectResponseDto)
   list(@Query() query: ProjectListQueryDto, @Req() req: AuthenticatedRequest) {
     const { roleCode, companyId } = req.user!;
     return this.projectService.list(query, {
@@ -63,6 +76,7 @@ export class ProjectController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleCode.SUPER_ADMIN, RoleCode.DEVELOPER)
   @Get(':project_id')
+  @ApiEnvelopedResponse(ProjectResponseDto)
   getById(
     @Param('project_id', ParseIntPipe) projectId: number,
     @Req() req: AuthenticatedRequest,
@@ -79,6 +93,7 @@ export class ProjectController {
   @Roles(RoleCode.SUPER_ADMIN)
   @Patch(':project_id')
   @HttpCode(200)
+  @ApiEnvelopedResponse(ProjectResponseDto)
   update(
     @Param('project_id', ParseIntPipe) projectId: number,
     @Body() dto: UpdateProjectDto,
@@ -91,6 +106,7 @@ export class ProjectController {
   @Roles(RoleCode.SUPER_ADMIN, RoleCode.DEVELOPER)
   @Post(':project_id/api-secret/rotate')
   @HttpCode(200)
+  @ApiEnvelopedResponse(ApiSecretRotateResponseDto)
   rotateApiSecret(
     @Param('project_id', ParseIntPipe) projectId: number,
     @Body() dto: RotateApiSecretDto,

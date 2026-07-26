@@ -164,6 +164,7 @@ coupon_platform/
   - ✅ 스케일아웃(수평 확장) 대응 — graceful shutdown, DB 커넥션 풀 크기 env화, 크론 배치 중복실행 방지(`runExclusive`), nonce 정리 배치, 정체 코드생성 감지 모니터링
   - ✅ 사용기간 만료 캠페인 자동 종료 — 활성+승인완료(또는 승인불요) 상태에서 `campaign_end`가 지나면 배치가 `status=4`(종료)로 전환(`CampaignExpiryService`, 종료 후엔 예외 없이 모든 수정 차단)
   - ✅ 운영 보완 — 로그 파일 일별 로테이션 + ERROR 전용 분리, S2S 호출자 IP 기록, 전역 API 실행 타임아웃, reserve/confirm 프로젝트 단위 rate limiter(토큰 버킷)
+  - ✅ Swagger 문서화 — `nest-cli.json`에 swagger CLI 플러그인(`classValidatorShim`) 등록 + 전체 요청 DTO(32개)에 `@ApiProperty()`/`@ApiPropertyOptional()`(설명/예시 포함) 추가. 응답 스키마도 문서화 완료 — 응답 타입(순수 TS interface)을 데코레이터 붙은 클래스로 옮기고, `{result, data}` 응답 봉투까지 그대로 반영하는 공용 데코레이터(`ApiEnvelopedResponse`/`ApiEnvelopedPaginatedResponse`/`ApiEnvelopedEmptyResponse`)를 신설해 전체 엔드포인트에 연결. `SWAGGER_ENABLED=true`일 때 `/docs`에서 요청/응답 스키마·example이 실제 API 응답 모양 그대로 채워진 문서로 확인 가능
 - ✅ Frontend 구현 완료(`docs/19_DEV_SETUP.md`, React 18 + TypeScript + Vite + Ant Design + Zustand + Axios)
   - ✅ 구조 스캐폴딩 — 레이아웃 3종(AuthLayout/MainLayout/AdminLayout), 라우트 전체 골격(`16_LAYOUT.md` 7장), role 기반 가드 4종(`RoleGuard`/`PermissionGuard`/`RequireAuth`/`RequireGuest`/`RequireProjectSelected`), Zustand `authStore`/`globalStore`, axios 클라이언트(Access Token 자동 첨부 + 만료 시 자동 재발급·재시도)
   - ✅ 로그인(SCR-001) + 내 계정 조회·로그아웃(SCR-200) — 실제 백엔드 연동, 브라우저 라이브 검증 완료
@@ -176,7 +177,6 @@ coupon_platform/
 
 ### 향후 개선사항 (우선순위 낮음, 별도 검토 필요)
 
-- **Swagger 문서화 제대로 붙이기** — `@nestjs/swagger`/`swagger-ui-express`는 이미 설치돼 있고 `SWAGGER_ENABLED=true`일 때 `/docs`로 노출되지만, DTO에 `@ApiProperty()` 등 데코레이터가 전혀 없고 `nest-cli.json`에 swagger CLI 플러그인도 등록 안 돼 있어 현재는 엔드포인트 목록 정도만 뜨고 요청/응답 필드 스키마는 거의 비어있다. 전체 DTO에 `@ApiProperty()`(설명/예시 포함)를 붙여 실제로 쓸 수 있는 API 문서 수준으로 만들 것.
 - 쿠폰 사용(reserve/confirm) API의 **유저 단위(오남용 방지) rate limit** — 프로젝트 단위(인프라 보호)는 구현 완료(위 항목 참고), 특정 유저의 반복 어뷰징까지 잡는 이중 적용은 **알려진 TODO로 보류 중**. 프로젝트 단위와 달리 유저 단위는 스케일아웃 환경에서 인스턴스별 in-memory 카운터로는 실효 한도가 인스턴스 수배로 늘어나는 문제가 더 크게 체감된다(유저 수가 프로젝트 수보다 훨씬 많아 카운터 자체도 무겁고, 어뷰징 방지 목적상 정확한 합산 카운트가 중요) — 지금 인프라(Redis 없음)로 어설프게 구현하기보다, 아래 Redis 도입과 함께 정확한 분산 카운터로 구현하는 쪽이 낫다고 판단해 명시적으로 뒤로 미뤄둠.
 - **Redis 도입 시 함께 이관할 대상**(총 3개):
   1. 유저 단위 rate limit 카운터 — 위 항목, Redis 도입 시점에 맞춰 신규 구현

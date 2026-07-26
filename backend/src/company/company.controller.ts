@@ -13,12 +13,21 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/jwt-auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/jwt-auth/jwt-auth.guard';
+import {
+  ApiEnvelopedPaginatedResponse,
+  ApiEnvelopedResponse,
+} from '../common/response/api-envelope.decorator';
 import { RoleCode } from '../common/roles/role-code.enum';
 import { Roles } from '../common/roles/roles.decorator';
 import { RolesGuard } from '../common/roles/roles.guard';
 import { CompanyService } from './company.service';
+import { ActiveHeaderDataDto } from './dto/active-header-data.dto';
 import { CompanyListQueryDto } from './dto/company-list-query.dto';
 import { CompanyLookupQueryDto } from './dto/company-lookup-query.dto';
+import {
+  CompanyLookupResponseDto,
+  CompanyResponseDto,
+} from './dto/company-response.dto';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 
@@ -35,12 +44,14 @@ export class CompanyController {
 
   @UseGuards(JwtAuthGuard)
   @Get('active-header-data')
+  @ApiEnvelopedResponse(ActiveHeaderDataDto)
   getActiveHeaderData(@Req() req: AuthenticatedRequest) {
     const { userId, roleCode, companyId } = req.user!;
     return this.companyService.getActiveHeaderData(userId, roleCode, companyId);
   }
 
   @Get('lookup')
+  @ApiEnvelopedResponse(CompanyLookupResponseDto)
   lookup(@Query() query: CompanyLookupQueryDto) {
     return this.companyService.lookup(query.company_code);
   }
@@ -49,6 +60,7 @@ export class CompanyController {
   @Roles(RoleCode.SUPER_ADMIN)
   @Post()
   @HttpCode(200)
+  @ApiEnvelopedResponse(CompanyResponseDto)
   create(@Body() dto: CreateCompanyDto, @Req() req: AuthenticatedRequest) {
     return this.companyService.create(dto, req.user!.userId);
   }
@@ -56,6 +68,7 @@ export class CompanyController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleCode.SUPER_ADMIN)
   @Get()
+  @ApiEnvelopedPaginatedResponse(CompanyResponseDto)
   list(@Query() query: CompanyListQueryDto, @Req() req: AuthenticatedRequest) {
     return this.companyService.list(query, req.user!.userId);
   }
@@ -63,6 +76,7 @@ export class CompanyController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleCode.SUPER_ADMIN)
   @Get(':company_id')
+  @ApiEnvelopedResponse(CompanyResponseDto)
   getById(
     @Param('company_id', ParseIntPipe) companyId: number,
     @Req() req: AuthenticatedRequest,
@@ -74,6 +88,7 @@ export class CompanyController {
   @Roles(RoleCode.SUPER_ADMIN)
   @Patch(':company_id')
   @HttpCode(200)
+  @ApiEnvelopedResponse(CompanyResponseDto)
   update(
     @Param('company_id', ParseIntPipe) companyId: number,
     @Body() dto: UpdateCompanyDto,
