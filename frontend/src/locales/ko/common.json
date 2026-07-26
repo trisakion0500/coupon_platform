@@ -405,6 +405,36 @@
       "30005": "다른 관리자가 먼저 수정했습니다. 최신 정보를 다시 불러왔습니다."
     }
   },
+  "couponUseLogs": {
+    "list": {
+      "campaignIdPlaceholder": "캠페인 ID 검색",
+      "gameUserIdPlaceholder": "게임 유저 ID 검색",
+      "codeValuePlaceholder": "코드 값 검색",
+      "actionFilterPlaceholder": "작업유형 필터",
+      "resultTypeFilterPlaceholder": "결과 필터"
+    },
+    "actions": {
+      "10": "예약(RESERVE)",
+      "20": "확정(CONFIRM)"
+    },
+    "resultTypes": {
+      "0": "성공",
+      "10": "코드없음",
+      "20": "이미소모/중지",
+      "30": "캠페인 사용불가",
+      "40": "사용자한도초과",
+      "50": "소모기록없음"
+    },
+    "fields": {
+      "createdAt": "요청일시",
+      "action": "작업유형",
+      "campaign": "캠페인",
+      "codeValue": "코드 값",
+      "gameUserId": "게임 유저 ID",
+      "resultType": "결과",
+      "callerIp": "호출자 IP"
+    }
+  },
   "myAccount": {
     "title": "내 계정",
     "logout": "로그아웃",

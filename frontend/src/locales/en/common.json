@@ -405,6 +405,36 @@
       "30005": "Another administrator updated this first. The latest data has been reloaded."
     }
   },
+  "couponUseLogs": {
+    "list": {
+      "campaignIdPlaceholder": "Search by campaign ID",
+      "gameUserIdPlaceholder": "Search by game user ID",
+      "codeValuePlaceholder": "Search by code value",
+      "actionFilterPlaceholder": "Filter by action",
+      "resultTypeFilterPlaceholder": "Filter by result"
+    },
+    "actions": {
+      "10": "Reserve",
+      "20": "Confirm"
+    },
+    "resultTypes": {
+      "0": "Success",
+      "10": "Code Not Found",
+      "20": "Already Used / Stopped",
+      "30": "Campaign Not Usable",
+      "40": "User Limit Exceeded",
+      "50": "No Usage Record"
+    },
+    "fields": {
+      "createdAt": "Requested At",
+      "action": "Action",
+      "campaign": "Campaign",
+      "codeValue": "Code Value",
+      "gameUserId": "Game User ID",
+      "resultType": "Result",
+      "callerIp": "Caller IP"
+    }
+  },
   "myAccount": {
     "title": "My Account",
     "logout": "Log Out",

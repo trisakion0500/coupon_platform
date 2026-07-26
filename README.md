@@ -164,7 +164,7 @@ coupon_platform/
   - ✅ 스케일아웃(수평 확장) 대응 — graceful shutdown, DB 커넥션 풀 크기 env화, 크론 배치 중복실행 방지(`runExclusive`), nonce 정리 배치, 정체 코드생성 감지 모니터링
   - ✅ 사용기간 만료 캠페인 자동 종료 — 활성+승인완료(또는 승인불요) 상태에서 `campaign_end`가 지나면 배치가 `status=4`(종료)로 전환(`CampaignExpiryService`, 종료 후엔 예외 없이 모든 수정 차단)
   - ✅ 운영 보완 — 로그 파일 일별 로테이션 + ERROR 전용 분리, S2S 호출자 IP 기록, 전역 API 실행 타임아웃, reserve/confirm 프로젝트 단위 rate limiter(토큰 버킷)
-- 🚧 Frontend 구현 진행 중(`docs/19_DEV_SETUP.md`, React 18 + TypeScript + Vite + Ant Design + Zustand + Axios)
+- ✅ Frontend 구현 완료(`docs/19_DEV_SETUP.md`, React 18 + TypeScript + Vite + Ant Design + Zustand + Axios)
   - ✅ 구조 스캐폴딩 — 레이아웃 3종(AuthLayout/MainLayout/AdminLayout), 라우트 전체 골격(`16_LAYOUT.md` 7장), role 기반 가드 4종(`RoleGuard`/`PermissionGuard`/`RequireAuth`/`RequireGuest`/`RequireProjectSelected`), Zustand `authStore`/`globalStore`, axios 클라이언트(Access Token 자동 첨부 + 만료 시 자동 재발급·재시도)
   - ✅ 로그인(SCR-001) + 내 계정 조회·로그아웃(SCR-200) — 실제 백엔드 연동, 브라우저 라이브 검증 완료
   - ✅ 다국어(i18n) — react-i18next로 ko/en 지원, 로그인 화면 포함 전체 공통 UI(헤더/사이드바/푸터/에러 페이지) 번역 + 언어 선택 드롭다운(`localStorage` 유지), 백엔드 에러 메시지는 한글 유지가 원칙(`01_TECH_STACK.md` 참고)
@@ -172,7 +172,7 @@ coupon_platform/
   - ✅ 관리메뉴 — 회사(SCR-010–012, 목록/등록/상세수정), 프로젝트(SCR-020–022, 목록/등록/상세수정 + API Secret 재발급 — `edit_count` 낙관적 락, 등록·재발급 시 평문 Secret 1회 노출 모달), 사용자(SCR-030–031, 목록/상세 + 승인·반려·반려취소·수정·비밀번호강제초기화·프로젝트 권한배정), 감사로그(SCR-040–041, 목록/상세 — before/after JSON 비교, 회사/프로젝트 이름 resolve) 실제 백엔드 연동 + SUPER_ADMIN·DEVELOPER 권한별 화면(조회전용/스코핑) 브라우저 라이브 검증 완료. 목록 화면 상태/필터에 "전체" 옵션 추가
   - ✅ 캠페인 목록·등록·상세(SCR-100~102) — 목록(프로젝트/상태/승인상태/발급상태/코드유형 필터), 등록(RANDOM/FIXED 분기), 상세(탭 4개: 정보·코드목록·사용이력·변경이력 — 정보 탭은 `edit_count` 낙관적 락 수정 + 상태전이 + 승인/반려, 코드목록 탭은 RANDOM 발급/재시도/중단 + FIXED 등록) 실제 백엔드 연동 + 브라우저 라이브 검증 완료. 캠페인 활성화/재활성화에 `campaign_end > NOW()` 조건 추가(사용기간이 지난 캠페인은 활성화 자체를 막음 — `17_CAMPAIGN_API.md` 2.5)
   - ✅ 헤더 실시간 서버 시각 — `GET /health`의 `server_time`으로 클라이언트-서버 시계 오프셋을 계산해 표시(초당 폴링 아님, 5분마다 재동기화). 기기 시계가 어긋나 있어도 실제 판정 기준(서버 시각)을 보여주기 위함
-  - ⬜ 쿠폰 사용 로그(SCR-103) — 라우팅만 연결된 stub 상태, 다음 단계에서 구현 예정
+  - ✅ 쿠폰 사용 로그(SCR-103) — 캠페인/유저/코드값/작업유형/결과/기간 필터 + 페이지네이션, 캠페인 열은 값이 있는 행만 SCR-102로 링크(존재하지 않는 코드로 시도한 행은 `coupon_campaign_id`가 null이라 링크 없이 코드값만 표시) 실제 백엔드 연동 + 브라우저 라이브 검증 완료. 이걸로 화면 목록 전체 구현 완료
 
 ### 향후 개선사항 (우선순위 낮음, 별도 검토 필요)
 
