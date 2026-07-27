@@ -1,0 +1,27 @@
+{
+  "name": "test_game_server",
+  "version": "0.1.0",
+  "description": "coupon_platform S2S 연동 검증용 독립 테스트 게임서버 (docs/20_TEST_GAME_SERVER.md)",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dotenv": "16.4.7",
+    "log4js": "6.9.1",
+    "mysql2": "3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "tsx": "4.19.2",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

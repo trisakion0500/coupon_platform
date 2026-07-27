@@ -109,6 +109,7 @@ coupon_platform은 인앱결제의 consume/acknowledge 패턴을 참고해 **res
 | [17_CAMPAIGN_API.md](docs/17_CAMPAIGN_API.md) | 캠페인 CRUD, 상태변경, 승인/반려, 코드 발급(RANDOM 비동기/FIXED 동기) |
 | [18_COUPON_USAGE_API.md](docs/18_COUPON_USAGE_API.md) | 쿠폰 사용 reserve/confirm, 미컨슘 조회 |
 | [19_DEV_SETUP.md](docs/19_DEV_SETUP.md) | 로컬 개발 환경 설정 |
+| [20_TEST_GAME_SERVER.md](docs/20_TEST_GAME_SERVER.md) | S2S 연동 검증용 독립 테스트 클라이언트(test_game_server) 설계 |
 
 ---
 
@@ -117,7 +118,7 @@ coupon_platform은 인앱결제의 consume/acknowledge 패턴을 참고해 **res
 ```
 coupon_platform/
 ├── backend/            # Backend (NestJS)
-├── frontend/           # Frontend (React, 구조+로그인 세로슬라이스 완료)
+├── frontend/           # Frontend (React)
 ├── database/
 │   ├── tables/         # 메인 DB DDL(.sql, all_tables.sql 포함)
 │   ├── procedures/     # 메인 DB Stored Procedure
@@ -125,6 +126,7 @@ coupon_platform/
 ├── database_log/
 │   ├── tables/         # 로그 DB DDL(메인 DB와 물리 분리)
 │   └── procedures/     # 로그 DB 전용 Stored Procedure
+├── test_game_server/   # S2S 연동 검증용 독립 테스트 클라이언트(backend/frontend와 완전 분리)
 └── docs/                # 설계 문서
 ```
 
