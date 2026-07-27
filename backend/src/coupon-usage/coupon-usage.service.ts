@@ -134,9 +134,28 @@ export class CouponUsageService {
       throw new BusinessException(ResultCode.REQUIRED_FIELD_MISSING);
     }
 
-    const { result, data } = await this.spExecutor.callProcedure<
-      ReserveResult[]
-    >('SP_COUPON_RESERVE', [projectId, codeValue, gameUserId]);
+    let result: number;
+    let data: ReserveResult[] | undefined;
+    try {
+      ({ result, data } = await this.spExecutor.callProcedure<ReserveResult[]>(
+        'SP_COUPON_RESERVE',
+        [projectId, codeValue, gameUserId],
+      ));
+    } catch (err) {
+      // callProcedure는 SP의 시스템 오류(50001)를 {result,data}로 반환하지 않고 즉시
+      // BusinessException(DATABASE_ERROR)을 던진다 — 그러면 아래 result!==0 분기 자체에
+      // 도달하지 못해 logS2sFailure가 조용히 스킵되던 문제(2026-07-27 발견)를 여기서 막는다.
+      if (err instanceof BusinessException) {
+        this.logS2sFailure(
+          companyCode,
+          projectCode,
+          null,
+          { code: codeValue, game_user_id: gameUserId },
+          err.resultCode,
+        );
+      }
+      throw err;
+    }
 
     if (result === 0 && data?.[0]) {
       const row = data[0];
@@ -222,10 +241,26 @@ export class CouponUsageService {
       throw new BusinessException(ResultCode.REQUIRED_FIELD_MISSING);
     }
 
-    const { result, data } = await this.spExecutor.callProcedure<ConfirmRow[]>(
-      'SP_COUPON_CONFIRM',
-      [projectId, codeValue, gameUserId],
-    );
+    let result: number;
+    let data: ConfirmRow[] | undefined;
+    try {
+      ({ result, data } = await this.spExecutor.callProcedure<ConfirmRow[]>(
+        'SP_COUPON_CONFIRM',
+        [projectId, codeValue, gameUserId],
+      ));
+    } catch (err) {
+      // reserve()와 동일한 이유(위 주석 참고) — DB 시스템 오류도 s2s-failure.log에 남긴다.
+      if (err instanceof BusinessException) {
+        this.logS2sFailure(
+          companyCode,
+          projectCode,
+          null,
+          { code: codeValue, game_user_id: gameUserId },
+          err.resultCode,
+        );
+      }
+      throw err;
+    }
 
     if (result === 0 && data?.[0]) {
       const row = data[0];

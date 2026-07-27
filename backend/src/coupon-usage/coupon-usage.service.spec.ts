@@ -1,11 +1,18 @@
 import { LogSpExecutorService } from '../common/database/log-sp-executor.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
+import { getS2sFailureLogger } from '../common/logging/log4js-logger.service';
+import { BusinessException } from '../common/response/business.exception';
 import { ResultCode } from '../common/response/result-code.enum';
 import { CouponUsageService } from './coupon-usage.service';
+
+jest.mock('../common/logging/log4js-logger.service', () => ({
+  getS2sFailureLogger: jest.fn(),
+}));
 
 describe('CouponUsageService', () => {
   let spExecutor: jest.Mocked<Pick<SpExecutorService, 'callProcedure'>>;
   let logSpExecutor: jest.Mocked<Pick<LogSpExecutorService, 'logCall'>>;
+  let s2sFailureWarn: jest.Mock;
   let service: CouponUsageService;
 
   const reserveRow = {
@@ -32,6 +39,10 @@ describe('CouponUsageService', () => {
   beforeEach(() => {
     spExecutor = { callProcedure: jest.fn() };
     logSpExecutor = { logCall: jest.fn() };
+    s2sFailureWarn = jest.fn();
+    (getS2sFailureLogger as jest.Mock).mockReturnValue({
+      warn: s2sFailureWarn,
+    });
     service = new CouponUsageService(
       spExecutor as unknown as SpExecutorService,
       logSpExecutor as unknown as LogSpExecutorService,
@@ -193,6 +204,29 @@ describe('CouponUsageService', () => {
       });
       expect(spExecutor.callProcedure).not.toHaveBeenCalled();
     });
+
+    it('logs to s2s-failure.log even when callProcedure itself throws (SP system error)', async () => {
+      spExecutor.callProcedure.mockRejectedValueOnce(
+        new BusinessException(ResultCode.DATABASE_ERROR),
+      );
+
+      await expect(
+        service.reserve(
+          10,
+          'CO1',
+          'PJ1',
+          '23A4-B7C9-DEF2',
+          'player_1001',
+          '203.0.113.10',
+        ),
+      ).rejects.toMatchObject({ resultCode: ResultCode.DATABASE_ERROR });
+
+      expect(s2sFailureWarn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[CO1][PJ1] [-]-code=23A4-B7C9-DEF2,game_user_id=player_1001-',
+        ),
+      );
+    });
   });
 
   describe('confirm', () => {
@@ -274,6 +308,29 @@ describe('CouponUsageService', () => {
         resultCode: ResultCode.REQUIRED_FIELD_MISSING,
       });
       expect(spExecutor.callProcedure).not.toHaveBeenCalled();
+    });
+
+    it('logs to s2s-failure.log even when callProcedure itself throws (SP system error)', async () => {
+      spExecutor.callProcedure.mockRejectedValueOnce(
+        new BusinessException(ResultCode.DATABASE_ERROR),
+      );
+
+      await expect(
+        service.confirm(
+          10,
+          'CO1',
+          'PJ1',
+          '23A4-B7C9-DEF2',
+          'player_1001',
+          '203.0.113.10',
+        ),
+      ).rejects.toMatchObject({ resultCode: ResultCode.DATABASE_ERROR });
+
+      expect(s2sFailureWarn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[CO1][PJ1] [-]-code=23A4-B7C9-DEF2,game_user_id=player_1001-',
+        ),
+      );
     });
   });
 

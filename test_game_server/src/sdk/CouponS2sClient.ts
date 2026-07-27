@@ -137,13 +137,12 @@ export class CouponS2sClient {
 
   /**
    * 서명 생성 + HTTP 호출 + 응답 파싱을 한 곳에 모은 내부 헬퍼. 3개 엔드포인트 전부 POST+바디라
-   * HTTP 메서드를 인자로 받지 않는다. `path`는 반드시 디코딩된 형태(예:
-   * `/v1/coupons/코드값/reserve`)를 넘겨야 한다 — 실제로 fetch할 URL은 이 메서드 내부에서
-   * `encodeURIComponent`가 이미 적용된 경로 세그먼트를 그대로 쓰지만, 서명 대상
-   * `stringToSign`의 `path`는 서버(Express `request.path`)가 보는 디코딩된 값과 정확히
-   * 일치해야 하므로 별도로 다루지 않는다(caller가 넘긴 path 문자열을 그대로 서명에 쓴다 —
-   * reserve/confirm은 이미 encodeURIComponent를 거친 경로를 이 메서드에 넘기는데, 코드값이
-   * URL-safe 문자(nanoid 알파벳/하이픈)로만 구성되면 인코딩 전후가 동일해 문제가 없다).
+   * HTTP 메서드를 인자로 받지 않는다. `path`는 caller가 넘긴 문자열을 그대로 서명(`stringToSign`)과
+   * 실제 fetch URL 양쪽에 동일하게 쓴다 — 서버(Express `request.path`)는 퍼센트 디코딩을
+   * 하지 않으므로(`req.path`는 인코딩된 문자열 그대로다), 클라이언트가 보낸 그대로의 문자열이
+   * 서명 검증 기준과 일치해야 한다. reserve/confirm이 이 메서드에 넘기는 path는 이미
+   * `encodeURIComponent`를 거친 상태인데, 코드값이 URL-safe 문자(nanoid 알파벳/하이픈)로만
+   * 구성되면 인코딩 전후가 동일해 실질적으로 문제가 없다.
    */
   private async request<T>(path: string, body: Record<string, unknown>): Promise<T> {
     const bodyString = JSON.stringify(body);
