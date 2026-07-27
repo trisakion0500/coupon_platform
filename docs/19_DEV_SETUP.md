@@ -190,6 +190,20 @@ npm run fix-seed-phone
 로컬 `.env`의 `ENCRYPTION_KEY`로 sa/dev/mgr/op의 `phone_number`를 실제 복호화 가능한 값
 (`010-0000-0001`~`010-0000-0004`)으로 재암호화한다.
 
+### 4.2.2 시드 프로젝트 api_secret 정합성
+
+`project.sql`의 시드 데이터(`ADMIN_PROJECT`/`DEV_PROJECT`)도 4.2.1과 동일한 이유로 개발용
+플레이스홀더 `api_secret`을 포함한다(`project.sql` 헤더 주석 참고) — 그 상태로는 이 두 프로젝트로
+S2S 호출(reserve/confirm 등)의 서명 검증이 항상 실패한다. DB 초기화 직후 아래 명령으로 정리한다.
+
+```bash
+npm run fix-seed-secret
+```
+
+로컬 `.env`의 `ENCRYPTION_KEY`로 두 프로젝트의 `api_secret`을 실제 복호화 가능한 값으로
+재암호화하고, 콘솔에 평문 `api_key`/`api_secret` 쌍을 출력한다 — 매번 관리 콘솔로 새 프로젝트를
+만들지 않고도 시드 프로젝트로 바로 S2S 테스트(`test_game_server` 등)를 할 수 있다.
+
 ## 4.3 실행
 
 ```bash

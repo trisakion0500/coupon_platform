@@ -20,7 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:e2e:reset": "ts-node -r tsconfig-paths/register test/utils/reset-db.ts",
     "keygen": "node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
-    "fix-seed-phone": "ts-node -r tsconfig-paths/register src/scripts/fix-seed-phone.ts"
+    "fix-seed-phone": "ts-node -r tsconfig-paths/register src/scripts/fix-seed-phone.ts",
+    "fix-seed-secret": "ts-node -r tsconfig-paths/register src/scripts/fix-seed-secret.ts"
   },
   "dependencies": {
     "@nestjs/common": "11.1.28",
