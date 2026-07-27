@@ -95,7 +95,9 @@ test_game_server/
     ├── config.ts            # .env 로딩 + 검증
     ├── logger.ts             # log4js 설정 (backend log4js-logger.service.ts와 동일한 감각, 독립 구성 — 7장)
     ├── sdk/
-    │   └── CouponS2sClient.ts   # ★ 입점사에 그대로 제공 가능한 단독 S2S 연동 모듈 — 9장 참고
+    │   ├── CouponS2sClient.ts   # ★ 입점사에 그대로 제공 가능한 단독 S2S 연동 모듈 — 9장 참고
+    │   ├── CouponS2sClient.js   # 컴파일 산출물(자동 생성, `npm run build:sdk`) — TS 툴체인 없어도 바로 사용 가능 — 9.5
+    │   └── CouponS2sClient.d.ts # 컴파일 산출물(자동 생성) — .js 옆에 두어 에디터 타입 지원 — 9.5
     ├── testing/                 # 테스트게임서버 전용(입점사에는 제공하지 않는 부분)
     │   ├── db/
     │   │   ├── pool.ts           # mysql2 커넥션 풀 (CALL SPTG_* 전용, raw SELECT 없음)
@@ -348,6 +350,23 @@ export class CouponApiError extends Error {
 `testing/decryptProjectSecret`로 얻은 `{apiKey, apiSecretPlain, baseUrl}`로 매 tick 캠페인이 바뀔 때마다
 새 인스턴스를 만들거나, 프로젝트별로 캐싱한다). 즉 이 프로젝트 자신도 "SDK를 쓰는 입점사 1곳"처럼
 `CouponS2sClient`를 소비하는 구조로 만들어, 실제 입점사 사용 경험과 동일한 경로를 스스로도 검증한다.
+
+## 9.5 컴파일된 `.js`/`.d.ts` 동봉 배포
+
+`.ts` 원본과 별개로, 같은 폴더에 컴파일된 `CouponS2sClient.js`/`CouponS2sClient.d.ts`를 함께 커밋해
+배포한다(2026-07-27) — TypeScript 툴체인이 없는 입점사 게임서버도 `.js`만 그대로 가져다 바로 실행할
+수 있어야 "그대로 제공 가능"이라는 9.1의 목적에 완전히 부합하기 때문이다. Node.js 22+는 타입 애너테이션만
+쓰는 `.ts`(이 SDK가 그렇다 — enum·네임스페이스 없음)를 별도 빌드 없이 직접 실행할 수 있어(타입 스트리핑)
+`.ts` 그대로도 어느 정도는 쓸 수 있지만, 그보다 오래된 Node나 완전히 순수 JS 환경까지 배려해 컴파일
+산출물을 별도로 갖췄다. `.d.ts`를 함께 두면 VS Code 등 에디터가 `.js` 옆의 동명 `.d.ts`를 자동으로
+찾아 타입 정보(`ReserveResult` 등 응답 셰이프)를 그대로 보여줘, JS 전용 프로젝트에서도 타입 문서화
+가치를 잃지 않는다.
+
+`npm run build:sdk`(`scripts/build-sdk.mjs`)로 재생성한다 — `tsconfig.sdk.json`(메인 `tsconfig.json`을
+`extends`, `rootDir`/`outDir`만 `src/sdk`로 좁히고 `declaration: true`로 켠 전용 설정)으로 이 파일
+하나만 컴파일한 뒤, 두 산출물 맨 위에 "자동 생성 파일 — 직접 수정하지 말 것" 배너를 붙인다. **`.ts`를
+수정하면 반드시 이 스크립트로 재생성해야 한다** — `all_tables.sql`/`all_procedures.sql` 개별 파일-통합
+파일 동기화와 같은 종류의 이격 위험이라, 잊으면 배포된 `.js`가 조용히 낡은 채로 남는다.
 
 ---
 

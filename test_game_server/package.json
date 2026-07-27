@@ -9,6 +9,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "build": "tsc",
+    "build:sdk": "node scripts/build-sdk.mjs",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

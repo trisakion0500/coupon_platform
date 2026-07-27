@@ -387,7 +387,7 @@ function buildS2sHeaders(apiKey, apiSecret, method, path, rawBody) {
 
 > **시각 동기화 오차가 실제로 발생하는 경우**: 게임서버가 이 오차로 인증에 계속 실패한다면 서버 시각을 먼저 점검하고, 필요하면 운영 담당자에게 허용 오차 값 조정이 가능한지 문의해 주세요.
 
-동일한 로직을 그대로 구현한 재사용 가능 참고 SDK(외부 의존성 없이 Node.js 내장 기능만 사용)가 [`CouponS2sClient.ts`](../test_game_server/src/sdk/CouponS2sClient.ts)로 제공되니, 처음부터 직접 구현하는 대신 참고하시거나 그대로 가져다 쓰셔도 됩니다.
+동일한 로직을 그대로 구현한 재사용 가능 참고 SDK(외부 의존성 없이 Node.js 내장 기능만 사용)가 [`CouponS2sClient.ts`](../test_game_server/src/sdk/CouponS2sClient.ts)로 제공되니, 처음부터 직접 구현하는 대신 참고하시거나 그대로 가져다 쓰셔도 됩니다. TypeScript를 쓰지 않는 프로젝트라면 컴파일된 [`CouponS2sClient.js`](../test_game_server/src/sdk/CouponS2sClient.js)를 그대로 가져다 써도 됩니다(같은 폴더의 `.d.ts`가 에디터 타입 지원도 함께 제공합니다).
 
 ## 8.3 쿠폰 사용 API (reserve / confirm / 미컨슘 조회)
 

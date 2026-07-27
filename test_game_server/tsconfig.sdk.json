@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src/sdk",
+    "outDir": "src/sdk",
+    "declaration": true
+  },
+  "include": ["src/sdk/CouponS2sClient.ts"]
+}
