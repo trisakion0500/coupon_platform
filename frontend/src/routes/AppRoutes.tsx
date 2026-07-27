@@ -30,7 +30,7 @@ import { NotFoundPage } from '@/pages/errors/NotFoundPage';
 const SUPER_ADMIN_ONLY = [RoleCode.SUPER_ADMIN];
 const SUPER_ADMIN_AND_DEVELOPER = [RoleCode.SUPER_ADMIN, RoleCode.DEVELOPER];
 
-/** 16_LAYOUT.md 7장 Route 구조를 그대로 옮긴 라우트 트리. */
+/** 18_LAYOUT.md 7장 Route 구조를 그대로 옮긴 라우트 트리. */
 export function AppRoutes() {
   return (
     <Routes>

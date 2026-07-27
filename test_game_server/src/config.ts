@@ -51,7 +51,7 @@ const scenarioWeights: ScenarioWeights = {
   error: optionalNumber('SCENARIO_WEIGHT_ERROR', 5),
 };
 
-// docs/20_TEST_GAME_SERVER.md 4장 — 가중치 6개 합은 반드시 100이어야 하며, 조용히 정규화하지 않고
+// docs/21_TEST_GAME_SERVER.md 4장 — 가중치 6개 합은 반드시 100이어야 하며, 조용히 정규화하지 않고
 // 즉시 종료한다.
 const weightSum = Object.values(scenarioWeights).reduce((sum, value) => sum + value, 0);
 if (weightSum !== 100) {

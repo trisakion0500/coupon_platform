@@ -3,24 +3,24 @@ DELIMITER $$
 CREATE PROCEDURE `SP_USER_APPROVE` (
     IN i_user_id           BIGINT UNSIGNED,  -- 승인할 사용자 ID
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '가입승인 - SUPER_ADMIN 재검증, status 0(대기) -> 1(승인) 조건부 UPDATE (12_USER_API.md 1.4)'
+) COMMENT '가입승인 - SUPER_ADMIN 재검증, status 0(대기) -> 1(승인) 조건부 UPDATE (14_USER_API.md 1.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_APPROVE
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 조건부 UPDATE(WHERE status=0)를 먼저 시도해 체크 후 갱신(check-then-act) 대신
-    --        원자적으로 처리한다(02_DEV_CONVENTIONS.md 4장). 영향받은 행이 0건일 때만 그 이유를
+    --        원자적으로 처리한다(04_DEV_CONVENTIONS.md 4장). 영향받은 행이 0건일 때만 그 이유를
     --        진단한다 - 사용자 자체가 없으면 31003, 있는데 이미 status=0이 아니면(이미 처리됨)
     --        30004(상태 전이 불가)로 구분한다. 이렇게 하면 성공 경로(가장 흔한 경우)는 존재
     --        여부를 별도로 조회하지 않고 UPDATE 한 번으로 끝난다.
     --        가입승인은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
-    --        02_DEV_CONVENTIONS.md 3.2).
+    --        04_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고(대상이 없으면 SELECT...INTO가 조용히 NULL을 남길 뿐이라 안전 — 이후
     --        ROW_COUNT()=0 분기에서 어차피 LEAVE한다), 결과 SELECT에
     --        before_json/after_json/requester_name을 추가했다. password_hash는 '***'로 마스킹한다
-    --        (13_LOG_AUDIT_API.md 2.4).
+    --        (15_LOG_AUDIT_API.md 2.4).
     --        2026-07-22: before_json 캡처가 락 없는 별도 SELECT로 UPDATE보다 먼저 실행되던 문제를
     --        전수감사에서 발견 - 캡처를 `SELECT ... FOR UPDATE`로 바꾸고 UPDATE와 같은 명시적
     --        트랜잭션으로 묶는다. ROW_COUNT()=0(실패) 분기에서도 트랜잭션을 열어둔 채 반환하면

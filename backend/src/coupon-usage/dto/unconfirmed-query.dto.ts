@@ -12,7 +12,7 @@ import { PAGE_SIZE_OPTIONS } from '../../common/response/pagination';
 import type { PageSize } from '../../common/response/pagination';
 
 /**
- * POST /v1/coupons/unconfirmed 요청 바디. 18_COUPON_USAGE_API.md 3.1.
+ * POST /v1/coupons/unconfirmed 요청 바디. 20_COUPON_USAGE_API.md 3.1.
  *
  * 원래 GET 쿼리 파라미터였으나(2026-07-27) `game_user_id` 등이 URL 쿼리스트링에 실려 접근/프록시
  * 로그에 그대로 남는 걸 피하기 위해 POST+바디로 전환했다 — 조회 성격은 그대로이므로

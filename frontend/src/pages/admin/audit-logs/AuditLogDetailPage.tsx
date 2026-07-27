@@ -26,7 +26,7 @@ function JsonBlock({ value }: { value: Record<string, unknown> | null }) {
   );
 }
 
-/** SCR-041. 13_LOG_AUDIT_API.md 6장. */
+/** SCR-041. 15_LOG_AUDIT_API.md 6장. */
 export function AuditLogDetailPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();

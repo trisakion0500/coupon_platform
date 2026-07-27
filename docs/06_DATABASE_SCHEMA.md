@@ -1,4 +1,4 @@
-# 04_DATABASE_SCHEMA.md
+# 06_DATABASE_SCHEMA.md
 
 ## 개요
 
@@ -38,11 +38,11 @@ Coupon Platform 데이터베이스 스키마 정의 문서
 - `project_code`는 `company_id` 범위 내 UNIQUE (전역 UNIQUE 아님)
 - 논리 삭제(status) 사용
 - `created_by` / `updated_by` 컬럼 없음 (의도적 설계)
-- `api_key` / `api_secret` / `api_secret_prev` / `secret_rotated_at` — 게임서버 → 쿠폰서버 방향 S2S 호출 인증용(HMAC 요청 서명, [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2장 참고)
+- `api_key` / `api_secret` / `api_secret_prev` / `secret_rotated_at` — 게임서버 → 쿠폰서버 방향 S2S 호출 인증용(HMAC 요청 서명, [09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 2장 참고)
   - `api_secret`: 현재 사용 중인 Secret의 AES-256-CBC 암호화값(Base64) — 단방향 해시가 아니라 가역 암호화다. 서버가 요청마다 서명을 재계산해 대조해야 해서 원문 복원이 필요하기 때문(평문 자체가 DB에 그대로 저장되는 것은 아님)
   - `api_secret_prev`: 재발급 직후 유예기간(grace period) 동안만 유지되는 직전 Secret 암호화값. 유예기간 경과 시 배치로 `NULL` 처리
   - `secret_rotated_at`: 마지막 Secret 재발급 시각 (`NULL`이면 최초 발급 후 미변경)
-- `edit_count`(2026-07-21 추가) — 낙관적 동시성 제어용 수정 횟수. `SP_PROJECT_UPDATE`/`SP_PROJECT_API_SECRET_ROTATE` 둘 다 이 컬럼을 검증·증가시킨다(`coupon_campaign.edit_count`와 동일 패턴, [11_PROJECT_API.md](./11_PROJECT_API.md) 2.4/2.5 Concurrency 참고) — 두 SP가 같은 행을 건드리는데 재발급 쪽에 버전 체크가 없어 더블클릭/재시도로 grace-period Secret이 조용히 유실될 수 있었던 리뷰 발견 이후 도입됨
+- `edit_count`(2026-07-21 추가) — 낙관적 동시성 제어용 수정 횟수. `SP_PROJECT_UPDATE`/`SP_PROJECT_API_SECRET_ROTATE` 둘 다 이 컬럼을 검증·증가시킨다(`coupon_campaign.edit_count`와 동일 패턴, [13_PROJECT_API.md](./13_PROJECT_API.md) 2.4/2.5 Concurrency 참고) — 두 SP가 같은 행을 건드리는데 재발급 쪽에 버전 체크가 없어 더블클릭/재시도로 grace-period Secret이 조용히 유실될 수 있었던 리뷰 발견 이후 도입됨
 
 ### 상태
 
@@ -93,7 +93,7 @@ Coupon Platform 데이터베이스 스키마 정의 문서
 | 30  | MANAGER     |
 | 40  | OPERATOR    |
 
-권한은 상위(숫자가 작을수록 고권한)가 하위 권한을 모두 포함하는 누적 구조다: `SUPER_ADMIN ⊇ DEVELOPER ⊇ MANAGER ⊇ OPERATOR`. 역할별 상세 권한은 [10_COMPANY_API.md](./10_COMPANY_API.md) 1.2 참고.
+권한은 상위(숫자가 작을수록 고권한)가 하위 권한을 모두 포함하는 누적 구조다: `SUPER_ADMIN ⊇ DEVELOPER ⊇ MANAGER ⊇ OPERATOR`. 역할별 상세 권한은 [12_COMPANY_API.md](./12_COMPANY_API.md) 1.2 참고.
 
 ### 특수 규칙
 
@@ -129,15 +129,15 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 ### 특징
 
 - `project` 소속. 실제 코드 값은 `code_type` 무관하게 항상 `coupon_code`에만 저장(중복 저장 없음)
-- `code_type`(1:RANDOM/2:FIXED)에 따라 코드 발급 방식이 다름 — RANDOM은 `requested_qty`만큼 코드를 대량 생성, FIXED는 관리자 입력 코드 1건만 생성. `requested_qty`/`generated_qty`의 의미도 code_type에 따라 다르다: RANDOM은 "코드 개수" 그대로지만, FIXED는 코드가 항상 1건이라 대신 "그 1건을 서로 다른 유저가 각자 소모할 수 있는 총 횟수"를 의미한다(2026-07-22 — 처음엔 FIXED의 `requested_qty`를 서버가 항상 `1`로 고정했으나, 그러면 아래 `usable_qty<=generated_qty` 검증 때문에 FIXED 캠페인이 전체 통틀어 딱 1번만 소모 가능해져 여러 유저의 독립적 사용을 막는 문제가 있어 제거함 — [05_COUPON_ISSUANCE_SCENARIO.md](./05_COUPON_ISSUANCE_SCENARIO.md) 2장 참고)
+- `code_type`(1:RANDOM/2:FIXED)에 따라 코드 발급 방식이 다름 — RANDOM은 `requested_qty`만큼 코드를 대량 생성, FIXED는 관리자 입력 코드 1건만 생성. `requested_qty`/`generated_qty`의 의미도 code_type에 따라 다르다: RANDOM은 "코드 개수" 그대로지만, FIXED는 코드가 항상 1건이라 대신 "그 1건을 서로 다른 유저가 각자 소모할 수 있는 총 횟수"를 의미한다(2026-07-22 — 처음엔 FIXED의 `requested_qty`를 서버가 항상 `1`로 고정했으나, 그러면 아래 `usable_qty<=generated_qty` 검증 때문에 FIXED 캠페인이 전체 통틀어 딱 1번만 소모 가능해져 여러 유저의 독립적 사용을 막는 문제가 있어 제거함 — [07_COUPON_ISSUANCE_SCENARIO.md](./07_COUPON_ISSUANCE_SCENARIO.md) 2장 참고)
 - `use_hyphen`은 RANDOM 코드 생성 시에만 적용(하이픈 포함 여부), FIXED는 관리자 입력값을 그대로 사용해 적용 대상 아님
 - 수량 컬럼 4종: `requested_qty`(목표) / `generated_qty`(실제 발급, FIXED는 코드 발급 완료 시 `requested_qty`와 동일하게 채워짐) / `usable_qty`(실제 사용 가능, 선착순 오픈 등으로 `generated_qty`보다 적을 수 있음) / `used_qty`(실제 소모, reserve 성공 시점 즉시 확정 기준 — confirm 여부와 무관)
 - **동시성(오버셀 방지)**: reserve 시 `UPDATE coupon_campaign SET used_qty=used_qty+1 WHERE used_qty<usable_qty AND status=2 AND NOW() BETWEEN campaign_start AND campaign_end` 조건부 갱신 하나로 수량/상태(활성)/기간을 동시에 원자적으로 체크한다. status/기간 조건을 같은 UPDATE에 포함시키면 관리자의 일시중지/종료 시점과 겹치는 reserve 요청도 추가 비용 없이 함께 막힌다
-- **승인 워크플로우(`approval_status`, `status`와 별개 축)**: `status`는 캠페인 라이프사이클(대기/활성/일시중지/종료), `approval_status`는 활성화해도 되는지에 대한 승인 여부다. MANAGER 이상이 생성/컨트롤하면 `approval_status=1`(승인불요)로 즉시 시작, OPERATOR가 생성/컨트롤하면 `approval_status=2`(승인대기)로 시작해 10/20/30이 승인/반려한다. `status`를 2(활성)로 전환하는 SP는 `approval_status IN (1,3)`(승인불요/승인완료) AND `campaign_end > NOW()`(2026-07-25 추가 — 이미 사용기간이 지난 캠페인이 활성 상태로 진입하는 것 자체를 막음, [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.5 참고)일 때만 허용 — 미승인 캠페인은 애초에 활성 상태에 도달할 수 없으므로 reserve 시점 체크는 `status=2`만 보면 된다. 변경 이력은 `log_coupon_campaign`에 별도 기록
+- **승인 워크플로우(`approval_status`, `status`와 별개 축)**: `status`는 캠페인 라이프사이클(대기/활성/일시중지/종료), `approval_status`는 활성화해도 되는지에 대한 승인 여부다. MANAGER 이상이 생성/컨트롤하면 `approval_status=1`(승인불요)로 즉시 시작, OPERATOR가 생성/컨트롤하면 `approval_status=2`(승인대기)로 시작해 10/20/30이 승인/반려한다. `status`를 2(활성)로 전환하는 SP는 `approval_status IN (1,3)`(승인불요/승인완료) AND `campaign_end > NOW()`(2026-07-25 추가 — 이미 사용기간이 지난 캠페인이 활성 상태로 진입하는 것 자체를 막음, [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 2.5 참고)일 때만 허용 — 미승인 캠페인은 애초에 활성 상태에 도달할 수 없으므로 reserve 시점 체크는 `status=2`만 보면 된다. 변경 이력은 `log_coupon_campaign`에 별도 기록
 - `reward_data`는 완전 자유 스키마 JSON — 쿠폰서버는 내용을 해석하지 않고 게임서버로 그대로 pass-through
 - 쿠폰 코드 생성 규칙(RANDOM 전용): `nanoid.customAlphabet('23456789ABCDEFGHJKLMNPQRSTUVWXYZ', 12)().match(/.{1,4}/g)?.join('-')` → `XXXX-XXXX-XXXX` 형식
-- **`edit_count`(낙관적 동시성 제어)**: 이 행을 바꾸는 쓰기 API(수정/상태변경/승인/반려) 전부가 성공할 때마다 1씩 증가하는 전용 정수 카운터. `PATCH /campaigns/{id}`는 이 값을 필수로 받아 서버의 현재 값과 다르면(그 사이 다른 관리자가 먼저 수정) 30005로 거부한다([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.4 Concurrency). 처음엔 자동 갱신 컬럼 `updated_at`을 재사용했으나 `DATETIME`이 초 단위까지만 기록돼 같은 초 안의 동시 수정을 놓치는 사례가 실제로 재현되어, 타이밍에 의존하지 않는 정수 카운터로 교체함
-- **사용기간 만료 자동 종료(2026-07-25 추가)**: `status=2`(활성) AND `approval_status IN(1,3)` AND `campaign_end<=NOW()`인 캠페인을 배치(`CampaignExpiryService`, `CAMPAIGN_EXPIRY_CRON`)가 주기적으로 `status=4`(종료)로 전환한다 — 기간이 지났는데도 "활성"으로 보이는 상태를 없애기 위함(API 호출 없이 발생하는 시스템 상태변경, [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 5장). 이 조건에 맞는 후보를 빠르게 찾도록 `ix_status_campaign_end(status, campaign_end)` 인덱스를 뒀다
+- **`edit_count`(낙관적 동시성 제어)**: 이 행을 바꾸는 쓰기 API(수정/상태변경/승인/반려) 전부가 성공할 때마다 1씩 증가하는 전용 정수 카운터. `PATCH /campaigns/{id}`는 이 값을 필수로 받아 서버의 현재 값과 다르면(그 사이 다른 관리자가 먼저 수정) 30005로 거부한다([19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 2.4 Concurrency). 처음엔 자동 갱신 컬럼 `updated_at`을 재사용했으나 `DATETIME`이 초 단위까지만 기록돼 같은 초 안의 동시 수정을 놓치는 사례가 실제로 재현되어, 타이밍에 의존하지 않는 정수 카운터로 교체함
+- **사용기간 만료 자동 종료(2026-07-25 추가)**: `status=2`(활성) AND `approval_status IN(1,3)` AND `campaign_end<=NOW()`인 캠페인을 배치(`CampaignExpiryService`, `CAMPAIGN_EXPIRY_CRON`)가 주기적으로 `status=4`(종료)로 전환한다 — 기간이 지났는데도 "활성"으로 보이는 상태를 없애기 위함(API 호출 없이 발생하는 시스템 상태변경, [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 5장). 이 조건에 맞는 후보를 빠르게 찾도록 `ix_status_campaign_end(status, campaign_end)` 인덱스를 뒀다
 
 ### 상태 (`status`)
 
@@ -196,7 +196,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 - **동시성**: 사용자당 한도 체크는 단순 `COUNT` 후 `INSERT`로는 동시 요청 시 한도를 넘길 수 있어, `SELECT COUNT(*) ... WHERE coupon_campaign_id=? AND game_user_id=? FOR UPDATE`로 조회해 `ix_campaign_user` 인덱스 구간에 갭락을 걸어 동시 INSERT를 직렬화한 뒤 판단해야 함
 - 상태 컬럼 없음 — 모든 행이 이미 소모 확정 상태이므로 별도 상태값 불필요(`confirmed_at` nullable 하나로 미컨슘 여부 표현)
 
-상세 흐름/동시성 처리/미컨슘 조회 API는 [06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md) 참고.
+상세 흐름/동시성 처리/미컨슘 조회 API는 [08_COUPON_USAGE_SCENARIO.md](./08_COUPON_USAGE_SCENARIO.md) 참고.
 
 ---
 
@@ -212,7 +212,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 - 물리 수정 및 삭제를 허용하지 않음(Append-Only)
 - `company_id`/`project_id`는 로그 스코핑(조회 필터링)용이며 FK 없음
 - `created_by`도 로그 테이블 원칙상 FK 없음
-- `created_by_name`은 로그 생성 시점 사용자명 스냅샷(별도 DB에 있는 로그 테이블에서 `user` 테이블 조인 없이 조회하기 위함 — [02_DEV_CONVENTIONS.md](./02_DEV_CONVENTIONS.md) 1장 참고)
+- `created_by_name`은 로그 생성 시점 사용자명 스냅샷(별도 DB에 있는 로그 테이블에서 `user` 테이블 조인 없이 조회하기 위함 — [04_DEV_CONVENTIONS.md](./04_DEV_CONVENTIONS.md) 1장 참고)
 - `user_session`은 세션 이력 테이블이므로 감사 대상에서 제외
 
 ### 작업 유형
@@ -235,7 +235,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 - CREATE / UPDATE / STATUS_CHANGE / APPROVE / REJECT 5종 작업 기록
 - `approved_by`/`approved_at`/`reject_reason`도 원본 스냅샷 그대로 유지 — "이 행의 행위자"가 아니라 그 시점 캠페인 자체의 승인 상태이므로, 승인 이후에 생기는 다른 액션(예: 승인된 캠페인의 STATUS_CHANGE) 로그 행에서도 "그때 누가 승인해뒀었는지" 히스토리로 계속 의미가 있음
 - `created_by`/`created_at`은 `log_audit`와 동일한 관례 — 캠페인 원본의 `created_by` 스냅샷이 아니라 **"이 로그 행(액션)을 수행한 사용자/시각"**이다. CREATE 행은 생성자, UPDATE/STATUS_CHANGE 행은 그 수정을 한 사용자를 담으므로 별도 `updated_by` 컬럼이 필요 없음
-- `created_by_name`(2026-07-22 추가)은 `log_audit`와 동일한 목적의 행위자명 스냅샷 — 최초 설계 시에는 "조회 시점에 `created_by`로 `user` 테이블을 조인하면 된다"고 잘못 가정해 이 컬럼 없이 시작했으나, 로그 DB는 메인 DB와 물리 분리돼 있어 애초에 조인이 불가능하다(1장, `log_audit`가 처음부터 `created_by_name`을 둔 것과 동일 이유) — [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 4.2(`GET /campaigns/{id}/logs`) 구현 과정에서 발견해 소급 추가
+- `created_by_name`(2026-07-22 추가)은 `log_audit`와 동일한 목적의 행위자명 스냅샷 — 최초 설계 시에는 "조회 시점에 `created_by`로 `user` 테이블을 조인하면 된다"고 잘못 가정해 이 컬럼 없이 시작했으나, 로그 DB는 메인 DB와 물리 분리돼 있어 애초에 조인이 불가능하다(1장, `log_audit`가 처음부터 `created_by_name`을 둔 것과 동일 이유) — [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 4.2(`GET /campaigns/{id}/logs`) 구현 과정에서 발견해 소급 추가
 - 물리 수정 및 삭제를 허용하지 않음(Append-Only)
 - 전체 컬럼 FK 없음(`coupon_campaign_id`/`project_id` 포함) — 로그 원칙(원본 삭제/변경과 무관하게 그 시점 값을 그대로 보존)
 
@@ -260,7 +260,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 - `coupon_code_usage`는 성공한 소모 건만 남기지만, 이 테이블은 실패한 시도까지 전부 기록한다(부정사용 탐지: 코드 브루트포스, 한도 우회 시도 등 / 운영 디버깅 목적). RESERVE/CONFIRM 요청 모두 기록 대상
 - `code_value`는 FK가 아님 — 존재하지 않는 코드로 시도한 요청도 그대로 남겨야 브루트포스 탐지가 가능하므로 문자열 원문을 그대로 저장
 - `coupon_campaign_id`는 NULL 허용 — 코드 자체가 존재하지 않는 시도는 캠페인을 특정할 수 없음
-- `result_type`(0:성공, 10:코드없음, 20:이미소모/중지, 30:캠페인 사용불가, 40:사용자한도초과, 50:소모기록없음(CONFIRM 전용))의 API result 코드 매핑은 [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md) 4장 참고
+- `result_type`(0:성공, 10:코드없음, 20:이미소모/중지, 30:캠페인 사용불가, 40:사용자한도초과, 50:소모기록없음(CONFIRM 전용))의 API result 코드 매핑은 [20_COUPON_USAGE_API.md](./20_COUPON_USAGE_API.md) 4장 참고
 - `caller_ip`(NULL 허용, 2026-07-23 추가) — 호출한 게임서버의 IP(Express `req.ip`, `main.ts`의 `trust proxy=1` 설정으로 로드밸런서 뒤에서도 실제 호출자 IP를 얻음). 이 엔드포인트는 이미 HMAC 서명으로 강하게 인증되므로 인증 목적이 아니라 "이 프로젝트의 API Secret이 평소와 다른 IP에서 호출되기 시작했다" 같은 이상징후 탐지·장애조사 보조 신호용 — 브루트포스를 시도하는 실제 최종 플레이어의 IP가 아니라 요청을 대신 전달한 게임서버 자신의 IP라는 점에 유의(최종 플레이어 추적은 `game_user_id`로 함)
 - 물리 수정 및 삭제를 허용하지 않음(Append-Only)
 - 전체 컬럼 FK 없음(`project_id`/`coupon_campaign_id`/`code_value` 포함) — 로그 원칙
@@ -276,7 +276,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 
 ## 12. project_api_nonce
 
-S2S(게임서버 → 쿠폰서버) HMAC 요청 서명의 재전송(replay) 방지용 1회성 nonce 저장소([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2장 참고)
+S2S(게임서버 → 쿠폰서버) HMAC 요청 서명의 재전송(replay) 방지용 1회성 nonce 저장소([09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 2장 참고)
 
 ### 특징
 

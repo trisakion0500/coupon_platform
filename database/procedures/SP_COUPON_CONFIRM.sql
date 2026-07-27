@@ -4,12 +4,12 @@ CREATE PROCEDURE `SP_COUPON_CONFIRM` (
     IN i_project_id   BIGINT UNSIGNED,  -- S2S 인증으로 스코핑된 project_id
     IN i_code_value   VARCHAR(50),      -- coupon_code.code_value
     IN i_game_user_id VARCHAR(100)      -- 게임서버 유저 식별자
-) COMMENT '쿠폰 사용 지급결과 기록 - confirm (18_COUPON_USAGE_API.md 2.2)'
+) COMMENT '쿠폰 사용 지급결과 기록 - confirm (20_COUPON_USAGE_API.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COUPON_CONFIRM
     -- 작성 : 2026.07.22 trisakion
-    -- 내용 : 06_COUPON_USAGE_SCENARIO.md 2.1(confirm 흐름도)/2.2(중복 호출 무해)를 그대로
+    -- 내용 : 08_COUPON_USAGE_SCENARIO.md 2.1(confirm 흐름도)/2.2(중복 호출 무해)를 그대로
     --        구현한다. confirm은 coupon_code/coupon_campaign 어떤 상태도 바꾸지 않으므로(소모
     --        확정은 이미 reserve에서 끝남) 별도 락이 필요 없다 - 재시도로 두 번 호출돼도
     --        confirmed_at을 같은 값으로 다시 쓰는 것뿐이라 무해하다.
@@ -20,7 +20,7 @@ BEGIN
     --           confirmed_at IS NULL`)로 기록 후 재조회해 반환 - 조건부 UPDATE로 감싼 것은
     --           동시 confirm 호출 시 ROW_COUNT()=0이 나더라도(=경쟁에서 짐) 에러로 취급하지
     --           않고 그냥 결과를 다시 읽어 그대로 반환하기 위함(둘 다 성공 응답을 받는 것이
-    --           의도된 동작, 02_DEV_CONVENTIONS.md 4장의 "조건부 UPDATE 우선" 원칙을 따르되
+    --           의도된 동작, 04_DEV_CONVENTIONS.md 4장의 "조건부 UPDATE 우선" 원칙을 따르되
     --           실패를 별도 분기로 두지 않는 경우).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';

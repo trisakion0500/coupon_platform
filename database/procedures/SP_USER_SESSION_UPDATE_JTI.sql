@@ -3,7 +3,7 @@ DELIMITER $$
 CREATE PROCEDURE `SP_USER_SESSION_UPDATE_JTI` (
     IN i_session_id       BIGINT UNSIGNED,  -- 세션 ID
     IN i_access_token_jti VARCHAR(100)       -- 새로 발급한 Access Token JTI
-) COMMENT 'Access Token 재발급 시 세션의 JTI/last_access_at 갱신 (09_AUTH_API.md 7장)'
+) COMMENT 'Access Token 재발급 시 세션의 JTI/last_access_at 갱신 (11_AUTH_API.md 7장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_SESSION_UPDATE_JTI

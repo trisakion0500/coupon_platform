@@ -16,7 +16,7 @@ import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 const ALL_COMPANIES = '__all_companies__';
 const ALL_PROJECTS = '__all_projects__';
 
-/** 16_LAYOUT.md 2.1 — 등록/상세(수정) 관리 화면에서는 헤더 선택을 비활성화한다. */
+/** 18_LAYOUT.md 2.1 — 등록/상세(수정) 관리 화면에서는 헤더 선택을 비활성화한다. */
 const ADMIN_LIST_ROUTES = [
   '/admin/companies',
   '/admin/projects',
@@ -24,7 +24,7 @@ const ADMIN_LIST_ROUTES = [
   '/admin/audit-logs',
 ];
 
-/** 16_LAYOUT.md 2장 공통 Header — 로고/회사·프로젝트 선택/[관리] 버튼/사용자 메뉴/언어 선택. */
+/** 18_LAYOUT.md 2장 공통 Header — 로고/회사·프로젝트 선택/[관리] 버튼/사용자 메뉴/언어 선택. */
 export function Header() {
   const { t } = useTranslation();
   const navigate = useNavigate();

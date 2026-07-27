@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
- * GET /coupon-use-logs 응답 항목. 17_CAMPAIGN_API.md 4.3 — `coupon_campaign_id`가 null이면
+ * GET /coupon-use-logs 응답 항목. 19_CAMPAIGN_API.md 4.3 — `coupon_campaign_id`가 null이면
  * (존재하지 않는 코드로 시도) `campaign_name`도 항상 null.
  *
  * @author trisakion

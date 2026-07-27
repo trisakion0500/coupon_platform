@@ -4,7 +4,7 @@ coupon_platform의 S2S(게임서버 → 쿠폰서버) 쿠폰 사용 API를 실�
 테스트 클라이언트다. `backend`/`frontend`와 완전히 분리된 별도 Node.js 프로젝트이며, 상시
 실행되는 데몬으로 활성 캠페인·쿠폰코드를 스스로 찾아 reserve/confirm을 무작위로 계속 시도한다.
 
-전체 설계(아키텍처, 시나리오, SP 목록, 캐비어트)는 [`docs/20_TEST_GAME_SERVER.md`](../docs/20_TEST_GAME_SERVER.md)를 참고한다. 이 파일은 실행법만 다룬다.
+전체 설계(아키텍처, 시나리오, SP 목록, 캐비어트)는 [`docs/21_TEST_GAME_SERVER.md`](../docs/21_TEST_GAME_SERVER.md)를 참고한다. 이 파일은 실행법만 다룬다.
 
 ## 이 프로젝트가 하는 일
 

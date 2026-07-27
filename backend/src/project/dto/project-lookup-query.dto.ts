@@ -3,7 +3,7 @@ import { Transform } from 'class-transformer';
 import { IsInt, IsString, Matches, MaxLength } from 'class-validator';
 
 /**
- * GET /projects/lookup 쿼리 파라미터. 11_PROJECT_API.md 2.6 — 회원가입 화면 전용 공개 조회.
+ * GET /projects/lookup 쿼리 파라미터. 13_PROJECT_API.md 2.6 — 회원가입 화면 전용 공개 조회.
  *
  * @author trisakion
  */

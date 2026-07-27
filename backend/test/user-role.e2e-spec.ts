@@ -12,13 +12,13 @@ import { failure, success } from './utils/envelope';
 import { createE2eApp } from './utils/test-app';
 
 /**
- * `GET /user-roles/me`(11_PROJECT_API.md 3.1, 전체 role) + 12_USER_API.md 3장(User Role
+ * `GET /user-roles/me`(13_PROJECT_API.md 3.1, 전체 role) + 14_USER_API.md 3장(User Role
  * 생성/목록/수정, SUPER_ADMIN 전용) E2E. 배정 대상은 시드 계정을 건드리지 않기 위해 새로
  * 가입+승인시킨 사용자를 회사 2(DEV) 프로젝트 2(DEV_PROJECT)에 배정한다.
  *
  * @author trisakion
  */
-describe('User Role E2E (11_PROJECT_API.md 3.1 / 12_USER_API.md 3장)', () => {
+describe('User Role E2E (13_PROJECT_API.md 3.1 / 14_USER_API.md 3장)', () => {
   let app: INestApplication;
   let saAccessToken: string;
   let devAccessToken: string;

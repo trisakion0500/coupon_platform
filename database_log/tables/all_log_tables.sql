@@ -1,6 +1,6 @@
 -- ------------------------------------------------------------------------------------------------------------ --
 -- 로그 DB(coupon_platform_log) 통합 테이블 파일 — database/tables/all_tables.sql과 동일한 목적(로컬 개발 편의용 한 번에 적용).
--- 2026.07.19부터 메인 서비스 DB와 물리적으로 분리된 별도 DB에 적용한다(02_DEV_CONVENTIONS.md 1장 참고).
+-- 2026.07.19부터 메인 서비스 DB와 물리적으로 분리된 별도 DB에 적용한다(04_DEV_CONVENTIONS.md 1장 참고).
 -- 개별 파일을 수정하면 이 파일도 반드시 함께 갱신할 것(all_tables.sql과 동일한 동기화 원칙).
 -- ------------------------------------------------------------------------------------------------------------ --
 -- ------------------------------------------------------------------------------------------------------------ --
@@ -58,7 +58,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 --  log_audit과 동일한 관례: 캠페인 원본의 created_by 스냅샷이 아니라 "이 로그 행(액션)을 수행한
 --  사용자/시각"이다. CREATE 행은 생성자, UPDATE/STATUS_CHANGE 행은 그 수정을 한 사용자를 담는다
 --  — 모든 액션 공통으로 행위자를 나타내므로 별도 updated_by 컬럼이 필요 없다.
---  created_by_name은 2026.07.22 조회 API(17_CAMPAIGN_API.md 4.2) 설계 중 추가됨 — 애초 설계
+--  created_by_name은 2026.07.22 조회 API(19_CAMPAIGN_API.md 4.2) 설계 중 추가됨 — 애초 설계
 --  시점엔 이 스냅샷 없이 "조회 시점에 created_by로 user 테이블을 조인하면 된다"고 가정했으나,
 --  이 로그는 메인 DB와 물리 분리된 로그 DB에 있어 애초에 조인이 불가능하다(1장/log_audit과 동일
 --  제약, 잘못된 전제였음). log_audit의 created_by_name과 동일하게 로그 생성 시점 사용자명을
@@ -119,7 +119,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 --  0:성공, 10:코드없음(RESERVE/CONFIRM 공통, API 31005), 20:이미소모/중지(RESERVE, API 33001),
 --  30:캠페인 사용불가(RESERVE, API 33002), 40:사용자한도초과(RESERVE, API 33003),
 --  50:소모기록없음(CONFIRM 전용, reserve 안 된 코드에 confirm, API 31006)
---  API 상세 스펙 및 매핑표: docs/18_COUPON_USAGE_API.md 4장
+--  API 상세 스펙 및 매핑표: docs/20_COUPON_USAGE_API.md 4장
 -- caller_ip (NULL 허용, 2026-07-23 추가)
 --  이 엔드포인트를 호출한 게임서버의 IP(Express req.ip, main.ts trust proxy=1 설정으로 로드밸런서
 --  뒤에서도 실제 호출자 IP를 얻는다) — 이미 HMAC 서명으로 강하게 인증되므로 인증 목적이 아니라,
@@ -136,7 +136,7 @@ CREATE TABLE `log_coupon_use` (
   `coupon_campaign_id`		BIGINT		UNSIGNED				DEFAULT NULL											COMMENT '캠페인 ID (코드 자체가 없는 시도는 특정 불가하여 NULL 허용, FK 없음)',
   `code_value`				VARCHAR(50)				NOT NULL															COMMENT '시도한 쿠폰 코드 문자열 원문 (존재하지 않는 코드도 그대로 기록, FK 아님)',
   `game_user_id`			VARCHAR(100)			NOT NULL															COMMENT '게임서버 유저 식별자 (원문 문자열, FK 없음)',
-  `result_type`				TINYINT		UNSIGNED	NOT NULL															COMMENT '처리 결과 (0:성공, 10:코드없음, 20:이미소모/중지, 30:캠페인 사용불가, 40:사용자한도초과, 50:소모기록없음(CONFIRM 전용)) — API result 코드 매핑은 docs/18_COUPON_USAGE_API.md 4장 참고',
+  `result_type`				TINYINT		UNSIGNED	NOT NULL															COMMENT '처리 결과 (0:성공, 10:코드없음, 20:이미소모/중지, 30:캠페인 사용불가, 40:사용자한도초과, 50:소모기록없음(CONFIRM 전용)) — API result 코드 매핑은 docs/20_COUPON_USAGE_API.md 4장 참고',
   `caller_ip`				VARCHAR(45)				DEFAULT NULL											COMMENT '호출한 게임서버의 IP(IPv6 포함, req.ip). 인증 목적 아님 - 이상징후 탐지/장애조사 보조용',
   `created_at`				DATETIME				NOT NULL	DEFAULT CURRENT_TIMESTAMP								COMMENT '시도 일시',
   PRIMARY KEY (`idx`),

@@ -10,7 +10,7 @@ CREATE PROCEDURE `SP_CAMPAIGN_UPDATE` (
     IN i_usable_qty         INT UNSIGNED,     -- 새 실제 사용가능 수량 (NULL이면 미변경)
     IN i_reward_data        JSON,             -- 새 보상 내용 (NULL이면 미변경)
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 수정 - edit_count 낙관적 락 + status/수량/날짜 검증을 UPDATE 하나로 원자 처리 (17_CAMPAIGN_API.md 2.4)'
+) COMMENT '캠페인 수정 - edit_count 낙관적 락 + status/수량/날짜 검증을 UPDATE 하나로 원자 처리 (19_CAMPAIGN_API.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_UPDATE
@@ -29,7 +29,7 @@ BEGIN
     --        무관하게 "그 사이 이 행을 건드린 SP가 있었는지"를 정확히 감지한다.
     -- 내용 : coupon_campaign_id/project_id/code_type/use_hyphen/requested_qty/generated_qty/
     --        generation_status/generation_error/used_qty/status/approval_status류는 이 SP의
-    --        파라미터에 아예 없다 - 수정 불가 필드라 애초에 받지 않는다(17_CAMPAIGN_API.md 2.4
+    --        파라미터에 아예 없다 - 수정 불가 필드라 애초에 받지 않는다(19_CAMPAIGN_API.md 2.4
     --        Non-Updatable Fields, status는 2.5 전용, approval_status는 2.6/2.7 전용). 단
     --        approval_status/status는 아래 OPERATOR 재승인 규칙에 의해 부수효과로 바뀔 수 있다.
     --        존재 확인(31004) -> 프로젝트 스코핑 재검증(FN_GET_PROJECT_ROLE_CODE, 20001)까지는
@@ -55,7 +55,7 @@ BEGIN
     --        role_code<=30(승인권한 role)의 수정은 이 규칙이 발동하지 않고 즉시 그대로 반영된다.
     --        log_coupon_campaign(action=20 UPDATE) 기록은 이 SP가 직접 하지 않는다 - 반환 행
     --        전체를 TS 서비스가 SP_LOG_COUPON_CAMPAIGN_CREATE(로그 DB)에 그대로 전달한다.
-    -- 수정3: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    -- 수정3: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(19_CAMPAIGN_API.md 4.2
     --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다
     --        (SP_CAMPAIGN_CREATE 수정1과 동일한 이유/패턴).
     -- ------------------------------------------------------------------------------------------------------------ --

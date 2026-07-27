@@ -5,7 +5,7 @@ import { loadSessionData } from '@/app/session';
 
 /**
  * 새로고침 시 `accessToken`/`roleCode`는 persist돼 남아있지만 `user`/헤더 데이터는 세션
- * 메모리에만 있던 값이라 사라진다(16_LAYOUT.md 9장 — user는 의도적으로 persist 대상이
+ * 메모리에만 있던 값이라 사라진다(18_LAYOUT.md 9장 — user는 의도적으로 persist 대상이
  * 아님). 앱 부팅 시 토큰이 남아있는데 `user`가 없으면 한 번만 다시 로드한다.
  */
 export function SessionBoot({ children }: { children: ReactNode }) {

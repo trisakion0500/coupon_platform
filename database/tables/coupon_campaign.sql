@@ -34,7 +34,7 @@
 --  - OPERATOR가 생성/컨트롤    → approval_status=2(승인대기)로 시작, 10/20/30이 승인/반려
 --  - status를 2(활성)로 전환하는 SP는 approval_status IN (1,3)(승인불요/승인완료) AND
 --    campaign_end > NOW()(2026-07-25 추가 - 이미 사용기간이 지난 캠페인이 활성 상태로 진입하는
---    것 자체를 막음, 17_CAMPAIGN_API.md 2.5 참고)일 때만 허용한다.
+--    것 자체를 막음, 19_CAMPAIGN_API.md 2.5 참고)일 때만 허용한다.
 --    reserve 시점의 조건부 UPDATE(위 동시성 절)는 status=2만 체크하면 되고 approval_status를
 --    매번 다시 검사할 필요는 없다 — 애초에 미승인 캠페인은 status=2에 도달할 수 없기 때문.
 --  변경 이력(누가 언제 승인/반려했는지)은 log_coupon_campaign에 append-only로 별도 기록한다.
@@ -66,7 +66,7 @@
 --  값을 요청에 그대로 실어 보낸다 — SP는 WHERE절에 `edit_count = 받아온 값`을 조건으로 걸어,
 --  그 사이 이 행을 건드린 SP가 하나라도 있었다면(어떤 필드가 바뀌었든) 정확히 감지해 30005
 --  (동시 수정 충돌)로 거부한다. MySQL의 행 단위 락이 UPDATE 간 순서를 직렬화해주므로 두 요청이
---  아무리 가깝게 들어와도 이 값 하나로 충돌을 확실하게 잡을 수 있다(17_CAMPAIGN_API.md 2.4
+--  아무리 가깝게 들어와도 이 값 하나로 충돌을 확실하게 잡을 수 있다(19_CAMPAIGN_API.md 2.4
 --  Concurrency 참고).
 -- 사용기간 만료 자동 종료 (SP_CAMPAIGN_EXPIRE, 2026-07-25 추가)
 --  status=2(활성) AND approval_status IN(1,3) AND campaign_end<=NOW()인 캠페인을 배치
@@ -76,7 +76,7 @@
 --  아니다 — 관리자가 나중에 쓰려고 일부러 활성화하지 않은 캠페인까지 건드리지 않는다.
 --  updated_by는 NULL로 남기지만(이 컬럼은 원래 nullable), log_coupon_campaign.created_by는
 --  NOT NULL이라 배치는 created_by=0/created_by_name='SYSTEM' sentinel로 기록한다(사람이 아닌
---  시스템이 한 액션이라는 뜻, 02_DEV_CONVENTIONS.md 4.2). 상세는 17_CAMPAIGN_API.md 5장,
+--  시스템이 한 액션이라는 뜻, 04_DEV_CONVENTIONS.md 4.2). 상세는 19_CAMPAIGN_API.md 5장,
 --  SP_CAMPAIGN_EXPIRE 헤더 주석 참고. 이 조건에 맞는 후보를 빠르게 찾기 위해
 --  ix_status_campaign_end(status, campaign_end) 인덱스를 함께 추가했다.
 -- ------------------------------------------------------------------------------------------------------------ --

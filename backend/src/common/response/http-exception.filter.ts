@@ -17,7 +17,7 @@ interface NormalizedError {
 }
 
 /**
- * 08_API_COMMON.md 1.5: 비즈니스 오류를 HTTP 200으로 반환하지 않는다.
+ * 10_API_COMMON.md 1.5: 비즈니스 오류를 HTTP 200으로 반환하지 않는다.
  * 모든 예외를 {result, message} 형태로 정규화하는 전역 필터.
  *
  * @author trisakion
@@ -75,7 +75,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
   /**
    * BusinessException이 아닌 NestJS 기본 예외(ValidationPipe의 BadRequestException,
-   * 라우트 없음 NotFoundException 등)를 위한 기본 매핑. 08_API_COMMON.md에 대응되는
+   * 라우트 없음 NotFoundException 등)를 위한 기본 매핑. 10_API_COMMON.md에 대응되는
    * result 코드가 없는 경우(예: 잘못된 라우트 404)는 System 오류로 수렴시킨다 —
    * 정상적인 클라이언트 흐름에서는 발생하지 않는 경로라 별도 코드를 두지 않았다.
    */

@@ -14,7 +14,7 @@ import { CodeListQueryDto } from './dto/code-list-query.dto';
 import { IssueCodesDto } from './dto/issue-codes.dto';
 
 /**
- * RANDOM 코드값 생성 규칙(04_DATABASE_SCHEMA.md 6장) —
+ * RANDOM 코드값 생성 규칙(06_DATABASE_SCHEMA.md 6장) —
  * 혼동하기 쉬운 문자(0/1/I/O)를 뺀 32자 알파벳으로 12자리를 뽑고, use_hyphen이면
  * 4자리씩 하이픈으로 묶는다(`XXXX-XXXX-XXXX`).
  */
@@ -25,7 +25,7 @@ const generateRandomCode = customAlphabet(
 
 /**
  * `SP_CAMPAIGN_CODE_GENERATE_ONE`이 SQLEXCEPTION으로 실패했을 때(RESULT=50001) 재시도할
- * 가치가 있다고 보는 MySQL 에러번호 — `05_COUPON_ISSUANCE_SCENARIO.md` 2.2가 예로 든
+ * 가치가 있다고 보는 MySQL 에러번호 — `07_COUPON_ISSUANCE_SCENARIO.md` 2.2가 예로 든
  * "deadlock, lock wait timeout"에 정확히 대응한다(ER_LOCK_DEADLOCK/ER_LOCK_WAIT_TIMEOUT).
  * 이 집합에 없는 에러(예: 제약 위반류)는 몇 번을 재시도해도 결과가 달라지지 않으므로 즉시
  * 실패 처리한다(`isRetryableGenerationError` 참고).
@@ -56,7 +56,7 @@ interface CodeRetryRow {
   generation_status: number;
 }
 
-/** POST /campaigns/{id}/codes 응답(17_CAMPAIGN_API.md 3.1) — FIXED만 generated_qty/coupon_code를 포함한다. */
+/** POST /campaigns/{id}/codes 응답(19_CAMPAIGN_API.md 3.1) — FIXED만 generated_qty/coupon_code를 포함한다. */
 export interface IssueCodesResult {
   coupon_campaign_id: number;
   generation_status: number;
@@ -68,7 +68,7 @@ export interface IssueCodesResult {
   };
 }
 
-/** POST /campaigns/{id}/codes/retry 응답(17_CAMPAIGN_API.md 3.2). */
+/** POST /campaigns/{id}/codes/retry 응답(19_CAMPAIGN_API.md 3.2). */
 export interface RetryCodesResult {
   coupon_campaign_id: number;
   generation_status: number;
@@ -102,7 +102,7 @@ interface RandomGenerationJob {
 /**
  * SP_CAMPAIGN_CODE_GENERATE_ONE 반환 행 — generation_status/status로 job이 아직 살아있는지
  * 확인한다(generation_status<>2면 abort 등으로 job을 빼앗김, status=4면 캠페인 자체가
- * 종료됨 — 05_COUPON_ISSUANCE_SCENARIO.md 2.4 참고, 둘은 별개 축이라 함께 확인해야 한다).
+ * 종료됨 — 07_COUPON_ISSUANCE_SCENARIO.md 2.4 참고, 둘은 별개 축이라 함께 확인해야 한다).
  */
 interface CodeGenerateOneRow {
   generated_qty: number;
@@ -116,14 +116,14 @@ interface CodeAbortRow {
   generation_status: number;
 }
 
-/** POST /campaigns/{id}/codes/abort 응답(17_CAMPAIGN_API.md 3.4). */
+/** POST /campaigns/{id}/codes/abort 응답(19_CAMPAIGN_API.md 3.4). */
 export interface AbortCodeGenerationResult {
   coupon_campaign_id: number;
   generation_status: number;
 }
 
 /**
- * 17_CAMPAIGN_API.md 3장(Coupon Code Issuance) 4개 엔드포인트의 비즈니스 로직 — RANDOM 비동기
+ * 19_CAMPAIGN_API.md 3장(Coupon Code Issuance) 4개 엔드포인트의 비즈니스 로직 — RANDOM 비동기
  * 대량생성/재시도, FIXED 동기 등록, 진행중 정체 시 수동 복구(abort), 코드 목록 조회.
  * CampaignService(2장 CRUD+승인워크플로우)와 분리된 이유는 2026-07-24 리팩터링 참고
  * (`campaign.service.ts`가 코드발급 로직까지 포함해 1100줄을 넘겨 비대해졌었음). 스코핑 재검증
@@ -134,11 +134,11 @@ export interface AbortCodeGenerationResult {
 @Injectable()
 export class CampaignCodeService {
   private readonly logger = new Logger(CampaignCodeService.name);
-  /** RANDOM 코드 생성 중 DB 일시 오류가 나면 재시도할 최대 횟수(05_COUPON_ISSUANCE_SCENARIO.md 2.2). */
+  /** RANDOM 코드 생성 중 DB 일시 오류가 나면 재시도할 최대 횟수(07_COUPON_ISSUANCE_SCENARIO.md 2.2). */
   private readonly maxGenerationDbRetries: number;
   /** exponential backoff 기준 지연(ms) — 시도마다 2배씩 늘어난다. */
   private readonly generationRetryBaseDelayMs: number;
-  /** abort 임계값(초) 계산용 안전 배율(05_COUPON_ISSUANCE_SCENARIO.md 2.4). */
+  /** abort 임계값(초) 계산용 안전 배율(07_COUPON_ISSUANCE_SCENARIO.md 2.4). */
   private readonly abortStaleSafetyMultiplier: number;
 
   constructor(
@@ -157,7 +157,7 @@ export class CampaignCodeService {
   }
 
   /**
-   * 코드 발급 요청(17_CAMPAIGN_API.md 3.1). SP가 generation_status 1->2 선점까지 원자적으로
+   * 코드 발급 요청(19_CAMPAIGN_API.md 3.1). SP가 generation_status 1->2 선점까지 원자적으로
    * 끝내고 code_type을 함께 반환하므로, 여기서는 그 값으로 RANDOM/FIXED 응답을 조립하기만 한다.
    * RANDOM은 대량생성을 백그라운드로 돌리고(fire-and-forget, `void`) 즉시 반환한다 — 컨트롤러가
    * 이 반환값에 `coupon_code`가 없는 것을 보고 202로 응답한다. edit_count는 이 SP의 대상이
@@ -225,7 +225,7 @@ export class CampaignCodeService {
   }
 
   /**
-   * 코드 생성 재시도(17_CAMPAIGN_API.md 3.2) — generation_status=4(실패)에서만 허용된다. 이미
+   * 코드 생성 재시도(19_CAMPAIGN_API.md 3.2) — generation_status=4(실패)에서만 허용된다. 이미
    * 생성된 generated_qty는 그대로 두고 남은 수량만 백그라운드 루프로 이어서 생성한다.
    */
   async retryCodeIssuance(
@@ -265,8 +265,8 @@ export class CampaignCodeService {
   }
 
   /**
-   * 진행중(generation_status=2) 정체 캠페인 수동 복구(17_CAMPAIGN_API.md 3.4,
-   * 05_COUPON_ISSUANCE_SCENARIO.md 2.4) — 서버 프로세스 재시작 등으로 백그라운드 루프가
+   * 진행중(generation_status=2) 정체 캠페인 수동 복구(19_CAMPAIGN_API.md 3.4,
+   * 07_COUPON_ISSUANCE_SCENARIO.md 2.4) — 서버 프로세스 재시작 등으로 백그라운드 루프가
    * 유실돼 ISSUE(1 필요)/RETRY(4 필요) 어느 쪽으로도 손댈 수 없게 된 캠페인을 관리자가 강제로
    * 풀 수 있게 한다. `computeAbortStaleThresholdSec`로 계산한 임계값을 SP에 넘겨, 실제로
    * 최근에 진행된 흔적이 있으면(=아직 살아있을 가능성이 높으면) SP가 스스로 거부한다 — 호출자의
@@ -304,7 +304,7 @@ export class CampaignCodeService {
     };
   }
 
-  /** 캠페인별 쿠폰 코드 목록 조회(17_CAMPAIGN_API.md 3.3) — 조회 전용, 승인상태와 무관. */
+  /** 캠페인별 쿠폰 코드 목록 조회(19_CAMPAIGN_API.md 3.3) — 조회 전용, 승인상태와 무관. */
   async listCodes(
     campaignId: number,
     query: CodeListQueryDto,
@@ -350,7 +350,7 @@ export class CampaignCodeService {
   }
 
   /**
-   * RANDOM 코드 대량생성 백그라운드 루프(05_COUPON_ISSUANCE_SCENARIO.md 2.1~2.2) — issueCodes/
+   * RANDOM 코드 대량생성 백그라운드 루프(07_COUPON_ISSUANCE_SCENARIO.md 2.1~2.2) — issueCodes/
    * retryCodeIssuance가 `void`로 fire-and-forget 호출한다. HTTP 응답과 완전히 분리되어 있으므로
    * 이 메서드가 던지는 예외는 아무도 받지 않는다 — 그래서 모든 실패 경로를 내부에서 직접
    * 처리하고 밖으로 던지지 않는다.
@@ -360,14 +360,14 @@ export class CampaignCodeService {
    * - SP 계약 위반(RESULT가 0/32001 어느 쪽도 아님): 재시도해도 절대 나아지지 않는 로직 버그이므로
    *   재시도 예산을 쓰지 않고 즉시 실패 처리
    * - DB 일시 오류(SP_CAMPAIGN_CODE_GENERATE_ONE이 50001로 throw): `isRetryableGenerationError`로
-   *   실제 재시도할 가치가 있는 에러인지 먼저 가려낸 뒤(05_COUPON_ISSUANCE_SCENARIO.md 2.2 —
+   *   실제 재시도할 가치가 있는 에러인지 먼저 가려낸 뒤(07_COUPON_ISSUANCE_SCENARIO.md 2.2 —
    *   "재시도 가능 에러만 대상, 4xx류 등은 즉시 실패 처리"), 재시도 가능하면 exponential
    *   backoff+jitter로 최대 MAX_GENERATION_DB_RETRIES회 재시도, 그 외엔 즉시 실패 처리. 소진/즉시
    *   실패 모두 SP_CAMPAIGN_CODE_GENERATION_FAIL 호출로 이어진다
    * - job을 빼앗김(SP가 돌려준 generation_status가 더 이상 2가 아님 — 예: 관리자가
    *   POST /codes/abort로 이 job을 강제 종료시킴) 또는 캠페인 자체가 종료됨(status=4 —
    *   generation_status와 별개 축이라 따로 확인): 누군가 이미 최종 상태를 결정했다는 뜻이므로
-   *   COMPLETE/FAIL을 또 호출하지 않고 조용히 루프만 종료한다(05_COUPON_ISSUANCE_SCENARIO.md 2.4)
+   *   COMPLETE/FAIL을 또 호출하지 않고 조용히 루프만 종료한다(07_COUPON_ISSUANCE_SCENARIO.md 2.4)
    * - 목표 수량 도달: SP_CAMPAIGN_CODE_GENERATION_COMPLETE 호출
    */
   private async generateRandomCodes(job: RandomGenerationJob): Promise<void> {
@@ -447,7 +447,7 @@ export class CampaignCodeService {
   }
 
   /**
-   * SP 내부 SQLEXCEPTION 중 재시도할 가치가 있는 것만 가려낸다(05_COUPON_ISSUANCE_SCENARIO.md
+   * SP 내부 SQLEXCEPTION 중 재시도할 가치가 있는 것만 가려낸다(07_COUPON_ISSUANCE_SCENARIO.md
    * 2.2 — "재시도 가능 에러만 대상, 4xx류 등은 즉시 실패 처리"). `SpExecutorService`는 SP가
    * SQLEXCEPTION을 만나면 SQL_STATE/ERROR_NO를 실은 `BusinessException(DATABASE_ERROR)`을
    * 던지므로(`sp-result.util.ts`), 그 안의 `sqlDiagnostics.errorNo`가 deadlock(1213)/lock wait
@@ -482,7 +482,7 @@ export class CampaignCodeService {
     }
   }
 
-  /** nanoid 12자리 생성 후 use_hyphen이면 4자리씩 하이픈으로 묶는다(04_DATABASE_SCHEMA.md 6장). */
+  /** nanoid 12자리 생성 후 use_hyphen이면 4자리씩 하이픈으로 묶는다(06_DATABASE_SCHEMA.md 6장). */
   private buildCodeValue(useHyphen: number): string {
     const raw = generateRandomCode();
     if (!useHyphen) {
@@ -491,7 +491,7 @@ export class CampaignCodeService {
     return raw.match(/.{1,4}/g)!.join('-');
   }
 
-  /** exponential backoff + jitter(05_COUPON_ISSUANCE_SCENARIO.md 2.2 표 — "DB 일시 오류" 행). */
+  /** exponential backoff + jitter(07_COUPON_ISSUANCE_SCENARIO.md 2.2 표 — "DB 일시 오류" 행). */
   private backoffDelayMs(attempt: number): number {
     const exponential = this.generationRetryBaseDelayMs * 2 ** (attempt - 1);
     const jitter = 0.5 + Math.random() * 0.5;

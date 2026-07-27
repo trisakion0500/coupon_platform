@@ -9,7 +9,7 @@ import {
 } from 'class-validator';
 
 /**
- * PATCH /companies/{company_id} 요청 바디. 10_COMPANY_API.md 2.4의 Updatable Fields만 받는다
+ * PATCH /companies/{company_id} 요청 바디. 12_COMPANY_API.md 2.4의 Updatable Fields만 받는다
  * (company_id/created_at은 DTO에 아예 없어 수정 대상이 될 수 없다).
  *
  * @author trisakion

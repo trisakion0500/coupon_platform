@@ -6,7 +6,7 @@ import { SpExecutorService } from '../database/sp-executor.service';
 import { BusinessException } from '../response/business.exception';
 import { ResultCode } from '../response/result-code.enum';
 
-/** 07_AUTH_SECURITY.md 2.2의 4개 필수 S2S 인증 헤더. */
+/** 09_AUTH_SECURITY.md 2.2의 4개 필수 S2S 인증 헤더. */
 interface S2sHeaders {
   apiKey: string;
   timestamp: string;
@@ -40,7 +40,7 @@ export interface S2sRequest extends Request {
 }
 
 /**
- * 게임서버 -> 쿠폰서버 S2S 인증 가드. docs/07_AUTH_SECURITY.md 2.4의 7단계를 그대로 구현한다.
+ * 게임서버 -> 쿠폰서버 S2S 인증 가드. docs/09_AUTH_SECURITY.md 2.4의 7단계를 그대로 구현한다.
  * 검증 순서를 바꾸면 안 된다 — 예를 들어 서명 검증(5) 전에 nonce를 등록(6)하면 서명이 틀린
  * 요청도 nonce 테이블에 흔적을 남기게 된다(2.4 마지막 문단 참고).
  *
@@ -55,7 +55,7 @@ export class S2sAuthGuard implements CanActivate {
   ) {}
 
   /**
-   * 07_AUTH_SECURITY.md 2.4의 검증 순서를 그대로 수행하고, 통과하면 `request.s2sProject`를
+   * 09_AUTH_SECURITY.md 2.4의 검증 순서를 그대로 수행하고, 통과하면 `request.s2sProject`를
    * 채운 뒤 true를 반환한다. 실패 시 각 단계에 대응하는 result 코드로 {@link BusinessException}을 던진다.
    */
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -142,7 +142,7 @@ export class S2sAuthGuard implements CanActivate {
     return data[0];
   }
 
-  /** 07_AUTH_SECURITY.md 2.3의 stringToSign 구성. RAW_BODY는 재직렬화하지 않고 원문 그대로 사용한다. */
+  /** 09_AUTH_SECURITY.md 2.3의 stringToSign 구성. RAW_BODY는 재직렬화하지 않고 원문 그대로 사용한다. */
   private buildStringToSign(request: S2sRequest, headers: S2sHeaders): string {
     const rawBody = request.rawBody?.toString('utf8') ?? '';
     const queryIndex = request.url.indexOf('?');

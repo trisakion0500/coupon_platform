@@ -2,7 +2,7 @@ DROP PROCEDURE IF EXISTS `SP_USER_SESSION_LOGOUT`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_SESSION_LOGOUT` (
     IN i_access_token_jti VARCHAR(100)  -- 로그아웃할 현재 Access Token의 JTI
-) COMMENT '현재 세션 로그아웃 - status=0 (09_AUTH_API.md 6장)'
+) COMMENT '현재 세션 로그아웃 - status=0 (11_AUTH_API.md 6장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_SESSION_LOGOUT

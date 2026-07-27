@@ -1,6 +1,6 @@
 import type { Response } from 'supertest';
 
-/** 08_API_COMMON.md 1.4/1.5의 성공/오류 응답 셰이프 — E2E 스펙 전체가 공유한다. */
+/** 10_API_COMMON.md 1.4/1.5의 성공/오류 응답 셰이프 — E2E 스펙 전체가 공유한다. */
 export interface SuccessEnvelope<T> {
   result: number;
   data: T;

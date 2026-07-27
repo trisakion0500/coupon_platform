@@ -7,7 +7,7 @@ import type {
   UserRoleListQuery,
 } from '@/types/user-role';
 
-/** 12_USER_API.md 3.2 — SUPER_ADMIN 전용, 전부 선택 필터. */
+/** 14_USER_API.md 3.2 — SUPER_ADMIN 전용, 전부 선택 필터. */
 export async function listUserRoles(
   query: UserRoleListQuery,
 ): Promise<PaginatedResult<UserRole>> {
@@ -18,7 +18,7 @@ export async function listUserRoles(
   return data.data;
 }
 
-/** 12_USER_API.md 3.1 — SUPER_ADMIN 전용, 동일 user_id+project_id 중복 등록 불가(32001). */
+/** 14_USER_API.md 3.1 — SUPER_ADMIN 전용, 동일 user_id+project_id 중복 등록 불가(32001). */
 export async function createUserRole(
   dto: CreateUserRoleRequest,
 ): Promise<UserRole> {
@@ -29,7 +29,7 @@ export async function createUserRole(
   return data.data;
 }
 
-/** 12_USER_API.md 3.3 — SUPER_ADMIN 전용, role_code=10 시도는 30003으로 거부된다. */
+/** 14_USER_API.md 3.3 — SUPER_ADMIN 전용, role_code=10 시도는 30003으로 거부된다. */
 export async function updateUserRole(
   userId: number,
   projectId: number,

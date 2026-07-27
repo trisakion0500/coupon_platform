@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 /**
- * POST /v1/coupons/{code}/reserve 요청 바디. 18_COUPON_USAGE_API.md 2.1 Validation.
+ * POST /v1/coupons/{code}/reserve 요청 바디. 20_COUPON_USAGE_API.md 2.1 Validation.
  *
  * `game_user_id`는 실제로는 필수지만 여기서는 `@IsOptional()`을 붙여둔다 — `unconfirmed-query.dto.ts`와
  * 동일한 이유로, `@IsString()`만으로 필드 누락을 잡으면 ValidationPipe의 일반 BadRequestException

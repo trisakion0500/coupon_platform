@@ -4,7 +4,7 @@ import { IsIn, IsInt, IsOptional } from 'class-validator';
 import { PaginationQueryDto } from '../../common/response/pagination';
 
 /**
- * GET /users 쿼리 파라미터. 12_USER_API.md 1.1/1.2 — company_id/status는 선택
+ * GET /users 쿼리 파라미터. 14_USER_API.md 1.1/1.2 — company_id/status는 선택
  * (company_id는 SUPER_ADMIN만 유효, DEVELOPER는 서비스가 항상 자기 회사로 고정).
  *
  * @author trisakion

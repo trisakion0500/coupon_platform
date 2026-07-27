@@ -1,10 +1,10 @@
-# 15_SCREEN_LIST.md
+# 17_SCREEN_LIST.md
 
 # 화면 목록 (Screen List)
 
 Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근 권한 정의.
 
-역할 정의 및 메뉴별 접근 권한 상세는 [14_MENU_PERMISSION.md](./14_MENU_PERMISSION.md) 참고.
+역할 정의 및 메뉴별 접근 권한 상세는 [16_MENU_PERMISSION.md](./16_MENU_PERMISSION.md) 참고.
 
 ---
 
@@ -114,7 +114,7 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
 ### SCR-020. 프로젝트 목록
 
 - **Route:** `/admin/projects`
-- **접근:** SUPER_ADMIN, DEVELOPER(해당 프로젝트에서 실제 `role_code<=20`으로 활성 배정된 프로젝트만 — 11_PROJECT_API.md 2.2 참고, 회사 소속 여부·다른 프로젝트에서의 role_code와 무관)
+- **접근:** SUPER_ADMIN, DEVELOPER(해당 프로젝트에서 실제 `role_code<=20`으로 활성 배정된 프로젝트만 — 13_PROJECT_API.md 2.2 참고, 회사 소속 여부·다른 프로젝트에서의 role_code와 무관)
 - **주요 기능:** 프로젝트 목록 조회. 상태 필터·페이지네이션 존재, 등록 버튼(SUPER_ADMIN), 상세 이동. 헤더의 전역 회사 선택은 SUPER_ADMIN에게만 추가 필터로 적용되고(DEVELOPER는 스코핑 자체가 회사 단위가 아니라 배정 단위라 헤더 선택값을 이 화면 조회에 반영하지 않음), 화면 자체에는 회사 필터 UI가 따로 없다
 - **연관 API:**
 
@@ -189,7 +189,7 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
 ### SCR-040. 감사 로그 목록
 
 - **Route:** `/admin/audit-logs`
-- **접근:** SUPER_ADMIN, DEVELOPER(자사만, 단 `project`/`user_role` 로그는 역할보유(role_code<=20) 프로젝트로 추가 제한 — [13_LOG_AUDIT_API.md](./13_LOG_AUDIT_API.md) 3장)
+- **접근:** SUPER_ADMIN, DEVELOPER(자사만, 단 `project`/`user_role` 로그는 역할보유(role_code<=20) 프로젝트로 추가 제한 — [15_LOG_AUDIT_API.md](./15_LOG_AUDIT_API.md) 3장)
 - **주요 기능:** 감사 로그 목록 조회. 회사 필터는 화면 자체가 아닌 헤더의 전역 회사 선택을 그대로 사용(SUPER_ADMIN만 "전체" 선택 가능), 화면에는 테이블 / 작업 유형 / 기간 필터·페이지네이션 존재(작업자 필터는 없음 — 대신 목록·상세 모두 회사/프로젝트를 원시 ID가 아닌 이름으로 표시), 상세 이동
 - **연관 API:**
 
@@ -217,7 +217,7 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
 ### SCR-100. 캠페인 목록
 
 - **Route:** `/campaigns`
-- **접근:** SUPER_ADMIN, DEVELOPER, MANAGER, OPERATOR (스코핑 내 `project_id`만 — [14_MENU_PERMISSION.md](./14_MENU_PERMISSION.md) 3.1 참고)
+- **접근:** SUPER_ADMIN, DEVELOPER, MANAGER, OPERATOR (스코핑 내 `project_id`만 — [16_MENU_PERMISSION.md](./16_MENU_PERMISSION.md) 3.1 참고)
 - **주요 기능:** 캠페인 목록 조회. 프로젝트 필터는 화면 자체가 아닌 헤더의 전역 프로젝트 선택을 그대로 사용(SUPER_ADMIN이 "전체 프로젝트"를 선택한 상태로는 이 화면에 진입할 수 없고, 진입 시 프로젝트를 먼저 선택하라는 안내와 함께 선택 UI로 유도한다 — `GET /campaigns`는 `project_id`가 필수라 "전체" 조회 자체를 지원하지 않음). 상태(`status`)/승인상태(`approval_status`)/생성상태(`generation_status`)/코드유형(`code_type`) 필터, 페이지네이션, 등록 버튼, 행 클릭 시 상세 이동
 - **연관 API:**
 
@@ -231,7 +231,7 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
 
 - **Route:** `/campaigns/new`
 - **접근:** SUPER_ADMIN, DEVELOPER, MANAGER, OPERATOR (스코핑 내 `project_id`만)
-- **주요 기능:** 캠페인명 / 사용기간 / 코드발급방식(RANDOM·FIXED) / 하이픈여부(RANDOM만) / 수량(RANDOM·FIXED 공통 필수 — RANDOM은 발급할 코드 개수, FIXED는 단일 코드가 지원할 총 사용가능 횟수를 의미, 2026-07-22부터 두 유형 모두 필수 입력, [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.1 참고) / 사용자당 한도 / 보상내용(JSON) 입력 및 등록. OPERATOR가 등록하면 승인대기 상태로, 그 외 역할은 즉시 승인불요로 시작. 등록 직후 상세 화면(SCR-102)으로 이동해 코드 발급을 이어서 진행하도록 안내
+- **주요 기능:** 캠페인명 / 사용기간 / 코드발급방식(RANDOM·FIXED) / 하이픈여부(RANDOM만) / 수량(RANDOM·FIXED 공통 필수 — RANDOM은 발급할 코드 개수, FIXED는 단일 코드가 지원할 총 사용가능 횟수를 의미, 2026-07-22부터 두 유형 모두 필수 입력, [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 2.1 참고) / 사용자당 한도 / 보상내용(JSON) 입력 및 등록. OPERATOR가 등록하면 승인대기 상태로, 그 외 역할은 즉시 승인불요로 시작. 등록 직후 상세 화면(SCR-102)으로 이동해 코드 발급을 이어서 진행하도록 안내
 - **연관 API:**
 
   | Method | Endpoint     | 설명      |
@@ -243,12 +243,12 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
 ### SCR-102. 캠페인 상세
 
 - **Route:** `/campaigns/:coupon_campaign_id`
-- **접근:** SUPER_ADMIN, DEVELOPER, MANAGER, OPERATOR (스코핑 내 `project_id`만). 승인/반려 버튼은 SUPER_ADMIN, DEVELOPER, MANAGER만 노출(OPERATOR는 자기 캠페인도 승인 불가 — [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 1.2 참고)
+- **접근:** SUPER_ADMIN, DEVELOPER, MANAGER, OPERATOR (스코핑 내 `project_id`만). 승인/반려 버튼은 SUPER_ADMIN, DEVELOPER, MANAGER만 노출(OPERATOR는 자기 캠페인도 승인 불가 — [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 1.2 참고)
 - **주요 기능:** 탭 구성 4개
-  1. **캠페인 정보**: 상세 조회, 이름/사용기간/사용자당한도/보상내용/`usable_qty` 수정, 상태변경(대기→활성→일시중지→종료), 승인/반려(승인대기 상태일 때만 버튼 노출). **OPERATOR가 `status=2`(활성)이면서 `approval_status`가 3(승인완료)/4(반려)인 캠페인을 수정 저장하려 하면** 저장 직전 `ConfirmModal`로 "지금 수정하면 캠페인이 일시중지됩니다. 계속하시겠습니까?" 확인을 거친다(수정 시 재승인 부수효과 — [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.4 참고). SUPER_ADMIN/DEVELOPER/MANAGER는 이 확인 없이 즉시 저장된다(승인권한자의 수정은 재승인/일시중지 부수효과가 아예 발동하지 않으므로)
+  1. **캠페인 정보**: 상세 조회, 이름/사용기간/사용자당한도/보상내용/`usable_qty` 수정, 상태변경(대기→활성→일시중지→종료), 승인/반려(승인대기 상태일 때만 버튼 노출). **OPERATOR가 `status=2`(활성)이면서 `approval_status`가 3(승인완료)/4(반려)인 캠페인을 수정 저장하려 하면** 저장 직전 `ConfirmModal`로 "지금 수정하면 캠페인이 일시중지됩니다. 계속하시겠습니까?" 확인을 거친다(수정 시 재승인 부수효과 — [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 2.4 참고). SUPER_ADMIN/DEVELOPER/MANAGER는 이 확인 없이 즉시 저장된다(승인권한자의 수정은 재승인/일시중지 부수효과가 아예 발동하지 않으므로)
   2. **코드 목록**: RANDOM은 발급 현황(`generated_qty`/`requested_qty`, `generation_status`)과 코드 목록 페이지네이션 + 발급 요청/재시도 버튼(`generation_status`에 따라 노출 분기), FIXED는 코드 1건 등록 폼(미발급 시) 또는 등록된 코드 표시(발급 후)
-  3. **사용 이력**: `game_user_id`/미컨슘 여부 필터, 페이지네이션 — [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 4.1 참고
-  4. **변경 이력**: 작업유형(CREATE/UPDATE/STATUS_CHANGE/APPROVE/REJECT) 필터, 페이지네이션. `log_coupon_campaign`은 `log_audit`처럼 before/after 비교가 아니라 매 액션마다 그 시점 캠페인 전체 스냅샷 1행이므로, "무엇이 바뀌었는지"는 프론트가 인접한 두 행(시간순 바로 앞/뒤)을 비교해 표시한다(가장 오래된 행은 비교 대상 없이 생성 시점 상태 그대로) — [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 4.2 참고. 캠페인이 종료(`status=4`)돼도 계속 조회 가능(1.3 차단 대상 아님)
+  3. **사용 이력**: `game_user_id`/미컨슘 여부 필터, 페이지네이션 — [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 4.1 참고
+  4. **변경 이력**: 작업유형(CREATE/UPDATE/STATUS_CHANGE/APPROVE/REJECT) 필터, 페이지네이션. `log_coupon_campaign`은 `log_audit`처럼 before/after 비교가 아니라 매 액션마다 그 시점 캠페인 전체 스냅샷 1행이므로, "무엇이 바뀌었는지"는 프론트가 인접한 두 행(시간순 바로 앞/뒤)을 비교해 표시한다(가장 오래된 행은 비교 대상 없이 생성 시점 상태 그대로) — [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 4.2 참고. 캠페인이 종료(`status=4`)돼도 계속 조회 가능(1.3 차단 대상 아님)
 - **연관 API:**
 
   | Method | Endpoint                                   | 설명                        |
@@ -270,7 +270,7 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
 
 - **Route:** `/coupon-use-logs`
 - **접근:** SUPER_ADMIN, DEVELOPER, MANAGER, OPERATOR (스코핑 내 `project_id`만 — SCR-100과 동일한 헤더 전역 프로젝트 선택 가드)
-- **주요 기능:** 캠페인(`coupon_campaign_id`, 선택 — SCR-102의 "변경 이력" 탭과 달리 여긴 프로젝트 전체가 기본 범위이고 특정 캠페인으로 좁히는 건 선택), 유저(`game_user_id`), 코드값(`code_value`), 작업유형(RESERVE/CONFIRM), 결과유형(`result_type`), 기간(`from_created_at`~`to_created_at`) 필터, 페이지네이션. `coupon_code_usage`(성공 건만 보존)와 달리 이 화면은 실패한 시도까지 전부 노출한다 — 코드 브루트포스·한도 우회 시도 탐지, 운영 문의 대응 목적([04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md) 11장 참고). `coupon_campaign_id`가 NULL인 행(존재하지 않는 코드로 시도한 요청)은 캠페인명 없이 코드값만 표시. 캠페인 열은 값이 있는 행에 한해 SCR-102(캠페인 상세)로 링크
+- **주요 기능:** 캠페인(`coupon_campaign_id`, 선택 — SCR-102의 "변경 이력" 탭과 달리 여긴 프로젝트 전체가 기본 범위이고 특정 캠페인으로 좁히는 건 선택), 유저(`game_user_id`), 코드값(`code_value`), 작업유형(RESERVE/CONFIRM), 결과유형(`result_type`), 기간(`from_created_at`~`to_created_at`) 필터, 페이지네이션. `coupon_code_usage`(성공 건만 보존)와 달리 이 화면은 실패한 시도까지 전부 노출한다 — 코드 브루트포스·한도 우회 시도 탐지, 운영 문의 대응 목적([06_DATABASE_SCHEMA.md](./06_DATABASE_SCHEMA.md) 11장 참고). `coupon_campaign_id`가 NULL인 행(존재하지 않는 코드로 시도한 요청)은 캠페인명 없이 코드값만 표시. 캠페인 열은 값이 있는 행에 한해 SCR-102(캠페인 상세)로 링크
 - **연관 API:**
 
   | Method | Endpoint          | 설명            |

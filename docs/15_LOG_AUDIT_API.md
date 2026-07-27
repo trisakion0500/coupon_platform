@@ -1,4 +1,4 @@
-# 13_LOG_AUDIT_API.md
+# 15_LOG_AUDIT_API.md
 
 # Coupon Platform REST API Specification — Audit Log
 
@@ -10,7 +10,7 @@
 
 감사 로그는 관리 콘솔 데이터 변경 이력을 추적하기 위한 Append-Only 데이터이며, 시스템에 의해 자동 생성된다. 사용자는 감사 로그를 조회할 수만 있으며 직접 생성/수정/삭제할 수 없다.
 
-공통 응답 포맷/에러코드는 [08_API_COMMON.md](./08_API_COMMON.md)를 따른다. Role 정의는 [10_COMPANY_API.md](./10_COMPANY_API.md) 1.2를 따른다.
+공통 응답 포맷/에러코드는 [10_API_COMMON.md](./10_API_COMMON.md)를 따른다. Role 정의는 [12_COMPANY_API.md](./12_COMPANY_API.md) 1.2를 따른다.
 
 ---
 
@@ -18,7 +18,7 @@
 
 ## 2.1 감사 대상 테이블
 
-감사 로그 생성 대상([04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md) 9장 참고)
+감사 로그 생성 대상([06_DATABASE_SCHEMA.md](./06_DATABASE_SCHEMA.md) 9장 참고)
 
 ```text
 company
@@ -34,7 +34,7 @@ user_session (세션 이력 테이블이므로 제외)
 log_audit (자기 자신, Append-Only 원칙)
 ```
 
-쿠폰 도메인(캠페인/코드 등) 테이블은 설계 완료 후 자체 이벤트 로그로 별도 관리하며, 본 감사 로그 대상에는 포함하지 않는다([04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md) 9장 참고).
+쿠폰 도메인(캠페인/코드 등) 테이블은 설계 완료 후 자체 이벤트 로그로 별도 관리하며, 본 감사 로그 대상에는 포함하지 않는다([06_DATABASE_SCHEMA.md](./06_DATABASE_SCHEMA.md) 9장 참고).
 
 ## 2.2 작업 유형(Action Type)
 
@@ -78,9 +78,9 @@ after_json = 상태 변경 후 전체 Row
 | user       | password_hash | `"***"` |
 | project    | api_secret, api_secret_prev | `"***"` |
 
-`PATCH /auth/password`([09_AUTH_API.md](./09_AUTH_API.md) 9장), `POST /users/{user_id}/reset-password`([12_USER_API.md](./12_USER_API.md) 1.7) 호출 시 `user` 테이블 UPDATE 감사 로그가 생성되며, 이때 `password_hash`는 마스킹된다.
+`PATCH /auth/password`([11_AUTH_API.md](./11_AUTH_API.md) 9장), `POST /users/{user_id}/reset-password`([14_USER_API.md](./14_USER_API.md) 1.7) 호출 시 `user` 테이블 UPDATE 감사 로그가 생성되며, 이때 `password_hash`는 마스킹된다.
 
-`POST /projects`([11_PROJECT_API.md](./11_PROJECT_API.md) 2.1), `PATCH /projects/{project_id}`(2.4), `POST /projects/{project_id}/api-secret/rotate`(2.5) 호출 시 `project` 테이블 CREATE/UPDATE 감사 로그가 생성되며, 이때 `api_secret`/`api_secret_prev`는 마스킹된다(AES-256-CBC 암호문이라도 `ENCRYPTION_KEY` 유출 시 복호화가 가능하므로 `password_hash`와 동일 수준으로 취급).
+`POST /projects`([13_PROJECT_API.md](./13_PROJECT_API.md) 2.1), `PATCH /projects/{project_id}`(2.4), `POST /projects/{project_id}/api-secret/rotate`(2.5) 호출 시 `project` 테이블 CREATE/UPDATE 감사 로그가 생성되며, 이때 `api_secret`/`api_secret_prev`는 마스킹된다(AES-256-CBC 암호문이라도 `ENCRYPTION_KEY` 유출 시 복호화가 가능하므로 `password_hash`와 동일 수준으로 취급).
 
 ## 2.5 수정 및 삭제 정책
 
@@ -101,7 +101,7 @@ after_json = 상태 변경 후 전체 Row
 | user | `POST /users/{user_id}/reject` | `SP_USER_REJECT` | 30 STATUS_CHANGE |
 | user | `PATCH /users/{user_id}` | `SP_USER_UPDATE` | 20 UPDATE |
 | user | `POST /users/{user_id}/reset-password` | `SP_USER_PASSWORD_RESET` | 20 UPDATE |
-| user | `PATCH /auth/password`([09_AUTH_API.md](./09_AUTH_API.md) 9장) | `SP_USER_PASSWORD_CHANGE` | 20 UPDATE |
+| user | `PATCH /auth/password`([11_AUTH_API.md](./11_AUTH_API.md) 9장) | `SP_USER_PASSWORD_CHANGE` | 20 UPDATE |
 | user_role | `POST /user-roles` | `SP_USER_ROLE_CREATE` | 10 CREATE |
 | user_role | `PATCH /user-roles/{user_id}/{project_id}` | `SP_USER_ROLE_UPDATE` | 20 UPDATE |
 
@@ -118,9 +118,9 @@ after_json = 상태 변경 후 전체 Row
 | MANAGER   | 조회 불가                      |
 | OPERATOR  | 조회 불가                      |
 
-MANAGER/OPERATOR는 회사/프로젝트/사용자 관리메뉴 자체에 접근 권한이 없으므로([10_COMPANY_API.md](./10_COMPANY_API.md) 1.2 참고) 그 변경 이력인 감사 로그도 조회 대상이 아니다.
+MANAGER/OPERATOR는 회사/프로젝트/사용자 관리메뉴 자체에 접근 권한이 없으므로([12_COMPANY_API.md](./12_COMPANY_API.md) 1.2 참고) 그 변경 이력인 감사 로그도 조회 대상이 아니다.
 
-**DEVELOPER의 `project`/`user_role` 테이블 로그 추가 스코핑(2026-07-24)**: 프로젝트 관리메뉴(목록/상세/API Secret 재발급)의 스코핑을 "본인 소속 회사 전체"에서 "실제 `role_code<=20`(DEVELOPER 이상)으로 배정된 프로젝트"로 좁힌 것([11_PROJECT_API.md](./11_PROJECT_API.md) 2.2/2.3)과 같은 방향으로, 감사 로그도 `project`/`user_role` 테이블의 로그는 회사 소속만으로는 부족하고 **그 로그의 `project_id`에 실제 `role_code<=20`으로 배정돼 있어야 조회 가능**하다. `company`/`user` 테이블 로그는 이 추가 제한을 받지 않고 기존과 동일하게 회사 단위로 조회 가능하다 — `company`는 프로젝트 단위 정보가 아예 없는 회사 자체 변경이고, `user`는 회사 소속 사용자 전체에 걸친 변경이라 특정 프로젝트로 좁힐 근거가 없기 때문이다.
+**DEVELOPER의 `project`/`user_role` 테이블 로그 추가 스코핑(2026-07-24)**: 프로젝트 관리메뉴(목록/상세/API Secret 재발급)의 스코핑을 "본인 소속 회사 전체"에서 "실제 `role_code<=20`(DEVELOPER 이상)으로 배정된 프로젝트"로 좁힌 것([13_PROJECT_API.md](./13_PROJECT_API.md) 2.2/2.3)과 같은 방향으로, 감사 로그도 `project`/`user_role` 테이블의 로그는 회사 소속만으로는 부족하고 **그 로그의 `project_id`에 실제 `role_code<=20`으로 배정돼 있어야 조회 가능**하다. `company`/`user` 테이블 로그는 이 추가 제한을 받지 않고 기존과 동일하게 회사 단위로 조회 가능하다 — `company`는 프로젝트 단위 정보가 아예 없는 회사 자체 변경이고, `user`는 회사 소속 사용자 전체에 걸친 변경이라 특정 프로젝트로 좁힐 근거가 없기 때문이다.
 
 ---
 

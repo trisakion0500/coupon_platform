@@ -7,14 +7,14 @@ import {
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
-/** 08_API_COMMON.md 1.4의 성공 응답 셰이프. */
+/** 10_API_COMMON.md 1.4의 성공 응답 셰이프. */
 interface SuccessBody<T> {
   result: 0;
   data: T;
 }
 
 /**
- * 08_API_COMMON.md 1.4: 성공 응답은 {result:0, data} 형태로 통일한다.
+ * 10_API_COMMON.md 1.4: 성공 응답은 {result:0, data} 형태로 통일한다.
  * 컨트롤러는 data가 될 값만 반환하면 되고, 래핑은 여기서 일괄 처리한다.
  *
  * @author trisakion

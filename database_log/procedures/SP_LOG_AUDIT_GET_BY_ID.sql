@@ -2,12 +2,12 @@ DROP PROCEDURE IF EXISTS `SP_LOG_AUDIT_GET_BY_ID`;
 DELIMITER $$
 CREATE PROCEDURE `SP_LOG_AUDIT_GET_BY_ID` (
     IN i_idx BIGINT UNSIGNED   -- 조회할 감사 로그 ID
-) COMMENT '감사 로그 상세 조회 (13_LOG_AUDIT_API.md 6장)'
+) COMMENT '감사 로그 상세 조회 (15_LOG_AUDIT_API.md 6장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_LOG_AUDIT_GET_BY_ID
     -- 작성 : 2026.07.22 trisakion
-    -- 내용 : idx 단건 조회, 존재하지 않으면 31008(신규 result 코드, 08_API_COMMON.md 동기화).
+    -- 내용 : idx 단건 조회, 존재하지 않으면 31008(신규 result 코드, 10_API_COMMON.md 동기화).
     --        SP_LOG_AUDIT_LIST와 동일한 이유로 이 SP 자체는 호출자 권한을 재검증하지 않는다
     --        (로그 DB가 메인 DB의 user/user_role에 물리적으로 접근 불가) - 앱 레이어
     --        (LogAuditService)가 SUPER_ADMIN이 아니면 조회된 행의 company_id가 호출자 소속과

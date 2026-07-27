@@ -2,7 +2,7 @@ DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_CODE_GENERATION_COMPLETE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_CODE_GENERATION_COMPLETE` (
     IN i_coupon_campaign_id BIGINT UNSIGNED  -- 대상 캠페인 ID
-) COMMENT 'RANDOM 코드 생성 완료 처리(내부용) - generation_status 2->3 조건부 UPDATE (05_COUPON_ISSUANCE_SCENARIO.md 2.1)'
+) COMMENT 'RANDOM 코드 생성 완료 처리(내부용) - generation_status 2->3 조건부 UPDATE (07_COUPON_ISSUANCE_SCENARIO.md 2.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_GENERATION_COMPLETE

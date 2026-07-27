@@ -8,7 +8,7 @@ CREATE PROCEDURE `SP_USER_ROLE_LIST` (
     IN i_limit             INT,              -- 페이지당 행 수
     IN i_offset            INT,              -- 시작 오프셋
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT 'user_role 목록 조회 - SUPER_ADMIN 재검증 (12_USER_API.md 3.2)'
+) COMMENT 'user_role 목록 조회 - SUPER_ADMIN 재검증 (14_USER_API.md 3.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_ROLE_LIST
@@ -17,9 +17,9 @@ BEGIN
     --        동일하게 별도 COUNT 서브쿼리 + LEFT JOIN ... ON TRUE로 total_count를 반환한다
     --        (COUNT(*) OVER()는 offset이 범위를 벗어나 0행이 반환되면 total_count도 0으로
     --        사라지는 버그가 있어 2026-07-19 이 패턴으로 교체). 정렬은
-    --        12_USER_API.md 3.2 Sorting 그대로(status DESC, role_code ASC, user_id ASC).
+    --        14_USER_API.md 3.2 Sorting 그대로(status DESC, role_code ASC, user_id ASC).
     --        이 SP는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, FN_IS_SUPER_ADMIN으로
-    --        재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
+    --        재확인한다(방어적 이중 체크, 04_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;

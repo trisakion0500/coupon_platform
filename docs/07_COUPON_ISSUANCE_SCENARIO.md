@@ -1,8 +1,8 @@
-# 05_COUPON_ISSUANCE_SCENARIO.md
+# 07_COUPON_ISSUANCE_SCENARIO.md
 
 ## 개요
 
-본 문서는 관리자가 쿠폰 캠페인을 만들고 실제 쿠폰 코드를 발급하는 흐름(캠페인 생성 → 코드 발급 → 생성 실패 시 재시도)을 정리한다. API 엔드포인트/result 코드 등 상세 스펙이 아니라 **흐름 자체의 설계 근거**를 다룬다 — 상세 API 스펙은 [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md)에서 정리한다.
+본 문서는 관리자가 쿠폰 캠페인을 만들고 실제 쿠폰 코드를 발급하는 흐름(캠페인 생성 → 코드 발급 → 생성 실패 시 재시도)을 정리한다. API 엔드포인트/result 코드 등 상세 스펙이 아니라 **흐름 자체의 설계 근거**를 다룬다 — 상세 API 스펙은 [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md)에서 정리한다.
 
 관련 테이블: `database/tables/coupon_campaign.sql`, `coupon_code.sql`
 
@@ -19,7 +19,7 @@ POST /campaigns/{id}/codes   코드 발급(RANDOM 대량생성 또는 FIXED 단�
 
 RANDOM 대량생성은 수천~수만 건을 만들 수 있어 시간이 걸리고 실패 가능성도 있다. 캠페인 생성 요청 안에 이 처리까지 묶으면 캠페인 생성 자체가 타임아웃/부분실패 위험을 떠안게 된다. 분리하면 캠페인은 항상 즉시·단순하게 생성되고, 코드 발급은 독립적으로 재시도·모니터링할 수 있다. `coupon_campaign.requested_qty`(목표)/`generated_qty`(실제) 컬럼이 이미 "코드 발급 전 캠페인"이라는 상태를 표현할 수 있게 설계돼 있었다는 점도 이 분리와 자연스럽게 맞는다.
 
-캠페인 승인 워크플로우(`approval_status`)는 코드 발급과 독립적으로 동작한다 — 승인 여부와 무관하게 코드는 미리 만들어 둘 수 있으며, `coupon_campaign.status`가 활성(2)으로 전환되는 시점에만 승인 여부(`approval_status IN (1,3)`)와 사용기간(`campaign_end > NOW()`, 2026-07-25 추가 — 이미 기간이 지난 캠페인이 활성 상태로 진입하는 것 자체를 막기 위함, [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.5 참고)을 체크한다(자세한 내용은 `coupon_campaign.sql` 헤더 주석, `04_DATABASE_SCHEMA.md` 참고).
+캠페인 승인 워크플로우(`approval_status`)는 코드 발급과 독립적으로 동작한다 — 승인 여부와 무관하게 코드는 미리 만들어 둘 수 있으며, `coupon_campaign.status`가 활성(2)으로 전환되는 시점에만 승인 여부(`approval_status IN (1,3)`)와 사용기간(`campaign_end > NOW()`, 2026-07-25 추가 — 이미 기간이 지난 캠페인이 활성 상태로 진입하는 것 자체를 막기 위함, [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 2.5 참고)을 체크한다(자세한 내용은 `coupon_campaign.sql` 헤더 주석, `06_DATABASE_SCHEMA.md` 참고).
 
 ---
 
@@ -34,7 +34,7 @@ FIXED  : 관리자가 코드 1건을 직접 입력 → 동기 처리 (즉시 완
 
 **왜 FIXED는 캠페인당 코드 1건뿐인가**: FIXED 코드는 여러 사용자가 같은 코드를 공유한다. 총 사용 가능 수량은 이미 캠페인 레벨의 `usable_qty`/`used_qty`가, 동일 유저 재사용 한도는 `use_limit_per_user`가 각각 제어하므로, 코드 문자열 자체를 여러 개 두어야 할 이유가 없다(채널별로 다른 코드를 배포하고 싶다면 캠페인을 나누면 된다). 그래서 FIXED는 코드 목록 등록이 아니라 단일 코드 등록으로 설계한다.
 
-**`requested_qty`/`generated_qty`의 의미(2026-07-22 수정)**: FIXED에서도 이 두 컬럼은 RANDOM과 동일하게 "`generated_qty`==`requested_qty` → 완료" 판정 로직을 그대로 재사용하지만, 값 자체는 "코드 개수"가 아니라 **그 코드 1건이 지원할 총 사용가능 횟수**를 의미한다 — 처음엔 FIXED의 `requested_qty`를 시스템이 항상 `1`로 고정했으나, 그러면 [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.4의 `usable_qty<=generated_qty` 검증 때문에 `usable_qty`도 최대 `1`까지만 열 수 있어 FIXED 캠페인이 **전체 통틀어 딱 1번**만 소모 가능해지는 문제가 있었다. [06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md) 4.2는 "서로 다른 유저가 같은 FIXED 코드를 각자 독립적으로 reserve할 수 있다"고 명시하는데, S2S reserve 엔드포인트를 실제로 스모크 테스트하면서 이 모순이 발견됨 — 두 번째 유저의 reserve가 `used_qty<usable_qty` 조건을 못 넘어 33002(캠페인 사용 불가)로 막혔다. 해결책은 FIXED도 RANDOM처럼 `requested_qty`를 호출자가 직접 지정하게 하고, [3.1 Issue Codes](#31-issue-codes)의 FIXED 완료 처리에서 `generated_qty=requested_qty`로 맞추는 것 — 코드 물리적 행은 여전히 1건이지만, 그 값 자체를 늘려 `usable_qty`도 함께 늘어날 수 있게 했다.
+**`requested_qty`/`generated_qty`의 의미(2026-07-22 수정)**: FIXED에서도 이 두 컬럼은 RANDOM과 동일하게 "`generated_qty`==`requested_qty` → 완료" 판정 로직을 그대로 재사용하지만, 값 자체는 "코드 개수"가 아니라 **그 코드 1건이 지원할 총 사용가능 횟수**를 의미한다 — 처음엔 FIXED의 `requested_qty`를 시스템이 항상 `1`로 고정했으나, 그러면 [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 2.4의 `usable_qty<=generated_qty` 검증 때문에 `usable_qty`도 최대 `1`까지만 열 수 있어 FIXED 캠페인이 **전체 통틀어 딱 1번**만 소모 가능해지는 문제가 있었다. [08_COUPON_USAGE_SCENARIO.md](./08_COUPON_USAGE_SCENARIO.md) 4.2는 "서로 다른 유저가 같은 FIXED 코드를 각자 독립적으로 reserve할 수 있다"고 명시하는데, S2S reserve 엔드포인트를 실제로 스모크 테스트하면서 이 모순이 발견됨 — 두 번째 유저의 reserve가 `used_qty<usable_qty` 조건을 못 넘어 33002(캠페인 사용 불가)로 막혔다. 해결책은 FIXED도 RANDOM처럼 `requested_qty`를 호출자가 직접 지정하게 하고, [3.1 Issue Codes](#31-issue-codes)의 FIXED 완료 처리에서 `generated_qty=requested_qty`로 맞추는 것 — 코드 물리적 행은 여전히 1건이지만, 그 값 자체를 늘려 `usable_qty`도 함께 늘어날 수 있게 했다.
 
 캠페인당 코드 발급 요청(job)은 **1회만 허용**한다(추가 발급/top-up 불가) — job과 campaign이 항상 1:1 관계이므로, 별도 진행상태 추적 테이블 없이 `coupon_campaign.generation_status`/`generation_error` 컬럼만으로 표현 가능하다.
 
@@ -92,7 +92,7 @@ flowchart TD
 
 ## 2.2 안정성 — 코드 생성 실패 처리
 
-RANDOM 대량생성 전용이다. FIXED는 코드 1건을 동기로 즉시 INSERT 시도하는 것뿐이라 아래 backoff 재시도/`generation_status=4`(실패) 전이 대상이 아니다 — 실패(코드값 중복)하면 `generation_status`를 `1`(대기)로 그대로 둔 채 즉시 오류 응답하고, 관리자가 다른 값으로 [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 3.1을 다시 호출하면 된다.
+RANDOM 대량생성 전용이다. FIXED는 코드 1건을 동기로 즉시 INSERT 시도하는 것뿐이라 아래 backoff 재시도/`generation_status=4`(실패) 전이 대상이 아니다 — 실패(코드값 중복)하면 `generation_status`를 `1`(대기)로 그대로 둔 채 즉시 오류 응답하고, 관리자가 다른 값으로 [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 3.1을 다시 호출하면 된다.
 
 | 실패 유형 | 원인 | 처리 |
 |-----------|------|------|
@@ -102,7 +102,7 @@ RANDOM 대량생성 전용이다. FIXED는 코드 1건을 동기로 즉시 INSER
 
 이 재시도는 CLAUDE.md의 "로그 실패는 메인 트랜잭션을 막지 않는다"는 원칙과는 성격이 다르다 — 로그는 "실패해도 무시"가 목적이지만, 코드 생성 재시도는 코드 발급 자체가 메인 작업이므로 "일시 실패 시 재시도해서 성공률을 높이는" 것이 목적이다.
 
-**응답 유실(lost ack)에도 `generated_qty`가 `requested_qty`를 넘지 않는 이유**: 코드 INSERT + COMMIT까지는 DB에서 성공했는데 그 응답이 앱에 전달되지 못하면(커넥션 순간 단절 등), 앱의 로컬 진행 카운터가 실제 DB 값보다 뒤처진 채로 코드 생성을 한 번 더 시도할 수 있다. `SP_CAMPAIGN_CODE_GENERATE_ONE`은 실제로 코드를 INSERT하기 전에 "`generated_qty = generated_qty + 1 WHERE generated_qty < requested_qty AND generation_status = 2 AND status <> 4`" 조건부 UPDATE로 슬롯을 먼저 예약한다(02_DEV_CONVENTIONS.md 4장 "조건부 갱신 우선") — 이미 목표에 도달했으면 이 예약 자체가 실패해 코드를 아예 만들지 않고 현재 값만 그대로 반환한다. 코드값 충돌(1062)이 나면 방금 예약한 슬롯까지 같은 트랜잭션 ROLLBACK 한 번으로 함께 되돌린다. 이 순서(예약 → 생성) 덕분에 이 SP는 몇 번을 더 호출해도 안전한, 사실상 멱등한 "생성 1건, 단 상한 이내" 동작이 되어 앱(`campaign-code.service.ts`)의 재시도 루프 코드는 전혀 손댈 필요가 없다.
+**응답 유실(lost ack)에도 `generated_qty`가 `requested_qty`를 넘지 않는 이유**: 코드 INSERT + COMMIT까지는 DB에서 성공했는데 그 응답이 앱에 전달되지 못하면(커넥션 순간 단절 등), 앱의 로컬 진행 카운터가 실제 DB 값보다 뒤처진 채로 코드 생성을 한 번 더 시도할 수 있다. `SP_CAMPAIGN_CODE_GENERATE_ONE`은 실제로 코드를 INSERT하기 전에 "`generated_qty = generated_qty + 1 WHERE generated_qty < requested_qty AND generation_status = 2 AND status <> 4`" 조건부 UPDATE로 슬롯을 먼저 예약한다(04_DEV_CONVENTIONS.md 4장 "조건부 갱신 우선") — 이미 목표에 도달했으면 이 예약 자체가 실패해 코드를 아예 만들지 않고 현재 값만 그대로 반환한다. 코드값 충돌(1062)이 나면 방금 예약한 슬롯까지 같은 트랜잭션 ROLLBACK 한 번으로 함께 되돌린다. 이 순서(예약 → 생성) 덕분에 이 SP는 몇 번을 더 호출해도 안전한, 사실상 멱등한 "생성 1건, 단 상한 이내" 동작이 되어 앱(`campaign-code.service.ts`)의 재시도 루프 코드는 전혀 손댈 필요가 없다.
 
 ## 2.3 수동 재시도
 
@@ -139,11 +139,11 @@ POST /campaigns/{id}/codes/abort
 - 되돌리기 전용이라 `edit_count`/`log_coupon_campaign` 둘 다 대상이 아니다(코드 발급은 그 두 축과 독립).
 - 살아있는 job이 실수로 abort된 경우까지 대비해, `SP_CAMPAIGN_CODE_GENERATE_ONE`의 슬롯 예약 조건부 UPDATE에도 `generation_status=2`를 함께 걸어둔다 — abort로 상태가 바뀐 뒤에는 그 뒤로 좀비 상태로 남아있을 루프가 코드를 더 만들 수 없고, 자신의 job이 빼앗겼음을 감지해 스스로 멈춘다(2.2의 상한 가드와 같은 방식).
 
-**감지 자동화(2026-07-23, 스케일아웃 점검)**: 위 복구 자체는 이미 DB 상태 기반이라 어느 서버 인스턴스가 처리해도 안전하지만, "정체됐다는 사실을 누가 알아채는가"는 지금까지 관리자가 화면을 보다가 우연히 발견하는 수동 방식이었다 — 레플리카를 여러 대 띄우고 롤링 배포가 잦아지는 스케일아웃 환경일수록 이 상황 자체는 더 자주 생기므로, 이 격차가 함께 커진다. `CodeGenerationStaleMonitorService`가 `CODE_GENERATION_STALE_MONITOR_CRON`(기본 5분) 주기로 위와 완전히 동일한 정체 판정 조건을 조회 전용 `SP_CAMPAIGN_CODE_GENERATION_STALE_LIST`로 확인해 서버 로그에 경고만 남긴다 — **상태를 바꾸지 않는다.** "정체됐다고 시스템이 자동으로 포기 선언하지 않는다"는 이 절의 기존 원칙은 그대로 유지하고, 그 원칙 위에서 발견 과정만 자동화한 것이다. 다른 크론 배치(`SessionCleanupService` 등)와 동일하게 `SpExecutorService.runExclusive`로 감싸 레플리카 여러 대가 같은 정체 job을 중복으로 경고하지 않는다(`02_DEV_CONVENTIONS.md` 4.1).
+**감지 자동화(2026-07-23, 스케일아웃 점검)**: 위 복구 자체는 이미 DB 상태 기반이라 어느 서버 인스턴스가 처리해도 안전하지만, "정체됐다는 사실을 누가 알아채는가"는 지금까지 관리자가 화면을 보다가 우연히 발견하는 수동 방식이었다 — 레플리카를 여러 대 띄우고 롤링 배포가 잦아지는 스케일아웃 환경일수록 이 상황 자체는 더 자주 생기므로, 이 격차가 함께 커진다. `CodeGenerationStaleMonitorService`가 `CODE_GENERATION_STALE_MONITOR_CRON`(기본 5분) 주기로 위와 완전히 동일한 정체 판정 조건을 조회 전용 `SP_CAMPAIGN_CODE_GENERATION_STALE_LIST`로 확인해 서버 로그에 경고만 남긴다 — **상태를 바꾸지 않는다.** "정체됐다고 시스템이 자동으로 포기 선언하지 않는다"는 이 절의 기존 원칙은 그대로 유지하고, 그 원칙 위에서 발견 과정만 자동화한 것이다. 다른 크론 배치(`SessionCleanupService` 등)와 동일하게 `SpExecutorService.runExclusive`로 감싸 레플리카 여러 대가 같은 정체 job을 중복으로 경고하지 않는다(`04_DEV_CONVENTIONS.md` 4.1).
 
 ## 2.5 캠페인 종료(`status=4`)가 진행 중인 생성 루프를 멈추지 못하는 문제
 
-`coupon_campaign.status`(라이프사이클)와 `generation_status`(코드 생성 진행상태)는 완전히 별개 축이다(1장 참고) — 종료 처리(`POST /campaigns/{id}/status` 또는 [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 5.1의 사용기간 만료 자동 종료 배치)는 `generation_status`를 전혀 보지 않고, `SP_CAMPAIGN_CODE_GENERATE_ONE`도 원래 `status`를 안 봤다. 그래서 RANDOM 대량생성이 한창 진행 중(`generation_status=2`)인 캠페인이 종료(`status→4`)되면(관리자의 수동 종료든 자동 만료 배치든), 이미 떠 있는 백그라운드 루프는 그걸 모르고 계속 코드를 만들어 `generation_status=3`(완료)까지 가버릴 수 있었다 — `17_CAMPAIGN_API.md` 1.3(종료된 캠페인 쓰기 차단)이 신규 API 호출은 막지만 이미 실행 중인 백그라운드 job은 막지 못하는 구조적 공백이었다.
+`coupon_campaign.status`(라이프사이클)와 `generation_status`(코드 생성 진행상태)는 완전히 별개 축이다(1장 참고) — 종료 처리(`POST /campaigns/{id}/status` 또는 [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 5.1의 사용기간 만료 자동 종료 배치)는 `generation_status`를 전혀 보지 않고, `SP_CAMPAIGN_CODE_GENERATE_ONE`도 원래 `status`를 안 봤다. 그래서 RANDOM 대량생성이 한창 진행 중(`generation_status=2`)인 캠페인이 종료(`status→4`)되면(관리자의 수동 종료든 자동 만료 배치든), 이미 떠 있는 백그라운드 루프는 그걸 모르고 계속 코드를 만들어 `generation_status=3`(완료)까지 가버릴 수 있었다 — `19_CAMPAIGN_API.md` 1.3(종료된 캠페인 쓰기 차단)이 신규 API 호출은 막지만 이미 실행 중인 백그라운드 job은 막지 못하는 구조적 공백이었다.
 
 - `SP_CAMPAIGN_CODE_GENERATE_ONE`의 슬롯 예약 조건부 UPDATE에 `status<>4`도 함께 건다:
   ```sql
@@ -153,7 +153,7 @@ POST /campaigns/{id}/codes/abort
   ```
 - 종료를 일으키는 쪽(`SP_CAMPAIGN_CHANGE_STATUS`의 수동 종료든 `SP_CAMPAIGN_EXPIRE`의 자동 만료든)과 이 SP 둘 다 같은 행에 대한 조건부 UPDATE라, MySQL의 행 단위 락이 둘 사이의 순서를 직렬화해준다 — 어느 쪽이든 종료 처리가 먼저 커밋되면 그 다음 코드 생성 시도는 곧바로 실패한다. 타이밍에 의존하는 레이스 윈도우가 없다.
 - 종료는 `generation_status`를 건드리지 않으므로, "이미 목표 도달"(정상)/"job을 빼앗김(abort)"/"캠페인 종료"를 앱이 구분하려면 SP가 no-op 응답에 `status`도 함께 반환해야 한다. TS 백그라운드 루프는 `generation_status<>2 OR status=4`면 조용히 멈추고 `SP_CAMPAIGN_CODE_GENERATION_COMPLETE`/`FAIL`을 호출하지 않는다.
-- 종료된 캠페인의 `generation_status`는 억지로 전이시키지 않는다 — `17_CAMPAIGN_API.md` 1.3이 종료된 캠페인의 모든 쓰기 API를 이미 차단하므로, 어떤 값이든 더 손댈 필요가 없는 무해한 상태로 남는다.
+- 종료된 캠페인의 `generation_status`는 억지로 전이시키지 않는다 — `19_CAMPAIGN_API.md` 1.3이 종료된 캠페인의 모든 쓰기 API를 이미 차단하므로, 어떤 값이든 더 손댈 필요가 없는 무해한 상태로 남는다.
 - **FIXED 동기 처리도 같은 문제가 있었다**: `SP_CAMPAIGN_CODE_ISSUE`의 FIXED 분기는 코드 INSERT 이후 `generated_qty=1, generation_status=3`으로 확정하는 완료 UPDATE에 원래 `status<>4` 조건이 없어, INSERT~COMMIT 사이의 짧은 순간에 다른 트랜잭션이 캠페인을 종료시키면 그 사실을 모르고 그대로 성공해버리는 비대칭이 있었다(2026-07-21 리뷰에서 발견). 이 완료 UPDATE에도 `status<>4`를 추가해 `ROW_COUNT()=0`이면(=그 사이 종료됨) 방금 성공한 INSERT까지 같은 트랜잭션 `ROLLBACK`으로 함께 되돌리고 30004를 반환하도록 수정했다 — `generation_status`는 선점 당시 값(2)에 그대로 남고, 위와 동일한 원칙(억지로 되돌리지 않음)으로 무해하게 처리한다.
 
 ---
@@ -162,7 +162,7 @@ POST /campaigns/{id}/codes/abort
 
 - 테이블 DDL: `database/tables/coupon_campaign.sql`, `coupon_code.sql`
 - 재시도 알고리즘 참고: exponential backoff + jitter, 재시도 가능 에러 판별, 재시도 소진 시 예외 처리 패턴
-- 쿠폰 사용(reserve/confirm) 흐름: [06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md)
-- S2S 인증 정책: [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md)
+- 쿠폰 사용(reserve/confirm) 흐름: [08_COUPON_USAGE_SCENARIO.md](./08_COUPON_USAGE_SCENARIO.md)
+- S2S 인증 정책: [09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md)
 
-상세 요청/응답 스키마, result 코드, FIXED 코드 검증 규칙, 캠페인 승인/반려 API 스펙은 [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md)에서 확정했다.
+상세 요청/응답 스키마, result 코드, FIXED 코드 검증 규칙, 캠페인 승인/반려 API 스펙은 [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md)에서 확정했다.

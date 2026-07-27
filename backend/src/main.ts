@@ -16,7 +16,7 @@ import { TimeoutInterceptor } from './common/response/timeout.interceptor';
  * @author trisakion
  */
 async function bootstrap() {
-  // rawBody: true — S2S HMAC 서명 검증(07_AUTH_SECURITY.md 2.3)이 파싱 후 재직렬화가 아니라
+  // rawBody: true — S2S HMAC 서명 검증(09_AUTH_SECURITY.md 2.3)이 파싱 후 재직렬화가 아니라
   // 원문 그대로의 바디를 서명 대상으로 요구하기 때문에, Nest가 body-parser의 verify 콜백으로
   // request.rawBody를 채워주도록 켠다.
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -42,7 +42,7 @@ async function bootstrap() {
 
   app.use(
     helmet({
-      // 08_API_COMMON.md 5.2: Swagger UI(인라인 스크립트/스타일)를 켤 때만 CSP를 비활성화하고
+      // 10_API_COMMON.md 5.2: Swagger UI(인라인 스크립트/스타일)를 켤 때만 CSP를 비활성화하고
       // 나머지 보안 헤더(HSTS, X-Frame-Options 등)는 그대로 유지한다.
       contentSecurityPolicy: swaggerEnabled ? false : undefined,
     }),
@@ -55,7 +55,7 @@ async function bootstrap() {
     .filter(Boolean);
   app.enableCors({ origin: allowedOrigins });
 
-  // 07_AUTH_SECURITY.md 2.7: S2S API만 버전 접두어(/v1)를 붙인다. 관리 콘솔 컨트롤러는
+  // 09_AUTH_SECURITY.md 2.7: S2S API만 버전 접두어(/v1)를 붙인다. 관리 콘솔 컨트롤러는
   // @Version()을 지정하지 않으면 자동으로 version-neutral로 취급되어 영향받지 않는다.
   app.enableVersioning({ type: VersioningType.URI });
 

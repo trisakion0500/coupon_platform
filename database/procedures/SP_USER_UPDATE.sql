@@ -9,24 +9,24 @@ CREATE PROCEDURE `SP_USER_UPDATE` (
     IN i_position          VARCHAR(100),     -- 새 직급 (NULL이면 미변경)
     IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '사용자 정보 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE + status=3 전환 시 전체 세션 종료 (12_USER_API.md 1.6)'
+) COMMENT '사용자 정보 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE + status=3 전환 시 전체 세션 종료 (14_USER_API.md 1.6)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_UPDATE
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : company_id/requested_project_id/login_id는 이 SP의 파라미터에 아예 없다 - 수정 불가
-    --        필드라 애초에 받지 않는다(12_USER_API.md 1.6 Non-Updatable Fields). 존재 확인(31003)
+    --        필드라 애초에 받지 않는다(14_USER_API.md 1.6 Non-Updatable Fields). 존재 확인(31003)
     --        -> email 변경 시 중복 확인(자기 자신 제외, 32001) -> COALESCE 기반 조건부 UPDATE
-    --        (02_DEV_CONVENTIONS.md 4장). email 유니크 제약 위반(1062) 백스톱도 CREATE/UPDATE류
+    --        (04_DEV_CONVENTIONS.md 4장). email 유니크 제약 위반(1062) 백스톱도 CREATE/UPDATE류
     --        SP와 동일한 이유로 둔다.
     --        i_status=3(사용중지)으로 전환하는 경우에만 해당 사용자의 활성 세션을 전부 종료한다
-    --        (12_USER_API.md 1.6 Business Rules, 07_AUTH_SECURITY.md 1.3) - 이미 3이었거나 다른
+    --        (14_USER_API.md 1.6 Business Rules, 09_AUTH_SECURITY.md 1.3) - 이미 3이었거나 다른
     --        값으로 바뀌는 경우는 세션에 영향을 주지 않는다. UPDATE 규약(3.4)은 status 값 전이
     --        자체를 검증하지 않는다고 명시하므로(화면 버튼 기준일 뿐) 여기서도 임의의 status 값
     --        전달을 그대로 허용한다.
     --        사용자 수정은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
-    --        02_DEV_CONVENTIONS.md 3.2).
+    --        04_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다
     --        (password_hash '***' 마스킹).

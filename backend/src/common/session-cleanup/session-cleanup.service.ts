@@ -10,7 +10,7 @@ import type { ScheduledTask } from 'node-cron';
 import { SpExecutorService } from '../database/sp-executor.service';
 
 /**
- * 08_API_COMMON.md 5.4: 만료된 `user_session`을 주기적으로 물리 삭제하는 배치.
+ * 10_API_COMMON.md 5.4: 만료된 `user_session`을 주기적으로 물리 삭제하는 배치.
  * 서버 기동 시 `SESSION_CLEANUP_CRON` 스케줄로 등록한다.
  *
  * @author trisakion

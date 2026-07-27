@@ -1,4 +1,4 @@
-# 14_MENU_PERMISSION.md
+# 16_MENU_PERMISSION.md
 
 # 권한별 메뉴 리스트
 
@@ -13,7 +13,7 @@
 | 30        | MANAGER     | 쿠폰 도메인 즉시 컨트롤(승인 불요)         |
 | 40        | OPERATOR    | 쿠폰 도메인 등록(승인요청 상태로 전환)     |
 
-권한은 상위(숫자가 작을수록 고권한)가 하위 권한을 모두 포함하는 누적 구조다: `SUPER_ADMIN ⊇ DEVELOPER ⊇ MANAGER ⊇ OPERATOR`([10_COMPANY_API.md](./10_COMPANY_API.md) 1.2 참고).
+권한은 상위(숫자가 작을수록 고권한)가 하위 권한을 모두 포함하는 누적 구조다: `SUPER_ADMIN ⊇ DEVELOPER ⊇ MANAGER ⊇ OPERATOR`([12_COMPANY_API.md](./12_COMPANY_API.md) 1.2 참고).
 
 ---
 
@@ -30,7 +30,7 @@
 | 회사 등록      | O           | -         | -       | -        |
 | 회사 수정      | O           | -         | -       | -        |
 
-DEVELOPER의 관리메뉴 권한은 프로젝트로 한정되어 회사 관리 화면 자체에 접근하지 않는다([10_COMPANY_API.md](./10_COMPANY_API.md) 1.2 참고). MANAGER/OPERATOR도 이 화면에 접근하지 않으며, 헤더의 회사 표시·콤보박스는 별도 API([10_COMPANY_API.md](./10_COMPANY_API.md) 3장 `GET /companies/active-header-data`)로 구성한다.
+DEVELOPER의 관리메뉴 권한은 프로젝트로 한정되어 회사 관리 화면 자체에 접근하지 않는다([12_COMPANY_API.md](./12_COMPANY_API.md) 1.2 참고). MANAGER/OPERATOR도 이 화면에 접근하지 않으며, 헤더의 회사 표시·콤보박스는 별도 API([12_COMPANY_API.md](./12_COMPANY_API.md) 3장 `GET /companies/active-header-data`)로 구성한다.
 
 ---
 
@@ -44,7 +44,7 @@ DEVELOPER의 관리메뉴 권한은 프로젝트로 한정되어 회사 관리 �
 | 프로젝트 수정      | O           | -              | -       | -        |
 | API Secret 재발급  | O           | O (역할보유 프로젝트만) | -  | -        |
 
-MANAGER/OPERATOR는 이 화면에 접근하지 않는다. 헤더의 프로젝트 표시·콤보박스는 [10_COMPANY_API.md](./10_COMPANY_API.md) 3장(전 역할 허용)으로 구성한다.
+MANAGER/OPERATOR는 이 화면에 접근하지 않는다. 헤더의 프로젝트 표시·콤보박스는 [12_COMPANY_API.md](./12_COMPANY_API.md) 3장(전 역할 허용)으로 구성한다.
 
 ---
 
@@ -69,7 +69,7 @@ MANAGER/OPERATOR는 이 화면에 접근하지 않는다. 헤더의 프로젝트
 | 권한 등록      | O          | -         | -       | -        |
 | 권한 수정      | O          | -         | -       | -        |
 
-DEVELOPER는 프로젝트 기술관리 권한만 가지므로 이 화면에는 접근하지 않는다([12_USER_API.md](./12_USER_API.md) 3장 참고).
+DEVELOPER는 프로젝트 기술관리 권한만 가지므로 이 화면에는 접근하지 않는다([14_USER_API.md](./14_USER_API.md) 3장 참고).
 
 ---
 
@@ -80,7 +80,7 @@ DEVELOPER는 프로젝트 기술관리 권한만 가지므로 이 화면에는 �
 | 감사 로그 목록 조회 | O (전체)    | O (자사만, `project`/`user_role` 로그는 배정 프로젝트로 추가 제한) | -       | -        |
 | 감사 로그 상세 조회 | O           | O          | -       | -        |
 
-MANAGER/OPERATOR는 애초에 회사/프로젝트/사용자 관리메뉴 자체에 접근 권한이 없으므로 그 변경 이력도 조회 대상이 아니다([13_LOG_AUDIT_API.md](./13_LOG_AUDIT_API.md) 3장 참고).
+MANAGER/OPERATOR는 애초에 회사/프로젝트/사용자 관리메뉴 자체에 접근 권한이 없으므로 그 변경 이력도 조회 대상이 아니다([15_LOG_AUDIT_API.md](./15_LOG_AUDIT_API.md) 3장 참고).
 
 ---
 
@@ -90,7 +90,7 @@ Coupon Platform의 핵심 업무 기능. 역할에 따라 접근 범위가 다�
 
 ## 3.1 쿠폰 컨트롤
 
-캠페인/코드/사용이력 상세 API는 [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 참고. 4개 role 모두 접근하되, 스코핑 기준은 동일하다 — SUPER_ADMIN은 전체, 그 외는 `user_role`에 실제 활성 배정된 `project_id`만([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 1.2 참고).
+캠페인/코드/사용이력 상세 API는 [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 참고. 4개 role 모두 접근하되, 스코핑 기준은 동일하다 — SUPER_ADMIN은 전체, 그 외는 `user_role`에 실제 활성 배정된 `project_id`만([19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 1.2 참고).
 
 | 메뉴 | SUPER_ADMIN | DEVELOPER | MANAGER | OPERATOR |
 | ---- | :---------: | :-------: | :-----: | :------: |
@@ -101,7 +101,7 @@ Coupon Platform의 핵심 업무 기능. 역할에 따라 접근 범위가 다�
 | 캠페인 변경 이력 조회 | O | O | O | O |
 | 쿠폰 사용 로그 조회 | O | O | O | O |
 
-사용 이력 조회는 등록/수정과 달리 승인 여부와 무관한 단순 조회라 4개 role 모두 동일하게 접근한다([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 4.1 참고). 캠페인 변경 이력(4.2)/쿠폰 사용 로그(4.3) 조회도 동일한 이유로 4개 role 모두 접근한다(2026-07-23 추가).
+사용 이력 조회는 등록/수정과 달리 승인 여부와 무관한 단순 조회라 4개 role 모두 동일하게 접근한다([19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 4.1 참고). 캠페인 변경 이력(4.2)/쿠폰 사용 로그(4.3) 조회도 동일한 이유로 4개 role 모두 접근한다(2026-07-23 추가).
 
 ---
 
@@ -113,4 +113,4 @@ Coupon Platform의 핵심 업무 기능. 역할에 따라 접근 범위가 다�
 | 비밀번호 변경 | O           | O         | O       | O        |
 | 로그아웃      | O           | O         | O       | O        |
 
-[09_AUTH_API.md](./09_AUTH_API.md) 8장/9장 참고.
+[11_AUTH_API.md](./11_AUTH_API.md) 8장/9장 참고.

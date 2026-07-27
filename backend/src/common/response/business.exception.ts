@@ -17,12 +17,12 @@ export interface SqlDiagnostics {
  */
 export class BusinessException extends HttpException {
   /**
-   * @param resultCode - 08_API_COMMON.md 8장의 result 코드
+   * @param resultCode - 10_API_COMMON.md 8장의 result 코드
    * @param message - 클라이언트에 노출할 메시지(생략 시 `ERROR_MAP`의 기본 메시지 사용)
    * @param sqlDiagnostics - RESULT=50001일 때만 `sp-result.util.ts`가 채워 넣는 SQL_STATE/ERROR_NO.
    *   `super()`에 전달하는 HTTP 응답 바디에는 포함하지 않으므로 클라이언트에는 절대 노출되지
    *   않는다 — `CampaignCodeService.generateRandomCodes`처럼 재시도 가능 여부를 판단해야 하는 극히
-   *   드문 내부 호출부만 이 예외 인스턴스에서 직접 읽어 쓴다(02_DEV_CONVENTIONS.md 7장 참고).
+   *   드문 내부 호출부만 이 예외 인스턴스에서 직접 읽어 쓴다(04_DEV_CONVENTIONS.md 7장 참고).
    */
   constructor(
     public readonly resultCode: ResultCode,

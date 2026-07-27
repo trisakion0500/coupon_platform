@@ -2,7 +2,7 @@ DROP PROCEDURE IF EXISTS `SP_LOCK_RELEASE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_LOCK_RELEASE` (
     IN i_lock_name VARCHAR(64)  -- 해제할 advisory lock 이름(SP_LOCK_ACQUIRE와 동일 값)
-) COMMENT '레플리카 간 배치 중복실행 방지용 MySQL advisory lock 해제 (RELEASE_LOCK) - 02_DEV_CONVENTIONS.md 4.1'
+) COMMENT '레플리카 간 배치 중복실행 방지용 MySQL advisory lock 해제 (RELEASE_LOCK) - 04_DEV_CONVENTIONS.md 4.1'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_LOCK_RELEASE
@@ -12,7 +12,7 @@ BEGIN
     --        호출하면 아무 효과가 없다(RELEASE_LOCK이 0을 반환할 뿐, 에러는 아니다). 반환값
     --        (해제 성공 여부)은 호출부(SpExecutorService.runExclusive의 finally 블록)가 실제로
     --        읽어 판단하지 않지만(락 해제는 실패해도 커넥션이 pool로 반환되며 세션이 끝나는
-    --        시점에 MySQL이 결국 정리한다), RESULT SELECT 규약(02_DEV_CONVENTIONS.md 3.4)을
+    --        시점에 MySQL이 결국 정리한다), RESULT SELECT 규약(04_DEV_CONVENTIONS.md 3.4)을
     --        일관되게 지키기 위해 반환한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';

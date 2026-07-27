@@ -6,11 +6,11 @@ import { ScenarioContext, ScenarioRunResult } from './types';
 
 /**
  * 6.6 보상지급 중단 재처리(리컨실리에이션) — 6.1이 confirm을 생략해 남긴 미컨슘 건을 게임서버
- * 스스로 나중에 조회해 재처리하는 흐름. 06_COUPON_USAGE_SCENARIO.md 3장이 정의한 "confirm이
+ * 스스로 나중에 조회해 재처리하는 흐름. 08_COUPON_USAGE_SCENARIO.md 3장이 정의한 "confirm이
  * 안 와도 쿠폰서버는 되돌리지 않고, 재처리 여부/시점 판단은 전적으로 게임서버 책임"이라는 설계를
  * 실제로 소비하는 유일한 시나리오다. 새 소모(reserve)를 만들지 않고 기존 미컨슘 건만
  * 조회/재처리하므로 6.3과 달리 DB 사후검증은 필요 없다(confirm은 상태를 바꾸지 않는 지급 결과
- * 기록일 뿐이라 동시 확정 문제 자체가 없다 — 18_COUPON_USAGE_API.md 2.2 Business Rules).
+ * 기록일 뿐이라 동시 확정 문제 자체가 없다 — 20_COUPON_USAGE_API.md 2.2 Business Rules).
  */
 export async function runReconcile(ctx: ScenarioContext): Promise<ScenarioRunResult[]> {
   const results: ScenarioRunResult[] = [];

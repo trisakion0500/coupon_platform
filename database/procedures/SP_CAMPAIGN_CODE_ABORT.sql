@@ -4,7 +4,7 @@ CREATE PROCEDURE `SP_CAMPAIGN_CODE_ABORT` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 대상 캠페인 ID
     IN i_stale_seconds      INT UNSIGNED,     -- "이만큼 updated_at이 안 움직였으면 멈춘 것으로 본다" 임계값(초)
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT 'generation_status=2(진행중) 정체 캠페인 수동 복구 - RANDOM은 실패(4)로, FIXED는 대기(1)로 (17_CAMPAIGN_API.md 3.4)'
+) COMMENT 'generation_status=2(진행중) 정체 캠페인 수동 복구 - RANDOM은 실패(4)로, FIXED는 대기(1)로 (19_CAMPAIGN_API.md 3.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_ABORT
@@ -19,7 +19,7 @@ BEGIN
     --        ON UPDATE CURRENT_TIMESTAMP 컬럼, SP_CAMPAIGN_CODE_GENERATE_ONE이 코드를 하나
     --        만들 때마다 자동 갱신됨)이 `i_stale_seconds` 이상 안 움직였을 때만 허용한다 -
     --        호출자의 판단을 그대로 믿지 않고 SP가 최소한의 근거(실제로 최근에 진행된 흔적이
-    --        없음)를 재확인한다는 원칙(02_DEV_CONVENTIONS.md 3.2와 같은 정신).
+    --        없음)를 재확인한다는 원칙(04_DEV_CONVENTIONS.md 3.2와 같은 정신).
     --        `i_stale_seconds`는 앱(CampaignService.computeAbortStaleThresholdSec)이
     --        CODE_GENERATION_MAX_DB_RETRIES/RETRY_BASE_DELAY_MS/ABORT_STALE_SAFETY_MULTIPLIER로
     --        계산해서 넘긴다 - 정상적으로 살아있는 루프가 DB 일시 오류 재시도로 만들 수 있는

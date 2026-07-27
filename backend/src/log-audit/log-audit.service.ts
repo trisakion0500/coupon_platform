@@ -10,7 +10,7 @@ import { ResultCode } from '../common/response/result-code.enum';
 import { RoleCode } from '../common/roles/role-code.enum';
 import { LogAuditListQueryDto } from './dto/log-audit-list-query.dto';
 
-/** project_id를 갖는 로그 대상 테이블 — DEVELOPER의 배정 프로젝트 스코핑 대상(13_LOG_AUDIT_API.md 3장). */
+/** project_id를 갖는 로그 대상 테이블 — DEVELOPER의 배정 프로젝트 스코핑 대상(15_LOG_AUDIT_API.md 3장). */
 const PROJECT_SCOPED_TABLE_NAMES = new Set(['project', 'user_role']);
 
 /** SP_LOG_AUDIT_LIST 반환 행 — 요청한 page가 데이터 범위를 벗어나면 idx를 비롯한 모든 데이터
@@ -82,14 +82,14 @@ export interface LogAuditRequester {
 }
 
 /**
- * 13_LOG_AUDIT_API.md 5/6장(목록/상세 조회)의 비즈니스 로직. 로그 DB(coupon_platform_log)가
- * 메인 DB의 user/user_role에 물리적으로 접근할 수 없어(02_DEV_CONVENTIONS.md 1장) SP_LOG_AUDIT_LIST/
+ * 15_LOG_AUDIT_API.md 5/6장(목록/상세 조회)의 비즈니스 로직. 로그 DB(coupon_platform_log)가
+ * 메인 DB의 user/user_role에 물리적으로 접근할 수 없어(04_DEV_CONVENTIONS.md 1장) SP_LOG_AUDIT_LIST/
  * GET_BY_ID는 호출자 권한을 스스로 재검증하지 못한다 - 이 서비스가 유일한 권한 판단 지점이다
- * (SUPER_ADMIN 전체조회 / DEVELOPER는 본인 소속 company_id로 고정 스코핑, 13_LOG_AUDIT_API.md 3장).
+ * (SUPER_ADMIN 전체조회 / DEVELOPER는 본인 소속 company_id로 고정 스코핑, 15_LOG_AUDIT_API.md 3장).
  * DEVELOPER의 project/user_role 테이블 로그는 여기서 한 단계 더 좁힌다 - 프로젝트 관리메뉴 스코핑을
  * 회사 단위에서 배정 프로젝트 단위(role_code<=20)로 좁힌 것(2026-07-24)과 같은 방향으로, 메인 DB
  * (SpExecutorService)에서 배정 프로젝트 목록을 먼저 조회해 로그 DB SP의 필터 파라미터로 전달하는
- * 2단계 패턴을 쓴다(02_DEV_CONVENTIONS.md 3.2). company/user 테이블 로그는 프로젝트 단위 정보가
+ * 2단계 패턴을 쓴다(04_DEV_CONVENTIONS.md 3.2). company/user 테이블 로그는 프로젝트 단위 정보가
  * 없거나 간접적이라 대상에서 제외하고 기존처럼 company_id로만 스코핑한다.
  *
  * @author trisakion

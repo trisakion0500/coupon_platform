@@ -5,7 +5,7 @@ CREATE FUNCTION `FN_IS_SUPER_ADMIN` (
 ) RETURNS BOOLEAN
 NOT DETERMINISTIC
 READS SQL DATA
-COMMENT '사용자가 활성 SUPER_ADMIN(role_code=10) 배정을 가지고 있는지 확인 (02_DEV_CONVENTIONS.md 3.2)'
+COMMENT '사용자가 활성 SUPER_ADMIN(role_code=10) 배정을 가지고 있는지 확인 (04_DEV_CONVENTIONS.md 3.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : FN_IS_SUPER_ADMIN

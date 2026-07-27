@@ -24,10 +24,10 @@ interface SignupForm {
 }
 
 /**
- * SCR-002. 09_AUTH_API.md 4장 + 15_SCREEN_LIST.md 2.1 — 회사/프로젝트는 드롭다운이 아니라
+ * SCR-002. 11_AUTH_API.md 4장 + 17_SCREEN_LIST.md 2.1 — 회사/프로젝트는 드롭다운이 아니라
  * 코드 텍스트 입력이다(`GET /companies`/`GET /projects`가 인증 필수라 로그인 전엔 못 씀).
  * 코드 검증은 입력 중이 아니라 제출 시점에만 수행하고, 실제 가입(`POST /auth/signup`)까지
- * 이어서 진행한다 — 프로젝트 코드는 선택 입력(2026-07-24 백엔드도 선택으로 수정, 09_AUTH_API.md 4장 참고).
+ * 이어서 진행한다 — 프로젝트 코드는 선택 입력(2026-07-24 백엔드도 선택으로 수정, 11_AUTH_API.md 4장 참고).
  */
 export function SignupPage() {
   const { t } = useTranslation();

@@ -7,7 +7,7 @@ import type {
   UserListQuery,
 } from '@/types/user';
 
-/** 12_USER_API.md 1.1 — company_id는 SUPER_ADMIN에게만 유효(DEVELOPER는 서버가 자기 회사로 고정). */
+/** 14_USER_API.md 1.1 — company_id는 SUPER_ADMIN에게만 유효(DEVELOPER는 서버가 자기 회사로 고정). */
 export async function listUsers(
   query: UserListQuery,
 ): Promise<PaginatedResult<User>> {
@@ -18,13 +18,13 @@ export async function listUsers(
   return data.data;
 }
 
-/** 12_USER_API.md 1.3 — DEVELOPER가 타 회사 사용자를 조회하면 20001(PERMISSION_DENIED). */
+/** 14_USER_API.md 1.3 — DEVELOPER가 타 회사 사용자를 조회하면 20001(PERMISSION_DENIED). */
 export async function getUser(userId: number): Promise<User> {
   const { data } = await apiClient.get<ApiEnvelope<User>>(`/users/${userId}`);
   return data.data;
 }
 
-/** 12_USER_API.md 1.4 — SUPER_ADMIN 전용, 0→1. */
+/** 14_USER_API.md 1.4 — SUPER_ADMIN 전용, 0→1. */
 export async function approveUser(userId: number): Promise<User> {
   const { data } = await apiClient.post<ApiEnvelope<User>>(
     `/users/${userId}/approve`,
@@ -32,7 +32,7 @@ export async function approveUser(userId: number): Promise<User> {
   return data.data;
 }
 
-/** 12_USER_API.md 1.5 — SUPER_ADMIN 전용, 0→2. */
+/** 14_USER_API.md 1.5 — SUPER_ADMIN 전용, 0→2. */
 export async function rejectUser(userId: number): Promise<User> {
   const { data } = await apiClient.post<ApiEnvelope<User>>(
     `/users/${userId}/reject`,
@@ -41,7 +41,7 @@ export async function rejectUser(userId: number): Promise<User> {
   return data.data;
 }
 
-/** 12_USER_API.md 1.6 — SUPER_ADMIN 전용. status는 화면이 1↔3 전환 액션 버튼으로만 보낸다. */
+/** 14_USER_API.md 1.6 — SUPER_ADMIN 전용. status는 화면이 1↔3 전환 액션 버튼으로만 보낸다. */
 export async function updateUser(
   userId: number,
   dto: UpdateUserRequest,
@@ -53,7 +53,7 @@ export async function updateUser(
   return data.data;
 }
 
-/** 12_USER_API.md 1.7 — SUPER_ADMIN 전용, 현재 비밀번호 검증 없이 즉시 초기화. */
+/** 14_USER_API.md 1.7 — SUPER_ADMIN 전용, 현재 비밀번호 검증 없이 즉시 초기화. */
 export async function resetUserPassword(
   userId: number,
   dto: ResetPasswordRequest,

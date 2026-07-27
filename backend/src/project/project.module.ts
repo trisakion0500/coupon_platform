@@ -6,7 +6,7 @@ import { ProjectController } from './project.controller';
 import { ProjectService } from './project.service';
 
 /**
- * 11_PROJECT_API.md 도메인 모듈 — 프로젝트 CRUD + Secret 발급/재발급 + 코드 조회 6개 엔드포인트.
+ * 13_PROJECT_API.md 도메인 모듈 — 프로젝트 CRUD + Secret 발급/재발급 + 코드 조회 6개 엔드포인트.
  *
  * @author trisakion
  */

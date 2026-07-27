@@ -5,7 +5,7 @@ import { ResultCode } from '../common/response/result-code.enum';
 import { TokenBucketLimiter } from './token-bucket-limiter';
 
 /**
- * 07_AUTH_SECURITY.md 2.8: reserve/confirm S2S 엔드포인트에 프로젝트(API Key) 기준 요청 제한 —
+ * 09_AUTH_SECURITY.md 2.8: reserve/confirm S2S 엔드포인트에 프로젝트(API Key) 기준 요청 제한 —
  * 인프라 보호 목적(특정 게임서버의 비정상 트래픽 폭주 방지). 저장소는 `AuthRateLimitMiddleware`와
  * 동일하게 in-memory를 유지하되, 알고리즘은 고정 윈도우(express-rate-limit) 대신 토큰 버킷으로
  * 교체했다(2026-07-24) — 고정 윈도우는 윈도우 경계에서 이전/다음 윈도우 최대치가 거의 동시에

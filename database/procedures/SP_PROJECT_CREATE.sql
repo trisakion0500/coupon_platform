@@ -8,7 +8,7 @@ CREATE PROCEDURE `SP_PROJECT_CREATE` (
     IN i_api_key           VARCHAR(64),      -- 서버간 호출용 API Key (앱 레이어에서 생성)
     IN i_api_secret_enc    VARCHAR(255),     -- API Secret AES-256-CBC 암호화값 (앱 레이어에서 암호화 완료)
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '프로젝트 생성 - SUPER_ADMIN 재검증, api_key/api_secret 발급 후 INSERT (11_PROJECT_API.md 2.1)'
+) COMMENT '프로젝트 생성 - SUPER_ADMIN 재검증, api_key/api_secret 발급 후 INSERT (13_PROJECT_API.md 2.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_CREATE
@@ -24,11 +24,11 @@ BEGIN
     --        평문은 서비스 레이어가 자신이 생성한 값을 응답에 직접 얹는다.
     --        프로젝트 생성은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
-    --        02_DEV_CONVENTIONS.md 3.2).
+    --        04_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 결과 SELECT에 after_json/requester_name을
     --        추가했다(before_json은 CREATE라 NULL). after_json 안의 api_secret/api_secret_prev는
     --        암호문이라도 ENCRYPTION_KEY 유출 시 복호화가 가능해 password_hash와 동일 수준으로
-    --        '***' 마스킹한다(13_LOG_AUDIT_API.md 2.4).
+    --        '***' 마스킹한다(15_LOG_AUDIT_API.md 2.4).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;

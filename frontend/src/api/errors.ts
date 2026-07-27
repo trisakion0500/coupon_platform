@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { ApiErrorBody } from '@/types/api';
 
-/** 08_API_COMMON.md 1.4 — 실패 응답에서 result 코드를 뽑아낸다(성공 응답과 구분 못 할 때 null). */
+/** 10_API_COMMON.md 1.4 — 실패 응답에서 result 코드를 뽑아낸다(성공 응답과 구분 못 할 때 null). */
 export function getResultCode(error: unknown): number | null {
   if (axios.isAxiosError<ApiErrorBody>(error)) {
     return error.response?.data?.result ?? null;

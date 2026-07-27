@@ -4,7 +4,7 @@ import { BusinessException } from '../response/business.exception';
 import { ResultCode } from '../response/result-code.enum';
 
 /**
- * SP 호출 결과(02_DEV_CONVENTIONS.md 3.4 RESULT SELECT 규약)를 파싱한 값.
+ * SP 호출 결과(04_DEV_CONVENTIONS.md 3.4 RESULT SELECT 규약)를 파싱한 값.
  * RESULT=50001(시스템 오류)은 여기 담기지 않는다 — {@link callStoredProcedure}가 그 경우
  * 즉시 예외를 던지므로, 이 타입의 `result`는 항상 0이거나 SP가 정의한 특정 비즈니스 코드다.
  *
@@ -20,7 +20,7 @@ export interface SpCallResult<TData = unknown> {
 
 /**
  * SP를 호출하고 RESULT SELECT 규약을 파싱한다. 메인 DB(`SpExecutorService`)와 로그 DB
- * (`LogSpExecutorService`)가 커넥션 풀만 다를 뿐 이 로직을 그대로 공유한다(02_DEV_CONVENTIONS.md
+ * (`LogSpExecutorService`)가 커넥션 풀만 다를 뿐 이 로직을 그대로 공유한다(04_DEV_CONVENTIONS.md
  * 2장 "두 번 이상 중복되는 코드는 모듈화한다").
  *
  * - 첫 result set은 항상 RESULT 단일 컬럼 단일 행
@@ -33,7 +33,7 @@ export interface SpCallResult<TData = unknown> {
  *   ERROR_NO는 던지는 예외의 `sqlDiagnostics`에도 실어 보낸다(HTTP 응답 바디에는 안 실림) —
  *   `CampaignCodeService.generateRandomCodes`처럼 재시도 가능한 에러(deadlock/lock wait timeout)와
  *   그렇지 않은 에러를 구분해야 하는 극히 드문 내부 호출부를 위한 것으로, 대부분의 호출부는 이
- *   필드를 알 필요도 없고 봐서도 안 된다(05_COUPON_ISSUANCE_SCENARIO.md 2.2, 2026-07-21 추가).
+ *   필드를 알 필요도 없고 봐서도 안 된다(07_COUPON_ISSUANCE_SCENARIO.md 2.2, 2026-07-21 추가).
  *
  * @param pool - 호출에 사용할 mysql2 커넥션 풀(메인/로그 DB 중 하나)
  * @param logger - 50001 진단 정보를 남길 로거

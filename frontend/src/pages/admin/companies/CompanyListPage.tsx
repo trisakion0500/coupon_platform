@@ -11,7 +11,7 @@ import type { Company } from '@/types/company';
 
 const STATUS_FILTER_ALL = 'ALL';
 
-/** SCR-010. 10_COMPANY_API.md 2.2. */
+/** SCR-010. 12_COMPANY_API.md 2.2. */
 export function CompanyListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();

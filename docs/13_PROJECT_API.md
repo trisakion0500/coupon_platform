@@ -1,4 +1,4 @@
-# 11_PROJECT_API.md
+# 13_PROJECT_API.md
 
 # Coupon Platform REST API Specification — Project
 
@@ -6,7 +6,7 @@
 
 # 1. Common Rules
 
-공통 응답 포맷/에러코드는 [08_API_COMMON.md](./08_API_COMMON.md)를 따른다. Role 정의는 [10_COMPANY_API.md](./10_COMPANY_API.md) 1.2를 따른다.
+공통 응답 포맷/에러코드는 [10_API_COMMON.md](./10_API_COMMON.md)를 따른다. Role 정의는 [12_COMPANY_API.md](./12_COMPANY_API.md) 1.2를 따른다.
 
 ---
 
@@ -44,7 +44,7 @@ POST /projects
 
 ### Business Rules
 
-- 생성 시 `api_key`/`api_secret`을 서버가 즉시 발급한다(`project.api_key`/`api_secret`이 NOT NULL 컬럼이라 발급 없이는 프로젝트를 만들 수 없음 — [04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md) 2장 참고)
+- 생성 시 `api_key`/`api_secret`을 서버가 즉시 발급한다(`project.api_key`/`api_secret`이 NOT NULL 컬럼이라 발급 없이는 프로젝트를 만들 수 없음 — [06_DATABASE_SCHEMA.md](./06_DATABASE_SCHEMA.md) 2장 참고)
 - `api_secret` 평문은 이 응답에만 1회 노출되며, 이후 어떤 조회 API도 평문/해시를 반환하지 않는다
 - `secret_rotated_at`은 생성 시 `NULL`(최초 발급 후 미변경 상태)
 
@@ -103,11 +103,11 @@ ORDER BY status DESC,
 ### Business Rules
 
 - SUPER_ADMIN: 전체 프로젝트 목록 반환
-- DEVELOPER: 해당 프로젝트에서 실제 `role_code<=20`(DEVELOPER 이상)으로 활성 배정된 프로젝트만 반환 — 회사 소속 여부와 무관하고, 다른 프로젝트에서 DEVELOPER라도 이 프로젝트에서의 배정이 MANAGER(30)/OPERATOR(40)뿐이면 제외된다(같은 회사 소속이라는 사실만으로, 혹은 다른 프로젝트의 상위 권한만으로 담당 아닌 프로젝트의 API Key/Secret까지 보이는 문제가 있어, 캠페인 등 쿠폰 도메인과 동일한 `user_role` 프로젝트 단위 스코핑으로 통일했다. 17_CAMPAIGN_API.md 1.2 참고)
+- DEVELOPER: 해당 프로젝트에서 실제 `role_code<=20`(DEVELOPER 이상)으로 활성 배정된 프로젝트만 반환 — 회사 소속 여부와 무관하고, 다른 프로젝트에서 DEVELOPER라도 이 프로젝트에서의 배정이 MANAGER(30)/OPERATOR(40)뿐이면 제외된다(같은 회사 소속이라는 사실만으로, 혹은 다른 프로젝트의 상위 권한만으로 담당 아닌 프로젝트의 API Key/Secret까지 보이는 문제가 있어, 캠페인 등 쿠폰 도메인과 동일한 `user_role` 프로젝트 단위 스코핑으로 통일했다. 19_CAMPAIGN_API.md 1.2 참고)
 
 ### Response
 
-페이지네이션 응답 형식([08_API_COMMON.md](./08_API_COMMON.md) 2장 참고). `api_secret`(암호화값/평문 모두)은 포함하지 않는다. `api_key`는 식별자 성격이라 그대로 노출한다.
+페이지네이션 응답 형식([10_API_COMMON.md](./10_API_COMMON.md) 2장 참고). `api_secret`(암호화값/평문 모두)은 포함하지 않는다. `api_key`는 식별자 성격이라 그대로 노출한다.
 
 ```json
 {
@@ -184,7 +184,7 @@ PATCH /projects/{project_id}
 
 ### Concurrency
 
-`edit_count`는 필수다 — 마지막으로 조회했을 때(2.2/2.3) 받은 값을 그대로 되돌려 보낸다(`coupon_campaign`과 동일한 낙관적 동시성 제어 패턴, [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 2.4 참고). 서버의 현재 값과 다르면 그 사이 다른 관리자가 먼저 수정했다는 뜻이라 30005(동시 수정 충돌)로 거부된다. 성공하면 `edit_count`가 1 증가한다.
+`edit_count`는 필수다 — 마지막으로 조회했을 때(2.2/2.3) 받은 값을 그대로 되돌려 보낸다(`coupon_campaign`과 동일한 낙관적 동시성 제어 패턴, [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 2.4 참고). 서버의 현재 값과 다르면 그 사이 다른 관리자가 먼저 수정했다는 뜻이라 30005(동시 수정 충돌)로 거부된다. 성공하면 `edit_count`가 1 증가한다.
 
 ### Updatable Fields
 
@@ -211,7 +211,7 @@ api_secret         (2.5 Rotate Project API Secret 전용)
 
 ### Business Rules
 
-- `project.company_id`/`project_code`는 생성 후 수정 불가(변경 지양 원칙, [04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md) 2장 참고)
+- `project.company_id`/`project_code`는 생성 후 수정 불가(변경 지양 원칙, [06_DATABASE_SCHEMA.md](./06_DATABASE_SCHEMA.md) 2장 참고)
 
 ---
 
@@ -230,7 +230,7 @@ POST /projects/{project_id}/api-secret/rotate
 
 ### Description
 
-기존 `api_secret`(암호화값)을 `api_secret_prev`로 이동하고 신규 Secret을 발급한다. 유예기간 동안은 기존 Secret도 함께 유효하다([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2.6 Secret Rotation 참고). 유예기간 일수(`API_SECRET_GRACE_PERIOD_DAYS`)는 화면 확인 문구에 노출해야 해서 프론트가 하드코딩하지 않고 [08_API_COMMON.md](./08_API_COMMON.md) 6.2 `GET /config/public`으로 조회한다.
+기존 `api_secret`(암호화값)을 `api_secret_prev`로 이동하고 신규 Secret을 발급한다. 유예기간 동안은 기존 Secret도 함께 유효하다([09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 2.6 Secret Rotation 참고). 유예기간 일수(`API_SECRET_GRACE_PERIOD_DAYS`)는 화면 확인 문구에 노출해야 해서 프론트가 하드코딩하지 않고 [10_API_COMMON.md](./10_API_COMMON.md) 6.2 `GET /config/public`으로 조회한다.
 
 ### Request
 
@@ -263,7 +263,7 @@ POST /projects/{project_id}/api-secret/rotate
 - `api_key`는 변경되지 않는다(Secret만 재발급 대상)
 - DEVELOPER 호출 시 JWT의 `role_code`(여러 프로젝트 중 최고 권한)가 아니라 해당 `project_id`에서의 실제 `role_code`를 재검증한다(MANAGER/OPERATOR로만 배정된 프로젝트는 다른 프로젝트에서 DEVELOPER 이상이라도 재발급 불가)
 - 재발급 즉시 관리자가 평문을 복사해 게임서버 설정에 반영해야 한다 — 재확인 불가
-- 유예기간 경과 후 배치가 `api_secret_prev`를 `NULL` 처리한다([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2.6 참고)
+- 유예기간 경과 후 배치가 `api_secret_prev`를 `NULL` 처리한다([09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 2.6 참고)
 
 ---
 
@@ -281,7 +281,7 @@ GET /projects/lookup?company_id={id}&project_code={code}
 
 ### Description
 
-회원가입 화면 전용([09_AUTH_API.md](./09_AUTH_API.md) 4장 회원가입에서 참조). 해당 회사 소속의 활성(status=1) 프로젝트만 조회하며, `/projects/{project_id}`보다 먼저 등록해야 하는 정적 경로다.
+회원가입 화면 전용([11_AUTH_API.md](./11_AUTH_API.md) 4장 회원가입에서 참조). 해당 회사 소속의 활성(status=1) 프로젝트만 조회하며, `/projects/{project_id}`보다 먼저 등록해야 하는 정적 경로다.
 
 ### Response
 
@@ -301,7 +301,7 @@ GET /projects/lookup?company_id={id}&project_code={code}
 
 # 3. 헤더 선택용 API
 
-회사/프로젝트 목록 자체는 [10_COMPANY_API.md](./10_COMPANY_API.md) 3장 `GET /companies/active-header-data`를 따른다. 아래는 프로젝트 단위 실제 권한 조회 전용 API다.
+회사/프로젝트 목록 자체는 [12_COMPANY_API.md](./12_COMPANY_API.md) 3장 `GET /companies/active-header-data`를 따른다. 아래는 프로젝트 단위 실제 권한 조회 전용 API다.
 
 ## 3.1 Get My Role for Project
 
@@ -317,7 +317,7 @@ GET /user-roles/me?project_id={id}
 
 ### Description
 
-헤더에서 선택된 프로젝트에 대한 호출자의 실제 `role_code`를 조회한다. JWT의 `role_code`는 여러 프로젝트 중 최고 권한 하나뿐이라([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 1.6 참고), 특정 `project_id` 기준 실제 권한(사이드바·버튼 노출 제어용)은 이 API로 별도 조회해야 한다.
+헤더에서 선택된 프로젝트에 대한 호출자의 실제 `role_code`를 조회한다. JWT의 `role_code`는 여러 프로젝트 중 최고 권한 하나뿐이라([09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 1.6 참고), 특정 `project_id` 기준 실제 권한(사이드바·버튼 노출 제어용)은 이 API로 별도 조회해야 한다.
 
 ### Response
 

@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 /**
- * POST /v1/coupons/{code}/confirm 요청 바디. 18_COUPON_USAGE_API.md 2.2 Validation.
+ * POST /v1/coupons/{code}/confirm 요청 바디. 20_COUPON_USAGE_API.md 2.2 Validation.
  *
  * `game_user_id`에 `@IsOptional()`을 붙인 이유는 `reserve-coupon.dto.ts`와 동일 —
  * `CouponUsageService.confirm`이 누락 체크를 명시적으로 수행해 30001을 정확히 반환한다.

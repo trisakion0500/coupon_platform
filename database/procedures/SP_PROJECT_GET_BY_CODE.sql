@@ -3,7 +3,7 @@ DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_GET_BY_CODE` (
     IN i_company_id   BIGINT UNSIGNED,  -- 조회할 회사 ID
     IN i_project_code VARCHAR(20)       -- 조회할 프로젝트 코드
-) COMMENT '회사 범위 내 프로젝트 코드로 조회 - 회원가입 화면 전용 공개 API (11_PROJECT_API.md 2.6)'
+) COMMENT '회사 범위 내 프로젝트 코드로 조회 - 회원가입 화면 전용 공개 API (13_PROJECT_API.md 2.6)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_GET_BY_CODE

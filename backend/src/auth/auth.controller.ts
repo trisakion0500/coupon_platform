@@ -24,7 +24,7 @@ import { RefreshResponseDto } from './dto/refresh-response.dto';
 import { SignupDto } from './dto/signup.dto';
 
 /**
- * 09_AUTH_API.md 3장의 6개 엔드포인트. signup/login/refresh는 인증 불필요,
+ * 11_AUTH_API.md 3장의 6개 엔드포인트. signup/login/refresh는 인증 불필요,
  * logout/me/password는 `JwtAuthGuard`로 보호한다.
  *
  * @author trisakion

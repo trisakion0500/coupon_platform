@@ -11,7 +11,7 @@ import {
 } from './api-envelope.dto';
 
 /**
- * `ResponseInterceptor`가 모든 성공 응답을 `{result:0, data}`로 감싸는 것(08_API_COMMON.md 1.4)을
+ * `ResponseInterceptor`가 모든 성공 응답을 `{result:0, data}`로 감싸는 것(10_API_COMMON.md 1.4)을
  * Swagger 스키마에도 그대로 반영하는 헬퍼 데코레이터 3종. 컨트롤러 메서드가 실제로 반환하는
  * `data` 페이로드 타입 하나만 넘기면, 봉투 구조(`result`)까지 합쳐진 최종 응답 스키마를
  * `allOf` 조합으로 만들어준다 — nest-cli 플러그인의 자동 추론은 인터페이스 반환 타입에서는
@@ -39,7 +39,7 @@ export function ApiEnvelopedResponse<TModel extends Type<unknown>>(
   );
 }
 
-/** 08_API_COMMON.md 2.4 페이지네이션 응답 셰이프(`page`/`page_size`/`total_count`/`items`)까지
+/** 10_API_COMMON.md 2.4 페이지네이션 응답 셰이프(`page`/`page_size`/`total_count`/`items`)까지
  * 봉투 안에 함께 조합한다. */
 export function ApiEnvelopedPaginatedResponse<TModel extends Type<unknown>>(
   model: TModel,

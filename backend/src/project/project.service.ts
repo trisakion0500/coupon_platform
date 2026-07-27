@@ -70,7 +70,7 @@ export interface ProjectCreateResponse {
   created_at: string;
   updated_at: string;
   edit_count: number;
-  /** 이 응답에만 1회 노출되는 평문 Secret(11_PROJECT_API.md 2.1). */
+  /** 이 응답에만 1회 노출되는 평문 Secret(13_PROJECT_API.md 2.1). */
   api_secret: string;
 }
 
@@ -81,7 +81,7 @@ export interface ProjectLookupRow {
 
 export interface ApiSecretRotateResponse {
   project_id: number;
-  /** 이 응답에만 1회 노출되는 평문 Secret(11_PROJECT_API.md 2.5). */
+  /** 이 응답에만 1회 노출되는 평문 Secret(13_PROJECT_API.md 2.5). */
   api_secret: string;
   secret_rotated_at: string;
   edit_count: number;
@@ -114,7 +114,7 @@ export interface ProjectRequester {
 }
 
 /**
- * 11_PROJECT_API.md 6개 엔드포인트(생성/목록/상세/수정/Secret재발급/코드조회)의 비즈니스 로직.
+ * 13_PROJECT_API.md 6개 엔드포인트(생성/목록/상세/수정/Secret재발급/코드조회)의 비즈니스 로직.
  *
  * @author trisakion
  */
@@ -244,7 +244,7 @@ export class ProjectService {
    * DEVELOPER의 접근 판단 기준은 회사 소속이 아니라 실제 활성 `user_role` 배정 여부다
    * (2026-07-24, list()와 동일한 이유). user_role 배정 여부는 앱이 JWT만으로 판단할 수 없는
    * 정보라 앱 레이어에서 중복 검증하지 않는다 — SP(`FN_CHECK_PROJECT_ACCESS`)가 유일한
-   * 방어선이다(campaign 도메인의 getById와 동일한 패턴, 02_DEV_CONVENTIONS.md 3.2 예외).
+   * 방어선이다(campaign 도메인의 getById와 동일한 패턴, 04_DEV_CONVENTIONS.md 3.2 예외).
    */
   async getById(
     projectId: number,
@@ -326,7 +326,7 @@ export class ProjectService {
   }
 
   /**
-   * 11_PROJECT_API.md 2.5 — SUPER_ADMIN은 무조건 통과, DEVELOPER는 해당 project_id에 실제
+   * 13_PROJECT_API.md 2.5 — SUPER_ADMIN은 무조건 통과, DEVELOPER는 해당 project_id에 실제
    * 활성 user_role이 있어야 한다(SP_PROJECT_API_SECRET_ROTATE 내부에서 FN_IS_SUPER_ADMIN +
    * FN_CHECK_PROJECT_ACCESS로 재검증 — role_code는 넘기지 않고 user_id만 전달한다).
    * 새 평문 Secret은 여기서 생성해 암호화값만 SP에 전달하고, 응답에는 이 평문을 직접 얹는다.

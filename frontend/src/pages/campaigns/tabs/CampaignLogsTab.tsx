@@ -14,7 +14,7 @@ const CREATE_ACTION = 10;
 /**
  * 인접한 두 로그 행(현재 행 vs 시간순 바로 다음 항목 = DESC 정렬이라 배열상 다음 인덱스)을
  * 비교해 바뀐 필드만 뽑아낸다. `log_coupon_campaign`은 매 액션마다 전체 스냅샷이라 서버가
- * diff를 계산해주지 않으므로 프론트가 인접 행을 비교한다(17_CAMPAIGN_API.md 4.2).
+ * diff를 계산해주지 않으므로 프론트가 인접 행을 비교한다(19_CAMPAIGN_API.md 4.2).
  * 현재 페이지에 로드된 항목끼리만 비교한다 — 페이지 경계를 넘는 비교는 하지 않는다(마지막
  * 행이 그 페이지의 가장 오래된 항목이면 "-"로 표시, 전체 이력의 최초 생성 행(action=CREATE)만
  * 항상 비교 대상이 없다). `action` 필터가 걸려있을 때는 이 함수를 호출하지 않는다 — 필터링된
@@ -60,7 +60,7 @@ function diffLogs(current: CampaignLog, previous: CampaignLog, t: TFunction): st
   return changes;
 }
 
-/** SCR-102 탭 4(변경 이력). 17_CAMPAIGN_API.md 4.2 — 조회 전용, 종료된 캠페인도 계속 조회 가능. */
+/** SCR-102 탭 4(변경 이력). 19_CAMPAIGN_API.md 4.2 — 조회 전용, 종료된 캠페인도 계속 조회 가능. */
 export function CampaignLogsTab({ campaignId }: { campaignId: number }) {
   const { t } = useTranslation();
   const [items, setItems] = useState<CampaignLog[]>([]);

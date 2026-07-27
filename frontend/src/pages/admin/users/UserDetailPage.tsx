@@ -72,7 +72,7 @@ function roleCodeLabel(roleCode: number): string {
 }
 
 /**
- * SCR-031. 12_USER_API.md 1장(승인/반려/수정/비밀번호초기화, 전부 SUPER_ADMIN 전용) +
+ * SCR-031. 14_USER_API.md 1장(승인/반려/수정/비밀번호초기화, 전부 SUPER_ADMIN 전용) +
  * 3장(User Role 배정). DEVELOPER는 조회만 가능해 액션 영역 전체를 숨긴다(ProjectDetailPage와
  * 동일한 isSuperAdmin 분기 패턴).
  */
@@ -197,7 +197,7 @@ export function UserDetailPage() {
     }
   }
 
-  /** 12_USER_API.md 1.6 — 반려(2)는 종결 상태가 아니라 재검토를 위해 승인대기(0)로 되돌릴 수 있다. */
+  /** 14_USER_API.md 1.6 — 반려(2)는 종결 상태가 아니라 재검토를 위해 승인대기(0)로 되돌릴 수 있다. */
   async function handleBackToPending() {
     setActionLoading(true);
     try {

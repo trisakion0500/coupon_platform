@@ -4,7 +4,7 @@ import { IsIn, IsOptional } from 'class-validator';
 import { PaginationQueryDto } from '../../common/response/pagination';
 
 /**
- * GET /campaigns/{coupon_campaign_id}/codes 쿼리 파라미터. 17_CAMPAIGN_API.md 3.3.
+ * GET /campaigns/{coupon_campaign_id}/codes 쿼리 파라미터. 19_CAMPAIGN_API.md 3.3.
  *
  * @author trisakion
  */

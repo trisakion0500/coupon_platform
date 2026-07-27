@@ -34,7 +34,7 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectService } from './project.service';
 
 /**
- * 11_PROJECT_API.md 6개 엔드포인트. 2.1/2.4(생성/수정)는 SUPER_ADMIN 전용, 2.2/2.3/2.5(목록/상세/
+ * 13_PROJECT_API.md 6개 엔드포인트. 2.1/2.4(생성/수정)는 SUPER_ADMIN 전용, 2.2/2.3/2.5(목록/상세/
  * Secret재발급)는 SUPER_ADMIN+DEVELOPER(DEVELOPER는 서비스/SP 레이어에서 회사·프로젝트 단위로
  * 추가 스코핑), 2.6(코드 조회)은 인증 불필요. `lookup`은 정적 경로라 `:project_id` 동적 라우트보다
  * 먼저 등록한다(company.controller.ts와 동일 원칙).

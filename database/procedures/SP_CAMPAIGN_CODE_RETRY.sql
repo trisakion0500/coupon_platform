@@ -3,17 +3,17 @@ DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_CODE_RETRY` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 대상 캠페인 ID
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '코드 생성 재시도 - generation_status 4(실패)->2(진행중) 조건부 UPDATE (17_CAMPAIGN_API.md 3.2)'
+) COMMENT '코드 생성 재시도 - generation_status 4(실패)->2(진행중) 조건부 UPDATE (19_CAMPAIGN_API.md 3.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_RETRY
     -- 작성 : 2026.07.21 trisakion
     -- 내용 : 존재 확인(31004) -> 프로젝트 스코핑 재검증(FN_CHECK_PROJECT_ACCESS, 20001) ->
     --        "generation_status=4(실패) AND status<>4(1.3)" 조건부 UPDATE로 원자 처리한다
-    --        (05_COUPON_ISSUANCE_SCENARIO.md 2.3). ROW_COUNT()=0이면 실패 상태가 아니거나(이미
+    --        (07_COUPON_ISSUANCE_SCENARIO.md 2.3). ROW_COUNT()=0이면 실패 상태가 아니거나(이미
     --        완료/진행중/대기) 캠페인이 종료됐다는 뜻 - 둘 다 30004(API 스펙도 사유를 구분하지
     --        않음). FIXED는 애초에 generation_status=4에 도달하지 않으므로(동기 즉시실패 처리,
-    --        05_COUPON_ISSUANCE_SCENARIO.md 2.2) 이 SP가 실질적으로 호출될 대상은 RANDOM뿐이다.
+    --        07_COUPON_ISSUANCE_SCENARIO.md 2.2) 이 SP가 실질적으로 호출될 대상은 RANDOM뿐이다.
     --        이미 생성된 generated_qty는 그대로 두고 TS 서비스가 남은 수량(requested_qty -
     --        generated_qty)만 이어서 생성하므로, 그 재개에 필요한 project_id/use_hyphen/
     --        requested_qty/generated_qty를 함께 반환한다. edit_count는 SP_CAMPAIGN_CODE_ISSUE와

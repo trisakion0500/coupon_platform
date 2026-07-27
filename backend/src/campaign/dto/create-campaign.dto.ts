@@ -11,11 +11,11 @@ import {
 } from 'class-validator';
 import { IsAfter } from '../../common/validators/is-after.validator';
 
-/** 08_API_COMMON.md 4.1 날짜/시간 형식 — YYYY-MM-DD HH:mm:ss (ISO 8601 T구분자 아님). */
+/** 10_API_COMMON.md 4.1 날짜/시간 형식 — YYYY-MM-DD HH:mm:ss (ISO 8601 T구분자 아님). */
 const DATETIME_FORMAT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 
 /**
- * POST /campaigns 요청 바디. 17_CAMPAIGN_API.md 2.1 Validation을 그대로 반영한다.
+ * POST /campaigns 요청 바디. 19_CAMPAIGN_API.md 2.1 Validation을 그대로 반영한다.
  *
  * @author trisakion
  */

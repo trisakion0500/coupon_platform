@@ -3,17 +3,17 @@ DELIMITER $$
 CREATE PROCEDURE `SP_USER_PASSWORD_CHANGE` (
     IN i_user_id           BIGINT UNSIGNED,  -- 대상 사용자 ID
     IN i_new_password_hash VARCHAR(255)       -- 새 비밀번호 bcrypt 해시(앱 레이어에서 해시 완료)
-) COMMENT '비밀번호 변경 + 전체 활성 세션 강제 로그아웃 (09_AUTH_API.md 9장)'
+) COMMENT '비밀번호 변경 + 전체 활성 세션 강제 로그아웃 (11_AUTH_API.md 9장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_PASSWORD_CHANGE
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 현재 비밀번호 검증(bcrypt.compare)은 앱 레이어에서 이미 끝난 상태로 호출된다.
-    --        password_hash 갱신과 "모든 활성 세션 종료"(07_AUTH_SECURITY.md 1.3)를 하나의
+    --        password_hash 갱신과 "모든 활성 세션 종료"(09_AUTH_SECURITY.md 1.3)를 하나의
     --        트랜잭션으로 처리해, 비밀번호는 바뀌었는데 기존 세션이 살아있는 상태가 생기지 않게 한다.
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고, 데이터 result set(before_json/after_json/requester_name)을 신규로 추가했다
-    --        (13_LOG_AUDIT_API.md 2.4 — 본인 비밀번호 변경도 user UPDATE 감사 로그 대상). 본인
+    --        (15_LOG_AUDIT_API.md 2.4 — 본인 비밀번호 변경도 user UPDATE 감사 로그 대상). 본인
     --        조회라 requester_name도 i_user_id 자신의 user_name이다. password_hash는 '***'로
     --        마스킹한다.
     --        2026-07-22: before_json 캡처가 START TRANSACTION보다 먼저(락 없이) 실행되던 문제를

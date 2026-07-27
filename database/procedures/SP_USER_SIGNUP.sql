@@ -10,7 +10,7 @@ CREATE PROCEDURE `SP_USER_SIGNUP` (
     IN i_phone_number_enc      VARCHAR(255),      -- 휴대폰번호 AES-256-CBC 암호화값(앱 레이어에서 암호화 완료 후 전달)
     IN i_department            VARCHAR(100),      -- 부서 (선택)
     IN i_position              VARCHAR(100)       -- 직급 (선택)
-) COMMENT '회원가입 - status=0(가입승인대기)으로 user INSERT (09_AUTH_API.md 4장)'
+) COMMENT '회원가입 - status=0(가입승인대기)으로 user INSERT (11_AUTH_API.md 4장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_SIGNUP

@@ -13,8 +13,8 @@ import type { User } from '@/types/user';
 const STATUS_FILTER_ALL = 'ALL';
 
 /**
- * SCR-030. 12_USER_API.md 1.1 — 회사 필터는 화면 자체가 아니라 헤더의 전역 회사 선택을
- * 그대로 사용한다(15_SCREEN_LIST.md). DEVELOPER가 보내는 company_id는 서버가 무시하고
+ * SCR-030. 14_USER_API.md 1.1 — 회사 필터는 화면 자체가 아니라 헤더의 전역 회사 선택을
+ * 그대로 사용한다(17_SCREEN_LIST.md). DEVELOPER가 보내는 company_id는 서버가 무시하고
  * 본인 소속 회사로 강제 고정하므로, 역할과 무관하게 selectedCompanyId를 그대로 전달해도 안전하다.
  */
 export function UserListPage() {

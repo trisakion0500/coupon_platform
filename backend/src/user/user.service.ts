@@ -65,7 +65,7 @@ export interface UserRequester {
 }
 
 /**
- * 12_USER_API.md 1장(User) 7개 엔드포인트의 비즈니스 로직.
+ * 14_USER_API.md 1장(User) 7개 엔드포인트의 비즈니스 로직.
  *
  * @author trisakion
  */
@@ -78,7 +78,7 @@ export class UserService {
   ) {}
 
   /**
-   * DEVELOPER는 company_id를 자기 소속 회사로 강제 고정한다(12_USER_API.md 1.1 Permission) —
+   * DEVELOPER는 company_id를 자기 소속 회사로 강제 고정한다(14_USER_API.md 1.1 Permission) —
    * project.list()와 동일한 스코핑 원칙.
    */
   async list(
@@ -142,7 +142,7 @@ export class UserService {
 
     const user = data[0];
     // SP가 이미 회사 접근을 재검증하지만(FN_CHECK_COMPANY_ACCESS), 앱 레이어에서도 동일한
-    // 판단을 한 번 더 확인한다 — 방어적 이중 체크(02_DEV_CONVENTIONS.md 3.2).
+    // 판단을 한 번 더 확인한다 — 방어적 이중 체크(04_DEV_CONVENTIONS.md 3.2).
     if (
       requester.roleCode !== RoleCode.SUPER_ADMIN &&
       user.company_id !== requester.companyId
@@ -217,7 +217,7 @@ export class UserService {
   }
 
   /**
-   * 12_USER_API.md 1.7 — 현재 비밀번호 검증 없이 즉시 초기화, 전체 활성 세션 종료는
+   * 14_USER_API.md 1.7 — 현재 비밀번호 검증 없이 즉시 초기화, 전체 활성 세션 종료는
    * SP_USER_PASSWORD_RESET 내부 트랜잭션이 처리한다.
    */
   async resetPassword(

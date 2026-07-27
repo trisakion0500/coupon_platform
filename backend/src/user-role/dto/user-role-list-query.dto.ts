@@ -4,7 +4,7 @@ import { IsIn, IsInt, IsOptional } from 'class-validator';
 import { PaginationQueryDto } from '../../common/response/pagination';
 
 /**
- * GET /user-roles 쿼리 파라미터. 12_USER_API.md 3.2 — 전부 선택 필터.
+ * GET /user-roles 쿼리 파라미터. 14_USER_API.md 3.2 — 전부 선택 필터.
  *
  * @author trisakion
  */

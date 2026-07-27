@@ -38,7 +38,7 @@ const LOG_TABLES_TRUNCATE_ORDER = [
  * `database/tables/all_tables.sql`에서 `INSERT INTO ...;` 블록만 그대로 뽑아온다 — 시드 데이터를
  * 이 스크립트에 다시 베껴 적으면 DDL이 바뀔 때마다 둘 다 고쳐야 하는 이격 위험이 생기므로,
  * 실제 DDL 파일을 유일한 소스로 재사용한다(company/project/user/user_role 4개 테이블만 시드가
- * 있음 — docs/19_DEV_SETUP.md 참고).
+ * 있음 — docs/03_DEV_SETUP.md 참고).
  */
 function extractSeedInserts(ddlPath: string): string[] {
   const sql = readFileSync(ddlPath, 'utf8');

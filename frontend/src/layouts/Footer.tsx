@@ -1,7 +1,7 @@
 import { Layout } from 'antd';
 import { useTranslation } from 'react-i18next';
 
-/** 16_LAYOUT.md 6장 — MainLayout/AdminLayout/AuthLayout 공통 하단. */
+/** 18_LAYOUT.md 6장 — MainLayout/AdminLayout/AuthLayout 공통 하단. */
 export function Footer() {
   const { t } = useTranslation();
   return (

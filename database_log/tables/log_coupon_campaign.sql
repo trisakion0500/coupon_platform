@@ -18,7 +18,7 @@
 --  log_audit과 동일한 관례: 캠페인 원본의 created_by 스냅샷이 아니라 "이 로그 행(액션)을 수행한
 --  사용자/시각"이다. CREATE 행은 생성자, UPDATE/STATUS_CHANGE 행은 그 수정을 한 사용자를 담는다
 --  — 모든 액션 공통으로 행위자를 나타내므로 별도 updated_by 컬럼이 필요 없다.
---  created_by_name은 2026.07.22 조회 API(17_CAMPAIGN_API.md 4.2) 설계 중 추가됨 — 애초 설계
+--  created_by_name은 2026.07.22 조회 API(19_CAMPAIGN_API.md 4.2) 설계 중 추가됨 — 애초 설계
 --  시점엔 이 스냅샷 없이 "조회 시점에 created_by로 user 테이블을 조인하면 된다"고 가정했으나,
 --  이 로그는 메인 DB와 물리 분리된 로그 DB에 있어 애초에 조인이 불가능하다(1장/log_audit과 동일
 --  제약, 잘못된 전제였음). log_audit의 created_by_name과 동일하게 로그 생성 시점 사용자명을

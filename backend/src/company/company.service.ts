@@ -67,7 +67,7 @@ export interface ActiveHeaderData {
 }
 
 /**
- * 10_COMPANY_API.md 6개 엔드포인트(생성/목록/상세/수정/코드조회/헤더데이터)의 비즈니스 로직.
+ * 12_COMPANY_API.md 6개 엔드포인트(생성/목록/상세/수정/코드조회/헤더데이터)의 비즈니스 로직.
  *
  * @author trisakion
  */
@@ -81,7 +81,7 @@ export class CompanyService {
   /**
    * 회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, SP도
    * FN_IS_SUPER_ADMIN(requesterUserId)으로 재확인한다(방어적 이중 체크,
-   * 02_DEV_CONVENTIONS.md 3.2) — SP가 20001을 반환하면 PERMISSION_DENIED로 변환한다.
+   * 04_DEV_CONVENTIONS.md 3.2) — SP가 20001을 반환하면 PERMISSION_DENIED로 변환한다.
    */
   async create(
     dto: CreateCompanyDto,
@@ -264,7 +264,7 @@ export class CompanyService {
   }
 
   /**
-   * 10_COMPANY_API.md 3.1 — 로그인 직후 헤더 콤보박스가 1회 로드하는 활성 회사·프로젝트 목록.
+   * 12_COMPANY_API.md 3.1 — 로그인 직후 헤더 콤보박스가 1회 로드하는 활성 회사·프로젝트 목록.
    * user/roleCode/companyId는 JwtAuthGuard가 검증한 JWT 페이로드 값을 그대로 신뢰하고 DB를
    * 재조회하지 않는다(jwt-auth.guard.ts와 같은 원칙).
    */

@@ -1,4 +1,4 @@
-# 12_USER_API.md
+# 14_USER_API.md
 
 # Coupon Platform REST API Specification — User / UserRole
 
@@ -6,9 +6,9 @@
 
 ## 공통 규약
 
-공통 응답 포맷/에러코드는 [08_API_COMMON.md](./08_API_COMMON.md)를 따른다. Role 정의는 [10_COMPANY_API.md](./10_COMPANY_API.md) 1.2를 따른다.
+공통 응답 포맷/에러코드는 [10_API_COMMON.md](./10_API_COMMON.md)를 따른다. Role 정의는 [12_COMPANY_API.md](./12_COMPANY_API.md) 1.2를 따른다.
 
-본 문서의 엔드포인트는 기본적으로 **SUPER_ADMIN 전용**이다. DEVELOPER의 관리메뉴 권한은 프로젝트 리스트/상세/API Secret 재발급으로 한정되어 있어([10_COMPANY_API.md](./10_COMPANY_API.md) 1.2, [11_PROJECT_API.md](./11_PROJECT_API.md) 2장 참고) 사용자 승인/역할배정 같은 계정 거버넌스 작업에는 포함되지 않는다 — 단, **사용자 목록/상세 조회(1.1~1.3)는 예외적으로 DEVELOPER도 가능**(본인 소속 회사로 스코핑).
+본 문서의 엔드포인트는 기본적으로 **SUPER_ADMIN 전용**이다. DEVELOPER의 관리메뉴 권한은 프로젝트 리스트/상세/API Secret 재발급으로 한정되어 있어([12_COMPANY_API.md](./12_COMPANY_API.md) 1.2, [13_PROJECT_API.md](./13_PROJECT_API.md) 2장 참고) 사용자 승인/역할배정 같은 계정 거버넌스 작업에는 포함되지 않는다 — 단, **사용자 목록/상세 조회(1.1~1.3)는 예외적으로 DEVELOPER도 가능**(본인 소속 회사로 스코핑).
 
 ---
 
@@ -47,7 +47,7 @@ ORDER BY status ASC,
 
 ### Response
 
-페이지네이션 응답 형식([08_API_COMMON.md](./08_API_COMMON.md) 2장 참고)
+페이지네이션 응답 형식([10_API_COMMON.md](./10_API_COMMON.md) 2장 참고)
 
 ---
 
@@ -197,7 +197,7 @@ login_id
 
 ### Business Rules
 
-- `status = 3`(사용중지) 변경 시 해당 사용자의 모든 활성 Session 즉시 종료([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 1.3 참고)
+- `status = 3`(사용중지) 변경 시 해당 사용자의 모든 활성 Session 즉시 종료([09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 1.3 참고)
 
 ### Response
 
@@ -219,7 +219,7 @@ POST /users/{user_id}/reset-password
 
 ### Description
 
-관리자가 특정 사용자의 비밀번호를 강제 초기화한다. 본인 비밀번호 변경(`PATCH /auth/password`, [09_AUTH_API.md](./09_AUTH_API.md) 9장)과 달리 현재 비밀번호 검증 없이 즉시 변경한다.
+관리자가 특정 사용자의 비밀번호를 강제 초기화한다. 본인 비밀번호 변경(`PATCH /auth/password`, [11_AUTH_API.md](./11_AUTH_API.md) 9장)과 달리 현재 비밀번호 검증 없이 즉시 변경한다.
 
 ### Request
 
@@ -341,7 +341,7 @@ ORDER BY status DESC,
 
 ### Response
 
-페이지네이션 응답 형식([08_API_COMMON.md](./08_API_COMMON.md) 2장 참고). `user_id` 필터를 지정해 사용자 상세 화면(SCR-031)의 하위 데이터그리드로 호출할 때도 동일한 페이지네이션 래퍼로 응답한다 — 한 유저의 배정 건수는 적어 실질적으로 첫 페이지 안에 전부 들어온다.
+페이지네이션 응답 형식([10_API_COMMON.md](./10_API_COMMON.md) 2장 참고). `user_id` 필터를 지정해 사용자 상세 화면(SCR-031)의 하위 데이터그리드로 호출할 때도 동일한 페이지네이션 래퍼로 응답한다 — 한 유저의 배정 건수는 적어 실질적으로 첫 페이지 안에 전부 들어온다.
 
 ---
 
@@ -384,7 +384,7 @@ project_id
 
 ## 3.4 Get My Role for Project
 
-호출자 본인의 특정 프로젝트 역할 조회는 [11_PROJECT_API.md](./11_PROJECT_API.md) 3.1 `GET /user-roles/me?project_id=`를 따른다(관리 목적이 아니라 헤더 선택 후 화면 권한 판단용이라 전체 역할이 접근 가능 — 본 문서의 나머지 API와 권한 범위가 다르다).
+호출자 본인의 특정 프로젝트 역할 조회는 [13_PROJECT_API.md](./13_PROJECT_API.md) 3.1 `GET /user-roles/me?project_id=`를 따른다(관리 목적이 아니라 헤더 선택 후 화면 권한 판단용이라 전체 역할이 접근 가능 — 본 문서의 나머지 API와 권한 범위가 다르다).
 
 ---
 
@@ -400,7 +400,7 @@ project_id
 
 ## MANAGER/OPERATOR
 
-본 문서의 API 자체에 접근 권한이 없다(1장 공통 규약 참고) — 자신의 정보는 [09_AUTH_API.md](./09_AUTH_API.md) `GET /auth/me`로 조회한다.
+본 문서의 API 자체에 접근 권한이 없다(1장 공통 규약 참고) — 자신의 정보는 [11_AUTH_API.md](./11_AUTH_API.md) `GET /auth/me`로 조회한다.
 
 ## 중지 데이터(status=0) 조회
 

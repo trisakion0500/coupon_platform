@@ -14,7 +14,7 @@ const IV_LENGTH = 16;
 
 /**
  * project.api_secret / user.phone_number가 공유하는 AES-256-CBC(Base64) 암호화와
- * S2S HMAC-SHA256 서명 계산/비교를 담당하는 공용 크립토 서비스(07_AUTH_SECURITY.md 2.1).
+ * S2S HMAC-SHA256 서명 계산/비교를 담당하는 공용 크립토 서비스(09_AUTH_SECURITY.md 2.1).
  *
  * @author trisakion
  */
@@ -63,7 +63,7 @@ export class CryptoService {
   }
 
   /**
-   * HMAC-SHA256 서명을 hex로 계산한다(07_AUTH_SECURITY.md 2.3의 X-API-Signature 계산식).
+   * HMAC-SHA256 서명을 hex로 계산한다(09_AUTH_SECURITY.md 2.3의 X-API-Signature 계산식).
    *
    * @param secret - 서명에 사용할 비밀키(복호화된 평문 Secret)
    * @param data - 서명 대상 문자열(stringToSign)
@@ -74,7 +74,7 @@ export class CryptoService {
 
   /**
    * SHA-256 해시를 hex로 계산한다. Refresh Token(opaque UUID) 원문은 저장하지 않고 이 해시값만
-   * `user_session.refresh_token_hash`에 저장한다(07_AUTH_SECURITY.md 1.1).
+   * `user_session.refresh_token_hash`에 저장한다(09_AUTH_SECURITY.md 1.1).
    *
    * @param data - 해시할 원문
    */
@@ -83,7 +83,7 @@ export class CryptoService {
   }
 
   /**
-   * 07_AUTH_SECURITY.md 2.3: 서명 비교는 타이밍 공격 방지를 위해 상수 시간 비교로 수행한다.
+   * 09_AUTH_SECURITY.md 2.3: 서명 비교는 타이밍 공격 방지를 위해 상수 시간 비교로 수행한다.
    * 길이가 다르면 timingSafeEqual이 예외를 던지므로 그 경우 안전하게 false를 반환한다 —
    * 길이 자체는 비밀값에 의존하지 않으므로 조기 반환이 새 타이밍 사이드채널을 열지 않는다.
    *

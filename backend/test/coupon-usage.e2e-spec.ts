@@ -16,18 +16,18 @@ import { buildS2sHeaders } from './utils/s2s';
 import { createE2eApp } from './utils/test-app';
 
 /**
- * 18_COUPON_USAGE_API.md 2장(Reserve/Confirm)+3장(미컨슘 조회) E2E — 이 프로젝트 E2E에서 처음
+ * 20_COUPON_USAGE_API.md 2장(Reserve/Confirm)+3장(미컨슘 조회) E2E — 이 프로젝트 E2E에서 처음
  * 다루는 S2S(API Key+HMAC-SHA256) 인증 도메인. 관리 콘솔(JWT) 도메인과 인증 방식 자체가 달라,
  * `test/utils/s2s.ts`의 `buildS2sHeaders`가 `S2sAuthGuard`와 동일한 규칙으로 서명을 계산한다.
  *
  * 시드 프로젝트(1/2)의 `api_secret`은 특정 ENCRYPTION_KEY로 고정 커밋할 수 없는 플레이스홀더라
- * 로컬 `.env`의 실제 키로 복호화되지 않는다(docs/19_DEV_SETUP.md 4.2.1과 동일한 이유) — 그래서
+ * 로컬 `.env`의 실제 키로 복호화되지 않는다(docs/03_DEV_SETUP.md 4.2.1과 동일한 이유) — 그래서
  * S2S 테스트는 관리 콘솔 API로 새 프로젝트를 직접 만들어 실제로 복호화 가능한 API Key/Secret
  * 쌍을 얻는다(`ProjectService.create`가 실제 `CryptoService`로 암호화하므로 문제없다).
  *
  * @author trisakion
  */
-describe('Coupon Usage S2S E2E (18_COUPON_USAGE_API.md 2/3장)', () => {
+describe('Coupon Usage S2S E2E (20_COUPON_USAGE_API.md 2/3장)', () => {
   let app: INestApplication;
   let saAccessToken: string;
   let creds: S2sCredentials;

@@ -17,14 +17,14 @@ CREATE FUNCTION `FN_CHECK_COMPANY_ACCESS` (
 ) RETURNS BOOLEAN
 NOT DETERMINISTIC
 READS SQL DATA
-COMMENT '사용자가 해당 회사 소속인지 확인 (02_DEV_CONVENTIONS.md 3.2)'
+COMMENT '사용자가 해당 회사 소속인지 확인 (04_DEV_CONVENTIONS.md 3.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : FN_CHECK_COMPANY_ACCESS
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : FN_CHECK_PROJECT_ACCESS/FN_GET_PROJECT_ROLE_CODE가 user_role(프로젝트 단위 배정)을
     --        보는 것과 달리, 이 Function은 user.company_id 자체를 확인한다 - DEVELOPER의 회사 단위
-    --        스코핑(11_PROJECT_API.md 2.2/2.3, 12_USER_API.md 1.1~1.3처럼 "본인 소속 회사만 조회"
+    --        스코핑(13_PROJECT_API.md 2.2/2.3, 14_USER_API.md 1.1~1.3처럼 "본인 소속 회사만 조회"
     --        규칙)은 프로젝트 배정과 무관하게 user 테이블의 company_id 하나로 판단되기 때문에
     --        user_role을 조인할 필요가 없다. 지금까지 이 스코핑은 앱(TypeScript) 서비스 레이어에서만
     --        검증했는데, SP 호출자의 회사 접근 권한을 SP 자신도 재검증하도록(방어적 이중 체크)
@@ -50,16 +50,16 @@ CREATE FUNCTION `FN_CHECK_PROJECT_ACCESS` (
 ) RETURNS BOOLEAN
 NOT DETERMINISTIC
 READS SQL DATA
-COMMENT '사용자가 해당 프로젝트에 활성 user_role로 배정되어 있는지 확인 (02_DEV_CONVENTIONS.md 3.2)'
+COMMENT '사용자가 해당 프로젝트에 활성 user_role로 배정되어 있는지 확인 (04_DEV_CONVENTIONS.md 3.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : FN_CHECK_PROJECT_ACCESS
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : user_role에 (user_id, project_id, status=1) 활성 배정이 있는지만 확인하는 재사용
-    --        Function(02_DEV_CONVENTIONS.md 3.2). SUPER_ADMIN 우회 판단은 이 Function의 책임이
+    --        Function(04_DEV_CONVENTIONS.md 3.2). SUPER_ADMIN 우회 판단은 이 Function의 책임이
     --        아니다 — 호출하는 SP가 role_code를 이미 알고 있으므로, role_code=10이면 이 Function을
     --        아예 호출하지 않고 먼저 통과시킨 뒤, 그 외 role에 대해서만 호출해 실제 배정 여부를 묻는다.
-    --        여러 SP(11_PROJECT_API.md 2.5, 향후 캠페인/코드/사용이력 API의 프로젝트 단위 스코핑)가
+    --        여러 SP(13_PROJECT_API.md 2.5, 향후 캠페인/코드/사용이력 API의 프로젝트 단위 스코핑)가
     --        동일한 이 판단을 공유한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     RETURN EXISTS (
@@ -81,7 +81,7 @@ CREATE FUNCTION `FN_GET_PROJECT_ROLE_CODE` (
 ) RETURNS TINYINT UNSIGNED
 NOT DETERMINISTIC
 READS SQL DATA
-COMMENT '사용자의 해당 프로젝트 활성 role_code 조회 - 배정 없으면 NULL (02_DEV_CONVENTIONS.md 3.2)'
+COMMENT '사용자의 해당 프로젝트 활성 role_code 조회 - 배정 없으면 NULL (04_DEV_CONVENTIONS.md 3.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : FN_GET_PROJECT_ROLE_CODE
@@ -122,7 +122,7 @@ CREATE FUNCTION `FN_IS_SUPER_ADMIN` (
 ) RETURNS BOOLEAN
 NOT DETERMINISTIC
 READS SQL DATA
-COMMENT '사용자가 활성 SUPER_ADMIN(role_code=10) 배정을 가지고 있는지 확인 (02_DEV_CONVENTIONS.md 3.2)'
+COMMENT '사용자가 활성 SUPER_ADMIN(role_code=10) 배정을 가지고 있는지 확인 (04_DEV_CONVENTIONS.md 3.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : FN_IS_SUPER_ADMIN

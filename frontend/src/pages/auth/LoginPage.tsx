@@ -38,7 +38,7 @@ export function LoginPage() {
         '/campaigns';
       navigate(from, { replace: true });
     } catch (error) {
-      // 09_AUTH_API.md 5장 result 코드는 프론트 문자열로만 번역한다 — 백엔드 message는
+      // 11_AUTH_API.md 5장 result 코드는 프론트 문자열로만 번역한다 — 백엔드 message는
       // 한글로 유지하기로 했으므로(2026-07-24) 서버 message는 알려진 코드가 아닐 때만 폴백.
       const resultCode = getResultCode(error);
       setErrorMessage(

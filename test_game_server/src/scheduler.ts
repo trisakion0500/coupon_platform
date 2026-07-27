@@ -99,7 +99,7 @@ let timer: NodeJS.Timeout | undefined;
 let stopping = false;
 let inFlight: Promise<void> = Promise.resolve();
 
-/** docs/20_TEST_GAME_SERVER.md 2.1 — 상시 실행 데몬. tick 사이 간격은 TICK_INTERVAL_MS. */
+/** docs/21_TEST_GAME_SERVER.md 2.1 — 상시 실행 데몬. tick 사이 간격은 TICK_INTERVAL_MS. */
 export function startScheduler(): void {
   const loop = (): void => {
     if (stopping) return;

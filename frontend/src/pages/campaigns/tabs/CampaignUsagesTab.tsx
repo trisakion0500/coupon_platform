@@ -8,7 +8,7 @@ import type { CampaignUsage } from '@/types/campaign';
 
 const FILTER_ALL = 'ALL';
 
-/** SCR-102 탭 3(사용 이력). 17_CAMPAIGN_API.md 4.1 — 조회 전용, 종료된 캠페인도 계속 조회 가능. */
+/** SCR-102 탭 3(사용 이력). 19_CAMPAIGN_API.md 4.1 — 조회 전용, 종료된 캠페인도 계속 조회 가능. */
 export function CampaignUsagesTab({ campaignId }: { campaignId: number }) {
   const { t } = useTranslation();
   const [items, setItems] = useState<CampaignUsage[]>([]);

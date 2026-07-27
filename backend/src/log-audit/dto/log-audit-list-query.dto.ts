@@ -8,7 +8,7 @@ const TABLE_NAMES = ['company', 'project', 'user', 'user_role'] as const;
 const ACTIONS = [10, 20, 30] as const;
 
 /**
- * GET /log-audits 쿼리 파라미터. 13_LOG_AUDIT_API.md 5장 — 전부 선택 필터.
+ * GET /log-audits 쿼리 파라미터. 15_LOG_AUDIT_API.md 5장 — 전부 선택 필터.
  * `company_id`는 SUPER_ADMIN 호출 시에만 유효하고, DEVELOPER는 서비스 레이어가
  * 항상 자기 companyId로 덮어써 이 필드를 무시한다.
  *

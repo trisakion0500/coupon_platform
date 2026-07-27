@@ -1,4 +1,4 @@
-# 07_AUTH_SECURITY.md
+# 09_AUTH_SECURITY.md
 
 ## 개요
 
@@ -42,7 +42,7 @@ Refresh Token 만료시간 : 7일  (JWT_REFRESH_EXPIRES_IN 기본값)
 - 로그아웃/만료 시 `status`만 변경(UPDATE), DELETE하지 않음 → 그대로 두면 행이 무한정 누적되므로 배치로 정리
   - 주기: `SESSION_CLEANUP_CRON` (기본 `0 4 * * *`, 매일 새벽 4시)
   - 대상: `expired_at`이 현재 시각보다 과거인 세션(`status` 무관), 물리 삭제
-- `user_session.user_id`는 FK를 의도적으로 적용하지 않음(추후 Redis 전환 대비, [04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md) 참고)
+- `user_session.user_id`는 FK를 의도적으로 적용하지 않음(추후 Redis 전환 대비, [06_DATABASE_SCHEMA.md](./06_DATABASE_SCHEMA.md) 참고)
 - `user.status`와 세션 상태는 별도로 관리되나, 아래 두 경우에는 해당 사용자의 모든 활성 세션(`status = 1`)을 즉시 종료(`status = 0`)한다
   - 사용중지(`user.status = 3`) 처리 시
   - 비밀번호 변경 시
@@ -159,13 +159,13 @@ WHERE user_id = ?
 단순히 `X-API-Secret` 헤더로 원문을 매번 실어보내고 서버가 해시 대조만 하는 방식도 검토했다(그 경우 `api_secret_hash`를 그대로 단방향 해시로 유지할 수 있어 스키마 변경이 필요 없다). 다만 이 방식은 두 가지 약점이 있다.
 
 1. Secret 원문이 리버스프록시/APM 로깅 등 TLS 밖의 경로로 새면 재발급 전까지 영구적으로 유효한 자격증명이 그대로 유출된다
-2. Timestamp 윈도우만으로는 완전한 재전송 차단이 안 된다 — 캡처한 요청을 윈도우 시간 내에 그대로 재전송하는 것 자체는 막지 못하고 "재전송 가능한 시간"만 제한할 뿐이다. 이 경우 FIXED 코드 + `use_limit_per_user > 1` 조합에서 재전송으로 보상이 중복 지급될 수 있다([06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md) 4장 참고)
+2. Timestamp 윈도우만으로는 완전한 재전송 차단이 안 된다 — 캡처한 요청을 윈도우 시간 내에 그대로 재전송하는 것 자체는 막지 못하고 "재전송 가능한 시간"만 제한할 뿐이다. 이 경우 FIXED 코드 + `use_limit_per_user > 1` 조합에서 재전송으로 보상이 중복 지급될 수 있다([08_COUPON_USAGE_SCENARIO.md](./08_COUPON_USAGE_SCENARIO.md) 4장 참고)
 
 재화(쿠폰 보상) 지급이 걸린 API라 이 잔여 위험을 감수하지 않기로 하고, Secret을 가역 암호화로 바꾸는 스키마 비용을 들여서라도 HMAC + nonce로 재전송을 원천 차단하는 쪽을 택했다.
 
 ## 2.2 요청 헤더 스펙
 
-게임서버는 [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md)의 모든 엔드포인트 호출 시 아래 헤더를 포함해야 한다. Secret 원문은 어떤 헤더에도 실리지 않는다.
+게임서버는 [20_COUPON_USAGE_API.md](./20_COUPON_USAGE_API.md)의 모든 엔드포인트 호출 시 아래 헤더를 포함해야 한다. Secret 원문은 어떤 헤더에도 실리지 않는다.
 
 | 헤더 | 필수 | 설명 |
 |---|---|---|
@@ -174,7 +174,7 @@ WHERE user_id = ?
 | `X-API-Nonce` | Y | 요청마다 새로 생성하는 1회성 임의 문자열(형식 강제 없음, 예: UUID v4). 재전송 방지에 사용(2.5 참고) |
 | `X-API-Signature` | Y | 2.3의 서명 대상 문자열을 Secret으로 HMAC-SHA256 서명한 값(hex) |
 
-[08_API_COMMON.md](./08_API_COMMON.md) 4장의 날짜/시간 포맷(`YYYY-MM-DD HH:mm:ss`) 정책은 요청/응답 **바디**에 대한 것이고, `X-API-Timestamp`는 인증 헤더라 그 정책과 무관하게 Unix Epoch 초를 사용한다 — 윈도우 비교가 문자열 파싱 없이 정수 비교로 끝나야 하기 때문이다.
+[10_API_COMMON.md](./10_API_COMMON.md) 4장의 날짜/시간 포맷(`YYYY-MM-DD HH:mm:ss`) 정책은 요청/응답 **바디**에 대한 것이고, `X-API-Timestamp`는 인증 헤더라 그 정책과 무관하게 Unix Epoch 초를 사용한다 — 윈도우 비교가 문자열 파싱 없이 정수 비교로 끝나야 하기 때문이다.
 
 ## 2.3 서명 생성 규칙
 
@@ -225,7 +225,7 @@ X-API-Signature = HMAC-SHA256(secret, stringToSign)  // hex 인코딩
 - `secret_rotated_at`에 재발급 시각 기록
 - 유예기간(`API_SECRET_GRACE_PERIOD_DAYS`) 동안은 `api_secret`/`api_secret_prev` 둘 다 복호화해 서명 검증에 사용(2.4의 5번 — 어느 한쪽과만 일치해도 통과)
 - 유예기간 경과 후 배치(`API_SECRET_CLEANUP_CRON`, 기본 `0 5 * * *`)가 `secret_rotated_at + API_SECRET_GRACE_PERIOD_DAYS`가 지난 `api_secret_prev`를 `NULL` 처리 — `SESSION_CLEANUP_CRON`과 동일하게 서버 기동 시 `node-cron`으로 등록
-- Secret 발급(프로젝트 생성 시)/재발급 API 자체의 인증 주체는 관리 콘솔 사용자(SUPER_ADMIN/DEVELOPER)다 — [11_PROJECT_API.md](./11_PROJECT_API.md) 2.1/2.5 참고. 그 API들은 이 절의 S2S 인증과는 별개로 JWT 기반 사용자 인증(1장)을 그대로 따른다
+- Secret 발급(프로젝트 생성 시)/재발급 API 자체의 인증 주체는 관리 콘솔 사용자(SUPER_ADMIN/DEVELOPER)다 — [13_PROJECT_API.md](./13_PROJECT_API.md) 2.1/2.5 참고. 그 API들은 이 절의 S2S 인증과는 별개로 JWT 기반 사용자 인증(1장)을 그대로 따른다
 
 ## 2.7 API 버전 관리
 
@@ -264,4 +264,4 @@ URL 패턴 : /v1/coupons/reserve, /v1/coupons/confirm 등
 
 # 4. 관련 문서
 
-- 테이블 구조: [04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md)
+- 테이블 구조: [06_DATABASE_SCHEMA.md](./06_DATABASE_SCHEMA.md)

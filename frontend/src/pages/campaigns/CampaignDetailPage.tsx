@@ -13,7 +13,7 @@ import { CampaignCodesTab } from '@/pages/campaigns/tabs/CampaignCodesTab';
 import { CampaignUsagesTab } from '@/pages/campaigns/tabs/CampaignUsagesTab';
 import { CampaignLogsTab } from '@/pages/campaigns/tabs/CampaignLogsTab';
 
-/** SCR-102. 17_CAMPAIGN_API.md 2.3/4장 — 탭 4개(정보/코드 목록/사용 이력/변경 이력). */
+/** SCR-102. 19_CAMPAIGN_API.md 2.3/4장 — 탭 4개(정보/코드 목록/사용 이력/변경 이력). */
 export function CampaignDetailPage() {
   return (
     <RequireProjectSelected>

@@ -1,7 +1,7 @@
 -- ------------------------------------------------------------------------------------------------------------ --
 -- 메인 서비스 DB(coupon_platform) 통합 테이블 파일. 로그 테이블(log_audit/log_coupon_campaign/log_coupon_use)은
 -- 2026.07.19부터 로컬 개발 환경에서도 물리적으로 분리된 별도 DB(coupon_platform_log)에 둔다
--- (02_DEV_CONVENTIONS.md 1장 참고) — 해당 DDL은 database_log/tables/all_log_tables.sql에 있다.
+-- (04_DEV_CONVENTIONS.md 1장 참고) — 해당 DDL은 database_log/tables/all_log_tables.sql에 있다.
 -- ------------------------------------------------------------------------------------------------------------ --
 -- ------------------------------------------------------------------------------------------------------------ --
 -- 명칭 : company
@@ -33,7 +33,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- 수정2: 2026.07.21 trisakion — edit_count(낙관적 동시성 제어) 신설
 -- 내용 : 서비스 프로젝트 정보
 -- api_secret (가역 암호화, 단방향 해시 아님)
---  S2S 인증을 HMAC-SHA256 요청 서명 방식으로 확정하면서(docs/07_AUTH_SECURITY.md 2장), 서버가
+--  S2S 인증을 HMAC-SHA256 요청 서명 방식으로 확정하면서(docs/09_AUTH_SECURITY.md 2장), 서버가
 --  서명을 검증하려면 매 요청마다 원문 Secret으로 HMAC을 재계산해야 한다 — 단방향 해시로는
 --  원문을 복원할 수 없어 이 방식 자체가 불가능하므로, phone_number(user 테이블)와 동일하게
 --  AES-256-CBC(Base64, ENCRYPTION_KEY)로 가역 암호화해 저장한다. 평문이 API 응답에 노출되는
@@ -84,7 +84,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- 명칭 : project_api_nonce
 -- 작성 : 2026.07.18 trisakion
 -- 내용 : S2S(게임서버 -> 쿠폰서버) HMAC 요청 서명의 재전송(replay) 방지용 1회성 nonce 저장소.
---        docs/07_AUTH_SECURITY.md 2장 참고 — X-API-Nonce 헤더값을 서명 검증 통과 후 이 테이블에
+--        docs/09_AUTH_SECURITY.md 2장 참고 — X-API-Nonce 헤더값을 서명 검증 통과 후 이 테이블에
 --        (project_id, nonce) 조합으로 INSERT 시도하고, UNIQUE 제약 위반이면 재사용(재전송)으로 판단해
 --        거부한다. INSERT-then-check가 아니라 INSERT 자체의 유니크 제약 위반을 이용하는 것이므로
 --        동시에 같은 nonce로 두 요청이 들어와도 원자적으로 하나만 성공한다(경쟁 상태 없음).
@@ -249,7 +249,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 --  - OPERATOR가 생성/컨트롤    → approval_status=2(승인대기)로 시작, 10/20/30이 승인/반려
 --  - status를 2(활성)로 전환하는 SP는 approval_status IN (1,3)(승인불요/승인완료) AND
 --    campaign_end > NOW()(2026-07-25 추가 - 이미 사용기간이 지난 캠페인이 활성 상태로 진입하는
---    것 자체를 막음, 17_CAMPAIGN_API.md 2.5 참고)일 때만 허용한다.
+--    것 자체를 막음, 19_CAMPAIGN_API.md 2.5 참고)일 때만 허용한다.
 --    reserve 시점의 조건부 UPDATE(위 동시성 절)는 status=2만 체크하면 되고 approval_status를
 --    매번 다시 검사할 필요는 없다 — 애초에 미승인 캠페인은 status=2에 도달할 수 없기 때문.
 --  변경 이력(누가 언제 승인/반려했는지)은 log_coupon_campaign에 append-only로 별도 기록한다.
@@ -281,7 +281,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 --  값을 요청에 그대로 실어 보낸다 — SP는 WHERE절에 `edit_count = 받아온 값`을 조건으로 걸어,
 --  그 사이 이 행을 건드린 SP가 하나라도 있었다면(어떤 필드가 바뀌었든) 정확히 감지해 30005
 --  (동시 수정 충돌)로 거부한다. MySQL의 행 단위 락이 UPDATE 간 순서를 직렬화해주므로 두 요청이
---  아무리 가깝게 들어와도 이 값 하나로 충돌을 확실하게 잡을 수 있다(17_CAMPAIGN_API.md 2.4
+--  아무리 가깝게 들어와도 이 값 하나로 충돌을 확실하게 잡을 수 있다(19_CAMPAIGN_API.md 2.4
 --  Concurrency 참고).
 -- 사용기간 만료 자동 종료 (SP_CAMPAIGN_EXPIRE, 2026-07-25 추가)
 --  status=2(활성) AND approval_status IN(1,3) AND campaign_end<=NOW()인 캠페인을 배치
@@ -291,7 +291,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 --  아니다 — 관리자가 나중에 쓰려고 일부러 활성화하지 않은 캠페인까지 건드리지 않는다.
 --  updated_by는 NULL로 남기지만(이 컬럼은 원래 nullable), log_coupon_campaign.created_by는
 --  NOT NULL이라 배치는 created_by=0/created_by_name='SYSTEM' sentinel로 기록한다(사람이 아닌
---  시스템이 한 액션이라는 뜻, 02_DEV_CONVENTIONS.md 4.2). 상세는 17_CAMPAIGN_API.md 5장,
+--  시스템이 한 액션이라는 뜻, 04_DEV_CONVENTIONS.md 4.2). 상세는 19_CAMPAIGN_API.md 5장,
 --  SP_CAMPAIGN_EXPIRE 헤더 주석 참고. 이 조건에 맞는 후보를 빠르게 찾기 위해
 --  ix_status_campaign_end(status, campaign_end) 인덱스를 함께 추가했다.
 -- ------------------------------------------------------------------------------------------------------------ --

@@ -18,7 +18,7 @@ function stringifyForLog(value: unknown): string {
 }
 
 /**
- * 모든 HTTP 요청/응답을 REQ/RES로 구분해 상세 기록한다(02_DEV_CONVENTIONS.md 1.1) —
+ * 모든 HTTP 요청/응답을 REQ/RES로 구분해 상세 기록한다(04_DEV_CONVENTIONS.md 1.1) —
  * 기존에는 500 이상 오류만 `METHOD URL -> STATUS`로 남았고 요청/응답 바디는 전혀 남지 않았다.
  * 민감정보(비밀번호/토큰/API Secret 등)는 `maskSensitiveData`로 마스킹한 뒤 남긴다.
  *

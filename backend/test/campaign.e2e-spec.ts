@@ -14,7 +14,7 @@ import { createE2eApp } from './utils/test-app';
 
 const PROJECT_ID = 2; // DEV_PROJECT — mgr(MANAGER)/op(OPERATOR) 둘 다 여기 배정돼 있다.
 
-/** 17_CAMPAIGN_API.md 2.1 요청 바디 공통 부분 — 이름만 바꿔 여러 캠페인을 만든다. */
+/** 19_CAMPAIGN_API.md 2.1 요청 바디 공통 부분 — 이름만 바꿔 여러 캠페인을 만든다. */
 function createCampaignPayload(name: string) {
   return {
     project_id: PROJECT_ID,
@@ -28,7 +28,7 @@ function createCampaignPayload(name: string) {
 }
 
 /**
- * 17_CAMPAIGN_API.md 2장(CRUD+상태변경+승인워크플로우) + 4장(사용이력/변경이력 조회) E2E.
+ * 19_CAMPAIGN_API.md 2장(CRUD+상태변경+승인워크플로우) + 4장(사용이력/변경이력 조회) E2E.
  * 코드발급(3장, RANDOM 비동기/FIXED 동기/재시도/중단)은 별도 `campaign-code.e2e-spec.ts`에서
  * 다룬다(백엔드가 `CampaignService`/`CampaignCodeService`로 분리돼 있는 것과 동일한 경계).
  *
@@ -38,7 +38,7 @@ function createCampaignPayload(name: string) {
  *
  * @author trisakion
  */
-describe('Campaign E2E (17_CAMPAIGN_API.md 2/4장)', () => {
+describe('Campaign E2E (19_CAMPAIGN_API.md 2/4장)', () => {
   let app: INestApplication;
   let mgrAccessToken: string;
   let opAccessToken: string;

@@ -4,7 +4,7 @@ import { IsIn, IsOptional } from 'class-validator';
 import { PaginationQueryDto } from '../../common/response/pagination';
 
 /**
- * GET /companies 쿼리 파라미터. 10_COMPANY_API.md 2.2 — status는 선택, 미지정 시 전체 조회.
+ * GET /companies 쿼리 파라미터. 12_COMPANY_API.md 2.2 — status는 선택, 미지정 시 전체 조회.
  *
  * @author trisakion
  */

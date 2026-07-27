@@ -6,7 +6,7 @@ CREATE PROCEDURE `SP_CAMPAIGN_CODE_LIST` (
     IN i_page_size          INT,              -- 페이지당 행 수
     IN i_offset             INT,              -- 시작 오프셋
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인별 쿠폰 코드 목록 조회 - 페이지네이션 (17_CAMPAIGN_API.md 3.3)'
+) COMMENT '캠페인별 쿠폰 코드 목록 조회 - 페이지네이션 (19_CAMPAIGN_API.md 3.3)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_LIST
@@ -15,7 +15,7 @@ BEGIN
     --        처리한다. 조회 전용이라 approval_status/generation_status와 무관하게 캠페인 접근
     --        권한만 있으면 볼 수 있다(SP_CAMPAIGN_GET_BY_ID와 동일한 권한 범위). total_count는
     --        SP_CAMPAIGN_LIST와 동일하게 COUNT(*) OVER()가 아니라 별도 서브쿼리 + LEFT JOIN ...
-    --        ON TRUE 패턴(02_DEV_CONVENTIONS.md 3.6). FIXED는 항상 최대 1건이라 정렬 기준이 중요치
+    --        ON TRUE 패턴(04_DEV_CONVENTIONS.md 3.6). FIXED는 항상 최대 1건이라 정렬 기준이 중요치
     --        않지만, RANDOM 대량조회 편의를 위해 coupon_code_id 오름차순(생성순)으로 고정한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';

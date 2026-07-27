@@ -2,12 +2,12 @@ DROP PROCEDURE IF EXISTS `SP_PROJECT_API_SECRET_CLEANUP`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_API_SECRET_CLEANUP` (
     IN i_grace_period_days INT UNSIGNED  -- 유예기간(일) — API_SECRET_GRACE_PERIOD_DAYS
-) COMMENT '유예기간 지난 api_secret_prev 정리 배치 (07_AUTH_SECURITY.md 2.6)'
+) COMMENT '유예기간 지난 api_secret_prev 정리 배치 (09_AUTH_SECURITY.md 2.6)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_API_SECRET_CLEANUP
     -- 작성 : 2026.07.19 trisakion
-    -- 내용 : Secret Rotation Grace Period 방식(07_AUTH_SECURITY.md 2.6)의 정리 배치.
+    -- 내용 : Secret Rotation Grace Period 방식(09_AUTH_SECURITY.md 2.6)의 정리 배치.
     --        secret_rotated_at + i_grace_period_days가 지난 행의 api_secret_prev를 NULL
     --        처리한다 — 그 이후에는 이전 Secret으로 서명해도 더 이상 통과시키지 않는다
     --        (S2sAuthGuard.verifySignature가 api_secret_prev가 NULL이면 아예 후보에서 제외).

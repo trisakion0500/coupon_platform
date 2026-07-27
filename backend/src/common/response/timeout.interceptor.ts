@@ -15,7 +15,7 @@ import { BusinessException } from './business.exception';
 import { ResultCode } from './result-code.enum';
 
 /**
- * `API_EXECUTION_TIMEOUT_MS`(02_DEV_CONVENTIONS.md 1.2) 안에 컨트롤러 핸들러가 응답을
+ * `API_EXECUTION_TIMEOUT_MS`(04_DEV_CONVENTIONS.md 1.2) 안에 컨트롤러 핸들러가 응답을
  * 만들지 못하면 408로 끊는다. RxJS timeout()은 구독만 취소할 뿐 이미 던져진 SP 호출(mysql2
  * 쿼리) 자체를 취소하지 못한다 — 타임아웃 이후에도 DB 쪽 작업은 계속 진행돼 커밋될 수 있다는
  * 뜻이라, reserve처럼 상태를 바꾸는 API는 기존 멱등성(use_limit_per_user 체크 등)에 기대어

@@ -27,7 +27,7 @@ interface CompanyForm {
   status: boolean;
 }
 
-/** SCR-012. 10_COMPANY_API.md 2.3/2.4. */
+/** SCR-012. 12_COMPANY_API.md 2.3/2.4. */
 export function CompanyDetailPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();

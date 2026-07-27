@@ -1,4 +1,4 @@
-/** 08_API_COMMON.md — 프로젝트 단위 토큰버킷 요청제한 초과. */
+/** 10_API_COMMON.md — 프로젝트 단위 토큰버킷 요청제한 초과. */
 export const RATE_LIMIT_EXCEEDED_RESULT_CODE = 40001;
 
 /**

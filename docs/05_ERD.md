@@ -1,4 +1,4 @@
-# 03_ERD.md
+# 05_ERD.md
 
 ## Coupon Platform Entity Relationship Diagram
 
@@ -168,7 +168,7 @@ erDiagram
         BIGINT      coupon_campaign_id  "FK없음, NULL허용"
         VARCHAR50   code_value          "FK아님, 존재하지 않는 코드도 기록"
         VARCHAR100  game_user_id        "FK없음"
-        TINYINT     result_type         "0:성공, 그외:실패사유(18_COUPON_USAGE_API.md 4장 매핑)"
+        TINYINT     result_type         "0:성공, 그외:실패사유(20_COUPON_USAGE_API.md 4장 매핑)"
         VARCHAR45   caller_ip           "NULL허용, 인증목적아님(보조신호)"
         DATETIME    created_at
     }
@@ -203,7 +203,7 @@ erDiagram
 | 테이블 | 컬럼 | 이유 |
 |--------|------|------|
 | `user_session` | `user_id` | MySQL → Redis 저장소 전환 시 인증 로직 수정 없이 확장 가능하도록 설계 |
-| `log_audit` | 전체 (`company_id`/`project_id`/`created_by` 포함) | Append-Only 로그 테이블 원칙 — FK 없음. 실 운영 환경에서 메인 서비스 DB와 별도인 VM/DB에 둔다는 확정 전제([02_DEV_CONVENTIONS.md](./02_DEV_CONVENTIONS.md) 1장 참고) |
+| `log_audit` | 전체 (`company_id`/`project_id`/`created_by` 포함) | Append-Only 로그 테이블 원칙 — FK 없음. 실 운영 환경에서 메인 서비스 DB와 별도인 VM/DB에 둔다는 확정 전제([04_DEV_CONVENTIONS.md](./04_DEV_CONVENTIONS.md) 1장 참고) |
 | `log_coupon_campaign` | 전체 (`coupon_campaign_id`/`project_id`/`created_by` 포함) | 위와 동일한 로그 원칙 — 원본 스냅샷이라 원본 삭제/변경과 무관하게 값 보존 필요 |
 | `log_coupon_use` | 전체 (`project_id`/`coupon_campaign_id`/`created_by` 포함) | 위와 동일. `code_value`도 FK 아님 — 존재하지 않는 코드로 시도한 요청도 그대로 기록해야 하므로 |
 
@@ -235,4 +235,4 @@ erDiagram
 | coupon_code | status | 0:중지 / 1:미사용(RANDOM)·사용중(FIXED) / 2:사용완료(RANDOM 전용) |
 | log_coupon_campaign | action | 10:CREATE / 20:UPDATE / 30:STATUS_CHANGE / 40:APPROVE / 50:REJECT |
 | log_coupon_use | action | 10:RESERVE / 20:CONFIRM |
-| log_coupon_use | result_type | 0:성공 / 10:코드없음 / 20:이미소모·중지 / 30:캠페인 사용불가 / 40:사용자한도초과 / 50:소모기록없음(CONFIRM 전용) — API result 코드 매핑은 [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md) 4장 참고 |
+| log_coupon_use | result_type | 0:성공 / 10:코드없음 / 20:이미소모·중지 / 30:캠페인 사용불가 / 40:사용자한도초과 / 50:소모기록없음(CONFIRM 전용) — API result 코드 매핑은 [20_COUPON_USAGE_API.md](./20_COUPON_USAGE_API.md) 4장 참고 |

@@ -1,6 +1,6 @@
 -- ------------------------------------------------------------------------------------------------------------ --
 -- 로그 전용 DB(coupon_platform_log) 통합 Procedure 파일. 메인 DB(coupon_platform) 대상 Procedure는
--- database/procedures/all_procedures.sql에 별도로 있다(02_DEV_CONVENTIONS.md 3.1) —
+-- database/procedures/all_procedures.sql에 별도로 있다(04_DEV_CONVENTIONS.md 3.1) —
 -- LogSpExecutorService(로그 DB 전용 커넥션 풀)만 이 파일의 SP를 호출한다.
 -- ------------------------------------------------------------------------------------------------------------ --
 DROP PROCEDURE IF EXISTS `SP_LOG_AUDIT_CREATE`;
@@ -16,14 +16,14 @@ CREATE PROCEDURE `SP_LOG_AUDIT_CREATE` (
     IN i_after_json      LONGTEXT,          -- 변경 후 전체 Row JSON
     IN i_created_by      BIGINT UNSIGNED,   -- 작업 수행자 user_id
     IN i_created_by_name VARCHAR(50)        -- 작업 수행자명 스냅샷
-) COMMENT '감사 로그 적재 (Append-Only, 13_LOG_AUDIT_API.md 2장)'
+) COMMENT '감사 로그 적재 (Append-Only, 15_LOG_AUDIT_API.md 2장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_LOG_AUDIT_CREATE
     -- 작성 : 2026.07.20 trisakion
     -- 내용 : log_audit 단순 INSERT. 이 SP는 로그 DB(coupon_platform_log)에서만 실행되며,
     --        메인 DB(coupon_platform)와 물리적으로 분리돼 있어 메인 SP가 직접 호출할 수 없다
-    --        (02_DEV_CONVENTIONS.md 1장) — 그래서 before_json/after_json/requester_name은
+    --        (04_DEV_CONVENTIONS.md 1장) — 그래서 before_json/after_json/requester_name은
     --        메인 도메인 SP(SP_COMPANY_UPDATE 등)가 이미 계산해 반환한 값을 TS
     --        (LogSpExecutorService.logCall)가 그대로 전달하기만 한다. 권한 검증이 없다 —
     --        외부(HTTP)에 직접 노출되지 않는 백엔드 내부 인프라 호출 전용이고, 호출 시점엔
@@ -60,12 +60,12 @@ DROP PROCEDURE IF EXISTS `SP_LOG_AUDIT_GET_BY_ID`;
 DELIMITER $$
 CREATE PROCEDURE `SP_LOG_AUDIT_GET_BY_ID` (
     IN i_idx BIGINT UNSIGNED   -- 조회할 감사 로그 ID
-) COMMENT '감사 로그 상세 조회 (13_LOG_AUDIT_API.md 6장)'
+) COMMENT '감사 로그 상세 조회 (15_LOG_AUDIT_API.md 6장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_LOG_AUDIT_GET_BY_ID
     -- 작성 : 2026.07.22 trisakion
-    -- 내용 : idx 단건 조회, 존재하지 않으면 31008(신규 result 코드, 08_API_COMMON.md 동기화).
+    -- 내용 : idx 단건 조회, 존재하지 않으면 31008(신규 result 코드, 10_API_COMMON.md 동기화).
     --        SP_LOG_AUDIT_LIST와 동일한 이유로 이 SP 자체는 호출자 권한을 재검증하지 않는다
     --        (로그 DB가 메인 DB의 user/user_role에 물리적으로 접근 불가) - 앱 레이어
     --        (LogAuditService)가 SUPER_ADMIN이 아니면 조회된 행의 company_id가 호출자 소속과
@@ -114,17 +114,17 @@ CREATE PROCEDURE `SP_LOG_AUDIT_LIST` (
     IN i_page_size       INT,               -- 페이지당 행 수
     IN i_offset          INT,               -- 시작 오프셋
     IN i_developer_project_ids VARCHAR(4000) -- DEVELOPER의 project/user_role 로그 추가 스코핑용 콤마 목록(NULL=제한없음, SUPER_ADMIN 전용)
-) COMMENT '감사 로그 목록 조회 - 페이지네이션 (13_LOG_AUDIT_API.md 5장)'
+) COMMENT '감사 로그 목록 조회 - 페이지네이션 (15_LOG_AUDIT_API.md 5장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_LOG_AUDIT_LIST
     -- 작성 : 2026.07.22 trisakion
-    -- 내용 : log_audit를 created_at DESC로 정렬해 페이지 단위로 반환한다(13_LOG_AUDIT_API.md 5장
+    -- 내용 : log_audit를 created_at DESC로 정렬해 페이지 단위로 반환한다(15_LOG_AUDIT_API.md 5장
     --        Sorting). 이 SP는 로그 DB(coupon_platform_log)에서 실행되며 메인 DB의 user/user_role
-    --        테이블에 접근할 수 없다(02_DEV_CONVENTIONS.md 1장, 물리 분리) - 그래서 이 프로젝트의
+    --        테이블에 접근할 수 없다(04_DEV_CONVENTIONS.md 1장, 물리 분리) - 그래서 이 프로젝트의
     --        일반 원칙("SP가 FN_IS_SUPER_ADMIN 등으로 호출자 권한을 스스로 재검증")을 여기서는
     --        적용할 수 없다. 권한 판단(SUPER_ADMIN 전체조회/DEVELOPER는 본인 소속 company_id로
-    --        고정 스코핑, 13_LOG_AUDIT_API.md 3장)은 전부 앱 레이어(LogAuditService)가 담당하고,
+    --        고정 스코핑, 15_LOG_AUDIT_API.md 3장)은 전부 앱 레이어(LogAuditService)가 담당하고,
     --        i_company_id는 이미 스코핑이 끝난 값을 그대로 받는다 - SP_LOG_AUDIT_CREATE가 같은
     --        이유(로그 DB는 인프라 호출 전용, 메인 SP가 권한 검증을 이미 끝낸 뒤 호출)로 권한
     --        검증 자체를 아예 두지 않는 것과 같은 물리적 제약이다.
@@ -139,8 +139,8 @@ BEGIN
     --        타이밍에 의존하지 않고 항상 정확한 최신순이 보장된다.
     --        i_developer_project_ids(2026-07-24 추가): DEVELOPER의 project/user_role 테이블
     --        로그 조회 범위를 "본인 소속 회사 전체"에서 "실제 role_code<=20으로 배정된 프로젝트"로
-    --        좁히기 위한 필터(13_LOG_AUDIT_API.md 3장) - 프로젝트 관리메뉴 스코핑을 회사 단위에서
-    --        배정 프로젝트 단위로 좁힌 것(02_DEV_CONVENTIONS.md 3.2)과 같은 방향이다. company/user
+    --        좁히기 위한 필터(15_LOG_AUDIT_API.md 3장) - 프로젝트 관리메뉴 스코핑을 회사 단위에서
+    --        배정 프로젝트 단위로 좁힌 것(04_DEV_CONVENTIONS.md 3.2)과 같은 방향이다. company/user
     --        테이블 로그는 이 필터의 영향을 받지 않는다(회사 단위 스코핑 그대로 유지) - 두 테이블은
     --        프로젝트 단위 정보가 없거나(company) 간접적이라(user) 같은 기준으로 좁힐 근거가 없다고
     --        판단했다. 앱 레이어(LogAuditService)가 SP_USER_ROLE_LIST_DEVELOPER_PROJECT_IDS(메인
@@ -228,24 +228,24 @@ CREATE PROCEDURE `SP_LOG_COUPON_CAMPAIGN_CREATE` (
     IN i_reward_data         JSON,             -- 보상 내용 (스냅샷)
     IN i_created_by          BIGINT UNSIGNED,  -- 이 로그 행(액션)을 수행한 사용자 ID
     IN i_created_by_name     VARCHAR(50)       -- 이 로그 행(액션)을 수행한 사용자명 스냅샷
-) COMMENT '쿠폰 캠페인 변경 이력 적재 (Append-Only, 04_DATABASE_SCHEMA.md 10장)'
+) COMMENT '쿠폰 캠페인 변경 이력 적재 (Append-Only, 06_DATABASE_SCHEMA.md 10장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_LOG_COUPON_CAMPAIGN_CREATE
     -- 작성 : 2026.07.20 trisakion
     -- 내용 : log_coupon_campaign 단순 INSERT. 이 SP는 로그 DB(coupon_platform_log)에서만
     --        실행되며, 메인 DB(coupon_platform)와 물리적으로 분리돼 있어 메인 도메인 SP
-    --        (SP_CAMPAIGN_CREATE 등)가 직접 호출할 수 없다(02_DEV_CONVENTIONS.md 1장) - 그래서
+    --        (SP_CAMPAIGN_CREATE 등)가 직접 호출할 수 없다(04_DEV_CONVENTIONS.md 1장) - 그래서
     --        메인 도메인 SP가 반환한 캠페인 행 전체를 TS(LogSpExecutorService.logCall)가 그대로
     --        전달하기만 한다. log_audit(SP_LOG_AUDIT_CREATE)와 달리 before_json/after_json
     --        JSON 스냅샷 방식이 아니라 coupon_campaign 컬럼을 그대로 복제하는 구조라
-    --        (04_DATABASE_SCHEMA.md 10장 - 타입 보존, JSON 파싱 없이 특정 시점 특정 컬럼 값을
+    --        (06_DATABASE_SCHEMA.md 10장 - 타입 보존, JSON 파싱 없이 특정 시점 특정 컬럼 값을
     --        바로 조회 가능) before 상태 캡처 자체가 필요 없다 - 매 액션마다 "그 시점의 최종
     --        상태" 한 장만 남기면 된다.
-    -- 수정1: 2026.07.22 trisakion — created_by_name 파라미터/컬럼 추가(17_CAMPAIGN_API.md 4.2
+    -- 수정1: 2026.07.22 trisakion — created_by_name 파라미터/컬럼 추가(19_CAMPAIGN_API.md 4.2
     --        GET /campaigns/{id}/logs 조회 API 설계 중 소급 반영). 최초 설계 시엔 "필요 시
     --        created_by(user_id)로 조회 시점에 조인하면 된다"고 이 스냅샷 없이 시작했으나, 이
-    --        로그는 메인 DB와 물리 분리된 로그 DB에 있어 애초에 조인이 불가능하다(02_DEV_CONVENTIONS.md
+    --        로그는 메인 DB와 물리 분리된 로그 DB에 있어 애초에 조인이 불가능하다(04_DEV_CONVENTIONS.md
     --        1장, log_audit이 처음부터 created_by_name을 둔 것과 동일 제약 — 잘못된 전제였음).
     --        메인 도메인 SP(SP_CAMPAIGN_CREATE 등, 수정1)가 user 테이블에서 직접 조회해 반환하는
     --        requester_name을 TS가 그대로 이 파라미터로 전달한다.
@@ -253,7 +253,7 @@ BEGIN
     --        호출 시점엔 이미 메인 도메인 SP의 권한 검증이 끝난 뒤이기 때문이다. 로그 적재 실패가
     --        메인 트랜잭션에 영향을 주면 안 되므로(LogSpExecutorService.logCall이 예외를 잡아
     --        삼킨다) 이 SP 자체는 RESULT=0/50001만 있으면 충분하고, 데이터 반환용 두 번째
-    --        SELECT는 필요 없다(02_DEV_CONVENTIONS.md 3.4 예외 - SP_LOG_AUDIT_CREATE와 동일).
+    --        SELECT는 필요 없다(04_DEV_CONVENTIONS.md 3.4 예외 - SP_LOG_AUDIT_CREATE와 동일).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -290,21 +290,21 @@ CREATE PROCEDURE `SP_LOG_COUPON_CAMPAIGN_LIST` (
     IN i_action             TINYINT UNSIGNED, -- 작업유형 필터(NULL이면 전체, 10:CREATE/20:UPDATE/30:STATUS_CHANGE/40:APPROVE/50:REJECT)
     IN i_page_size          INT,              -- 페이지당 행 수
     IN i_offset             INT               -- 시작 오프셋
-) COMMENT '캠페인 변경 이력 목록 조회 - coupon_campaign_id 필수, 페이지네이션 (17_CAMPAIGN_API.md 4.2)'
+) COMMENT '캠페인 변경 이력 목록 조회 - coupon_campaign_id 필수, 페이지네이션 (19_CAMPAIGN_API.md 4.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_LOG_COUPON_CAMPAIGN_LIST
     -- 작성 : 2026.07.22 trisakion
     -- 내용 : log_coupon_campaign을 coupon_campaign_id로 필터링해 created_at DESC로 정렬 후 페이지
     --        단위로 반환한다. 이 SP는 로그 DB(coupon_platform_log)에서 실행되며 메인 DB의
-    --        coupon_campaign/user/user_role 테이블에 접근할 수 없다(02_DEV_CONVENTIONS.md 1장,
+    --        coupon_campaign/user/user_role 테이블에 접근할 수 없다(04_DEV_CONVENTIONS.md 1장,
     --        물리 분리) - 그래서 이 프로젝트의 일반 원칙("SP가 FN_CHECK_PROJECT_ACCESS 등으로
     --        호출자 권한을 스스로 재검증")을 여기서는 적용할 수 없다(SP_LOG_AUDIT_LIST와 동일한
-    --        구조적 제약, 02_DEV_CONVENTIONS.md 3.2 예외 참고). 캠페인 존재확인(31004)+프로젝트
+    --        구조적 제약, 04_DEV_CONVENTIONS.md 3.2 예외 참고). 캠페인 존재확인(31004)+프로젝트
     --        스코핑(20001) 재검증은 앱(TS) 레이어가 이 SP 호출 전에 메인 DB에서 먼저 수행한다
     --        (CampaignService가 이미 갖고 있는 존재확인+스코핑 체크 재사용, SP_CAMPAIGN_GET_BY_ID와
     --        동일 로직) - "메인 DB 접근권한 확인 → 로그 DB 목록 조회" 2단계 패턴
-    --        (02_DEV_CONVENTIONS.md 3.2 신규 예외 항목 참고).
+    --        (04_DEV_CONVENTIONS.md 3.2 신규 예외 항목 참고).
     --        total_count는 다른 목록 SP와 동일하게 COUNT(*) OVER()가 아니라 별도 서브쿼리 +
     --        LEFT JOIN ... ON TRUE 패턴으로 반환한다(offset이 범위를 벗어나 0행이 반환돼도
     --        total_count가 0으로 사라지지 않도록).
@@ -314,7 +314,7 @@ BEGIN
     --        2단 키로 작성).
     --        응답 컬럼은 log_coupon_campaign 전체(coupon_campaign 컬럼 스냅샷 + action +
     --        created_by/created_by_name/created_at) 그대로다 - before/after 비교(diff)는 이 SP가
-    --        하지 않고 프론트엔드가 인접한 두 행을 비교해 표시한다(17_CAMPAIGN_API.md 4.2).
+    --        하지 않고 프론트엔드가 인접한 두 행을 비교해 표시한다(19_CAMPAIGN_API.md 4.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -368,22 +368,22 @@ CREATE PROCEDURE `SP_LOG_COUPON_USE_CREATE` (
     IN i_game_user_id        VARCHAR(100),     -- 게임서버 유저 식별자
     IN i_result_type         TINYINT UNSIGNED, -- 처리 결과 (0:성공,10:코드없음,20:이미소모/중지,30:캠페인사용불가,40:사용자한도초과,50:소모기록없음)
     IN i_caller_ip           VARCHAR(45)       -- 호출한 게임서버의 IP(IPv6 포함, NULL 가능) — 인증 목적 아님, 이상징후 탐지/장애조사 보조용
-) COMMENT '쿠폰 사용(reserve/confirm) 시도 이력 적재 (Append-Only, 18_COUPON_USAGE_API.md 1.5/4장)'
+) COMMENT '쿠폰 사용(reserve/confirm) 시도 이력 적재 (Append-Only, 20_COUPON_USAGE_API.md 1.5/4장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_LOG_COUPON_USE_CREATE
     -- 작성 : 2026.07.22 trisakion
     -- 내용 : log_coupon_use 단순 INSERT. SP_LOG_COUPON_CAMPAIGN_CREATE와 동일하게 로그 DB
     --        (coupon_platform_log)에서만 실행되며, 메인 도메인 SP(SP_COUPON_RESERVE/CONFIRM)가
-    --        직접 호출할 수 없어(02_DEV_CONVENTIONS.md 1장 - 물리적으로 분리된 별도 DB) TS
+    --        직접 호출할 수 없어(04_DEV_CONVENTIONS.md 1장 - 물리적으로 분리된 별도 DB) TS
     --        서비스(CouponUsageService)가 메인 SP 호출 결과를 보고 성공/실패 여부와 무관하게
-    --        매 호출마다 이 SP를 fire-and-forget으로 호출한다(18_COUPON_USAGE_API.md 1.5).
+    --        매 호출마다 이 SP를 fire-and-forget으로 호출한다(20_COUPON_USAGE_API.md 1.5).
     --        log_coupon_campaign과 달리 성공한 소모 건의 스냅샷이 아니라 "시도 자체"의 기록이라
     --        RESERVE/CONFIRM 요청 바디 값(project_id/code_value/game_user_id)과 결과
     --        (result_type)만 담는다 - 실패 시엔 관련 도메인 행 자체가 없거나(코드없음) 바뀌지
     --        않으므로(다른 실패) 스냅샷 개념이 성립하지 않는다. 권한 검증 없음 - 외부(HTTP)에
     --        직접 노출되지 않는 백엔드 내부 인프라 호출 전용(SP_LOG_COUPON_CAMPAIGN_CREATE와
-    --        동일한 이유). 데이터 반환용 두 번째 SELECT는 필요 없다(02_DEV_CONVENTIONS.md 3.4
+    --        동일한 이유). 데이터 반환용 두 번째 SELECT는 필요 없다(04_DEV_CONVENTIONS.md 3.4
     --        예외 - SP_LOG_AUDIT_CREATE와 동일).
     -- 수정1: 2026.07.23 trisakion — caller_ip 컬럼 추가에 맞춰 i_caller_ip 파라미터를 받아 그대로
     --        INSERT한다. TS(CouponUsageController)가 Express req.ip(main.ts trust proxy=1
@@ -418,31 +418,31 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_LOG_COUPON_USE_LIST`;
 DELIMITER $$
 CREATE PROCEDURE `SP_LOG_COUPON_USE_LIST` (
-    IN i_project_id         BIGINT UNSIGNED,   -- 필수 - 스코핑 기준(17_CAMPAIGN_API.md 4.3, 회사 단위 조회 예외 없음)
+    IN i_project_id         BIGINT UNSIGNED,   -- 필수 - 스코핑 기준(19_CAMPAIGN_API.md 4.3, 회사 단위 조회 예외 없음)
     IN i_coupon_campaign_id BIGINT UNSIGNED,   -- 선택 - 특정 캠페인으로 좁힘(NULL이면 프로젝트 전체, 코드 자체가 없는 시도(campaign_id NULL 행) 포함)
     IN i_game_user_id       VARCHAR(100),      -- 선택 필터
     IN i_code_value         VARCHAR(50),       -- 선택 필터
     IN i_action             TINYINT UNSIGNED,  -- 선택 필터 (10:RESERVE, 20:CONFIRM)
-    IN i_result_type        TINYINT UNSIGNED,  -- 선택 필터 (04_DATABASE_SCHEMA.md 11장)
+    IN i_result_type        TINYINT UNSIGNED,  -- 선택 필터 (06_DATABASE_SCHEMA.md 11장)
     IN i_from_created_at    DATETIME,          -- 조회 시작일시(NULL이면 하한 없음)
     IN i_to_created_at      DATETIME,          -- 조회 종료일시(NULL이면 상한 없음)
     IN i_page_size          INT,               -- 페이지당 행 수
     IN i_offset             INT                -- 시작 오프셋
-) COMMENT '쿠폰 사용 시도 로그 목록 조회 - project_id 필수, 페이지네이션 (17_CAMPAIGN_API.md 4.3)'
+) COMMENT '쿠폰 사용 시도 로그 목록 조회 - project_id 필수, 페이지네이션 (19_CAMPAIGN_API.md 4.3)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_LOG_COUPON_USE_LIST
     -- 작성 : 2026.07.22 trisakion
     -- 내용 : log_coupon_use를 project_id로 필터링해 created_at DESC로 정렬 후 페이지 단위로
     --        반환한다. 이 SP는 로그 DB(coupon_platform_log)에서 실행되며 메인 DB의
-    --        coupon_campaign/user/user_role 테이블에 접근할 수 없다(02_DEV_CONVENTIONS.md 1장,
+    --        coupon_campaign/user/user_role 테이블에 접근할 수 없다(04_DEV_CONVENTIONS.md 1장,
     --        물리 분리) - SP_LOG_AUDIT_LIST/SP_LOG_COUPON_CAMPAIGN_LIST와 동일한 구조적 제약으로
-    --        이 SP는 권한 재검증을 하지 않는다(02_DEV_CONVENTIONS.md 3.2 예외). project_id
+    --        이 SP는 권한 재검증을 하지 않는다(04_DEV_CONVENTIONS.md 3.2 예외). project_id
     --        접근권한 확인은 앱(TS) 레이어가 이 SP 호출 전에 신규 SP_PROJECT_CHECK_ACCESS(메인 DB)
     --        로 먼저 수행한다 - "메인 DB 접근권한 확인 → 로그 DB 목록 조회" 2단계 패턴
-    --        (02_DEV_CONVENTIONS.md 3.2). log_coupon_campaign(4.2)과 달리 이 로그는 project_id에
+    --        (04_DEV_CONVENTIONS.md 3.2). log_coupon_campaign(4.2)과 달리 이 로그는 project_id에
     --        종속되고 coupon_campaign_id에는 종속되지 않는다(NULL 허용 - 코드 자체가 존재하지
-    --        않는 시도는 캠페인을 특정할 수 없음, 04_DATABASE_SCHEMA.md 11장) - 그래서 접근권한
+    --        않는 시도는 캠페인을 특정할 수 없음, 06_DATABASE_SCHEMA.md 11장) - 그래서 접근권한
     --        확인 대상이 "특정 캠페인"이 아니라 "프로젝트"이고, 전용 체크 SP가 별도로 필요했다
     --        (SP_CAMPAIGN_LIST처럼 FN_CHECK_PROJECT_ACCESS를 SP 안에서 바로 쓸 수 있는 건
     --        coupon_campaign이 메인 DB에 있어서 가능한 것 - 이 SP는 그 전제가 성립하지 않는다).
@@ -450,7 +450,7 @@ BEGIN
     --        LEFT JOIN ... ON TRUE 패턴으로 반환한다.
     --        정렬은 SP_LOG_AUDIT_LIST/SP_LOG_COUPON_CAMPAIGN_LIST와 동일하게 `created_at DESC,
     --        idx DESC` 2단 키다(같은 초 안에 여러 시도가 겹치는 경우 순서 보장 목적).
-    --        campaign_name(응답에 필요, 17_CAMPAIGN_API.md 4.3)은 이 SP가 채우지 않는다 - 메인
+    --        campaign_name(응답에 필요, 19_CAMPAIGN_API.md 4.3)은 이 SP가 채우지 않는다 - 메인
     --        DB(coupon_campaign)와 물리 분리라 조인이 불가능해, coupon_campaign_id가 있는 행만
     --        앱(TS) 레이어가 메인 DB에서 배치 조회해 응답 조립 시 붙인다.
     -- 수정1: 2026.07.23 trisakion — log_coupon_use.caller_ip 추가에 맞춰 응답에 caller_ip를

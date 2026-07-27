@@ -20,13 +20,13 @@ import type {
   CampaignUsage,
 } from '@/types/campaign';
 
-/** 17_CAMPAIGN_API.md 2.1. */
+/** 19_CAMPAIGN_API.md 2.1. */
 export async function createCampaign(dto: CreateCampaignRequest): Promise<Campaign> {
   const { data } = await apiClient.post<ApiEnvelope<Campaign>>('/campaigns', dto);
   return data.data;
 }
 
-/** 17_CAMPAIGN_API.md 2.2. */
+/** 19_CAMPAIGN_API.md 2.2. */
 export async function listCampaigns(
   query: CampaignListQuery,
 ): Promise<PaginatedResult<CampaignListItem>> {
@@ -37,7 +37,7 @@ export async function listCampaigns(
   return data.data;
 }
 
-/** 17_CAMPAIGN_API.md 2.3. */
+/** 19_CAMPAIGN_API.md 2.3. */
 export async function getCampaign(campaignId: number): Promise<Campaign> {
   const { data } = await apiClient.get<ApiEnvelope<Campaign>>(
     `/campaigns/${campaignId}`,
@@ -45,7 +45,7 @@ export async function getCampaign(campaignId: number): Promise<Campaign> {
   return data.data;
 }
 
-/** 17_CAMPAIGN_API.md 2.4 — edit_count 낙관적 락 필수. */
+/** 19_CAMPAIGN_API.md 2.4 — edit_count 낙관적 락 필수. */
 export async function updateCampaign(
   campaignId: number,
   dto: UpdateCampaignRequest,
@@ -57,7 +57,7 @@ export async function updateCampaign(
   return data.data;
 }
 
-/** 17_CAMPAIGN_API.md 2.5 — edit_count 낙관적 락 필수. */
+/** 19_CAMPAIGN_API.md 2.5 — edit_count 낙관적 락 필수. */
 export async function changeCampaignStatus(
   campaignId: number,
   dto: ChangeCampaignStatusRequest,
@@ -69,7 +69,7 @@ export async function changeCampaignStatus(
   return data.data;
 }
 
-/** 17_CAMPAIGN_API.md 2.6 — SUPER_ADMIN/DEVELOPER/MANAGER만(OPERATOR 승인 불가). */
+/** 19_CAMPAIGN_API.md 2.6 — SUPER_ADMIN/DEVELOPER/MANAGER만(OPERATOR 승인 불가). */
 export async function approveCampaign(
   campaignId: number,
   dto: ApproveCampaignRequest,
@@ -81,7 +81,7 @@ export async function approveCampaign(
   return data.data;
 }
 
-/** 17_CAMPAIGN_API.md 2.7 — SUPER_ADMIN/DEVELOPER/MANAGER만. */
+/** 19_CAMPAIGN_API.md 2.7 — SUPER_ADMIN/DEVELOPER/MANAGER만. */
 export async function rejectCampaign(
   campaignId: number,
   dto: RejectCampaignRequest,
@@ -93,7 +93,7 @@ export async function rejectCampaign(
   return data.data;
 }
 
-/** 17_CAMPAIGN_API.md 3.1 — RANDOM은 body 없이 호출(백엔드가 202로 응답), FIXED는 code_value 필수. */
+/** 19_CAMPAIGN_API.md 3.1 — RANDOM은 body 없이 호출(백엔드가 202로 응답), FIXED는 code_value 필수. */
 export async function issueCodes(
   campaignId: number,
   dto?: IssueCodesRequest,
@@ -105,7 +105,7 @@ export async function issueCodes(
   return data.data;
 }
 
-/** 17_CAMPAIGN_API.md 3.2 — generation_status=4(실패)일 때만 허용. */
+/** 19_CAMPAIGN_API.md 3.2 — generation_status=4(실패)일 때만 허용. */
 export async function retryCodeIssuance(
   campaignId: number,
 ): Promise<CodeJobStatusResult> {
@@ -115,7 +115,7 @@ export async function retryCodeIssuance(
   return data.data;
 }
 
-/** 17_CAMPAIGN_API.md 3.4 — SUPER_ADMIN/DEVELOPER/MANAGER만(OPERATOR 불가), 정체 판정 미충족 시 30004. */
+/** 19_CAMPAIGN_API.md 3.4 — SUPER_ADMIN/DEVELOPER/MANAGER만(OPERATOR 불가), 정체 판정 미충족 시 30004. */
 export async function abortCodeGeneration(
   campaignId: number,
 ): Promise<CodeJobStatusResult> {
@@ -125,7 +125,7 @@ export async function abortCodeGeneration(
   return data.data;
 }
 
-/** 17_CAMPAIGN_API.md 3.3. */
+/** 19_CAMPAIGN_API.md 3.3. */
 export async function listCodes(
   campaignId: number,
   query: CodeListQuery,
@@ -137,7 +137,7 @@ export async function listCodes(
   return data.data;
 }
 
-/** 17_CAMPAIGN_API.md 4.1 — 조회 전용, 승인/종료여부 무관. */
+/** 19_CAMPAIGN_API.md 4.1 — 조회 전용, 승인/종료여부 무관. */
 export async function listUsages(
   campaignId: number,
   query: UsageListQuery,
@@ -149,7 +149,7 @@ export async function listUsages(
   return data.data;
 }
 
-/** 17_CAMPAIGN_API.md 4.2 — 조회 전용, 승인/종료여부 무관. */
+/** 19_CAMPAIGN_API.md 4.2 — 조회 전용, 승인/종료여부 무관. */
 export async function listCampaignLogs(
   campaignId: number,
   query: CampaignLogListQuery,

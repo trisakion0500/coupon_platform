@@ -1,8 +1,8 @@
-# 06_COUPON_USAGE_SCENARIO.md
+# 08_COUPON_USAGE_SCENARIO.md
 
 ## 개요
 
-본 문서는 게임서버가 쿠폰 코드를 검증·소모하는 전체 흐름(reserve → confirm)과 지급 실패 시 재시도 처리 방식을 정리한다. API 엔드포인트/result 코드 등 상세 스펙이 아니라 **흐름 자체의 설계 근거**를 다룬다 — 상세 API 스펙은 [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md)에 정리돼 있다.
+본 문서는 게임서버가 쿠폰 코드를 검증·소모하는 전체 흐름(reserve → confirm)과 지급 실패 시 재시도 처리 방식을 정리한다. API 엔드포인트/result 코드 등 상세 스펙이 아니라 **흐름 자체의 설계 근거**를 다룬다 — 상세 API 스펙은 [20_COUPON_USAGE_API.md](./20_COUPON_USAGE_API.md)에 정리돼 있다.
 
 관련 테이블: `database/tables/coupon_campaign.sql`, `coupon_code.sql`, `coupon_code_usage.sql`
 
@@ -164,7 +164,7 @@ POST /coupons/unconfirmed
 ```
 
 조회 전용 API지만 GET이 아니라 POST다(2026-07-27 변경, 파라미터가 URL 쿼리스트링에 남는 걸 피하기
-위함 — 실제 요청/응답 상세는 [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md) 3.1이 최신 기준).
+위함 — 실제 요청/응답 상세는 [20_COUPON_USAGE_API.md](./20_COUPON_USAGE_API.md) 3.1이 최신 기준).
 
 - 용도: 특정 유저 로그인 시점 등에 "이 유저가 놓친 지급이 있는지" 확인
 - `game_user_id` 필수, `campaign_id` 선택 필터
@@ -232,4 +232,4 @@ created_at            소모(reserve) 확정 일시
 # 5. 관련 문서
 
 - 테이블 DDL: `database/tables/coupon_campaign.sql`, `coupon_code.sql`, `coupon_code_usage.sql`
-- S2S 인증(게임서버 → 쿠폰서버) 정책: [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2장 — HMAC-SHA256 요청 서명 + Timestamp/Nonce 재전송 방지, grace period rotation까지 확정·구현 완료
+- S2S 인증(게임서버 → 쿠폰서버) 정책: [09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 2장 — HMAC-SHA256 요청 서명 + Timestamp/Nonce 재전송 방지, grace period rotation까지 확정·구현 완료

@@ -8,7 +8,7 @@ import { ScenarioContext, ScenarioRunResult } from './types';
 /**
  * 6.5 에러 케이스 — 존재하지 않는 코드로 reserve(31005), reserve 이력 없이 confirm(31006),
  * game_user_id 필드 자체가 누락된 요청(30001)을 검증한다. 마지막 케이스는
- * `CouponS2sClient`(입점사에 그대로 제공하는 SDK, docs/20_TEST_GAME_SERVER.md 9장)가 항상
+ * `CouponS2sClient`(입점사에 그대로 제공하는 SDK, docs/21_TEST_GAME_SERVER.md 9장)가 항상
  * 올바른 타입의 인자를 받도록 설계돼 있어 "필드 자체가 없는 요청"을 표현할 수 없다 — 그래서 이
  * 파일(테스트 전용 계층)이 SDK를 거치지 않고 최소한의 서명 로직을 직접 구현해 raw 요청을 보낸다.
  * SDK의 공개 표면을 이 테스트 목적 하나 때문에 넓히지 않기 위한 의도적인 선택이다.

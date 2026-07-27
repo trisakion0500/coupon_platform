@@ -17,8 +17,8 @@ const ACTIONS: AuditAction[] = [10, 20, 30];
 const FILTER_ALL = 'ALL';
 
 /**
- * SCR-040. 13_LOG_AUDIT_API.md 5장 — 회사 필터는 화면 자체가 아닌 헤더의 전역 회사 선택을
- * 그대로 사용(15_SCREEN_LIST.md SCR-040), 화면에는 테이블/작업유형/기간 필터만 노출한다.
+ * SCR-040. 15_LOG_AUDIT_API.md 5장 — 회사 필터는 화면 자체가 아닌 헤더의 전역 회사 선택을
+ * 그대로 사용(17_SCREEN_LIST.md SCR-040), 화면에는 테이블/작업유형/기간 필터만 노출한다.
  */
 export function AuditLogListPage() {
   const { t } = useTranslation();

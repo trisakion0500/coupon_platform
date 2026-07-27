@@ -5,13 +5,13 @@ CREATE PROCEDURE `SP_COMPANY_LIST` (
     IN i_page_size         INT,               -- 페이지당 행 수
     IN i_offset            INT,               -- 시작 오프셋
     IN i_requester_user_id BIGINT UNSIGNED    -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '회사 목록 조회 - SUPER_ADMIN 재검증, 페이지네이션 (10_COMPANY_API.md 2.2)'
+) COMMENT '회사 목록 조회 - SUPER_ADMIN 재검증, 페이지네이션 (12_COMPANY_API.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COMPANY_LIST
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 회사 목록을 status DESC, company_name ASC로 정렬해 페이지 단위로 반환한다.
-    --        02_DEV_CONVENTIONS.md 3.4의 RESULT SELECT 규약은 RESULT + data 정확히 2개 result set만
+    --        04_DEV_CONVENTIONS.md 3.4의 RESULT SELECT 규약은 RESULT + data 정확히 2개 result set만
     --        허용하므로, 별도의 COUNT(*) 쿼리를 셋째 result set으로 추가할 수 없다. 다만 total_count를
     --        페이지네이션 대상 SELECT에 COUNT(*) OVER()로 얹으면, 요청한 offset이 실제 데이터
     --        범위를 벗어나 0행이 반환되는 경우 total_count도 함께 사라져 0으로 잘못 응답되는
@@ -21,7 +21,7 @@ BEGIN
     --        NULL인 행을 데이터 없음으로 취급하고 total_count만 읽는다). 페이지네이션이 필요한 다른
     --        목록 SP(project/user 등)도 이 패턴을 그대로 재사용한다.
     --        회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
-    --        FN_IS_SUPER_ADMIN으로 재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
+    --        FN_IS_SUPER_ADMIN으로 재확인한다(방어적 이중 체크, 04_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;

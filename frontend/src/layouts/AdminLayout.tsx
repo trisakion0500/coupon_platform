@@ -7,7 +7,7 @@ import { Footer } from '@/layouts/Footer';
 import { useAuthStore } from '@/stores/authStore';
 import { RoleCode } from '@/types/role';
 
-/** 16_LAYOUT.md 4.1 — 관리 메뉴 사이드바, role별 노출 항목이 다르다. */
+/** 18_LAYOUT.md 4.1 — 관리 메뉴 사이드바, role별 노출 항목이 다르다. */
 const ALL_MENU_ITEMS: { key: string; labelKey: string; allow: RoleCode[] }[] = [
   {
     key: '/admin/companies',
@@ -31,7 +31,7 @@ const ALL_MENU_ITEMS: { key: string; labelKey: string; allow: RoleCode[] }[] = [
   },
 ];
 
-/** 16_LAYOUT.md 4장 — 관리 업무 레이아웃. MANAGER/OPERATOR는 라우트 자체가 RoleGuard로 차단된다. */
+/** 18_LAYOUT.md 4장 — 관리 업무 레이아웃. MANAGER/OPERATOR는 라우트 자체가 RoleGuard로 차단된다. */
 export function AdminLayout() {
   const { t } = useTranslation();
   const navigate = useNavigate();

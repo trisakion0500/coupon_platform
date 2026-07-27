@@ -1,4 +1,4 @@
-# 19_DEV_SETUP.md
+# 03_DEV_SETUP.md
 
 # 로컬 개발 환경 설정
 
@@ -26,7 +26,7 @@ cd coupon_platform
 # 3. 데이터베이스 초기화
 
 쿠폰 도메인 로그(`log_audit`/`log_coupon_campaign`/`log_coupon_use`)는 메인 서비스 DB와 물리적으로
-분리된 별도 DB에 둔다(`02_DEV_CONVENTIONS.md` 1장). 그래서 메인 DB와 로그 DB를 각각 따로 만든다.
+분리된 별도 DB에 둔다(`04_DEV_CONVENTIONS.md` 1장). 그래서 메인 DB와 로그 DB를 각각 따로 만든다.
 
 ## 3.1 메인 DB 생성
 
@@ -92,7 +92,7 @@ mysql -u root -p coupon_platform_log < database_log/tables/all_log_tables.sql
 
 ## 3.7 로그 DB용 Stored Procedure 생성
 
-로그 DB 전용 SP(`SP_LOG_AUDIT_CREATE` 등)는 메인 DB SP와 저장 위치가 분리돼 있다(`02_DEV_CONVENTIONS.md` 3.1 — 메인 DB 산출물은 `database/`, 로그 DB 산출물은 `database_log/`).
+로그 DB 전용 SP(`SP_LOG_AUDIT_CREATE` 등)는 메인 DB SP와 저장 위치가 분리돼 있다(`04_DEV_CONVENTIONS.md` 3.1 — 메인 DB 산출물은 `database/`, 로그 DB 산출물은 `database_log/`).
 
 ```bash
 mysql -u root -p coupon_platform_log < database_log/procedures/all_procedures_log.sql
@@ -322,7 +322,7 @@ VITE_API_BASE_URL=http://localhost:3210
 VITE_APP_NAME=Coupon Platform
 ```
 
-`VITE_API_BASE_URL`은 백엔드 `.env`의 `PORT` 값과 일치해야 하고, 백엔드 `CORS_ALLOWED_ORIGINS`(`01_TECH_STACK.md` 참고)에 프론트엔드 오리진(`http://localhost:5173`, Vite 기본 포트)이 등록돼 있어야 API 호출이 CORS에 막히지 않는다.
+`VITE_API_BASE_URL`은 백엔드 `.env`의 `PORT` 값과 일치해야 하고, 백엔드 `CORS_ALLOWED_ORIGINS`(`02_TECH_STACK.md` 참고)에 프론트엔드 오리진(`http://localhost:5173`, Vite 기본 포트)이 등록돼 있어야 API 호출이 CORS에 막히지 않는다.
 
 ## 6.3 실행
 

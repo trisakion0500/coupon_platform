@@ -29,7 +29,7 @@ interface ProjectForm {
   status: boolean;
 }
 
-/** SCR-022. 11_PROJECT_API.md 2.3/2.4/2.5. */
+/** SCR-022. 13_PROJECT_API.md 2.3/2.4/2.5. */
 export function ProjectDetailPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -64,7 +64,7 @@ export function ProjectDetailPage() {
         if (resultCode === 31002) {
           setNotFound(true);
         } else if (resultCode === 20001) {
-          // 실제 user_role이 배정되지 않은 프로젝트에 URL 직접 접근한 경우(11_PROJECT_API.md 2.3)
+          // 실제 user_role이 배정되지 않은 프로젝트에 URL 직접 접근한 경우(13_PROJECT_API.md 2.3)
           setForbidden(true);
         } else {
           setErrorMessage(getErrorMessage(error));

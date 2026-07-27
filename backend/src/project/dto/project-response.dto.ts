@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
  * 프로젝트 응답 셰이프(목록/상세/수정 공통, `api_secret` 평문은 포함하지 않는다).
- * 11_PROJECT_API.md.
+ * 13_PROJECT_API.md.
  *
  * @author trisakion
  */
@@ -62,7 +62,7 @@ export class ProjectResponseDto {
   edit_count!: number;
 }
 
-/** POST /projects 응답 — 생성 시에만 평문 `api_secret`이 1회 노출된다(11_PROJECT_API.md 2.1). */
+/** POST /projects 응답 — 생성 시에만 평문 `api_secret`이 1회 노출된다(13_PROJECT_API.md 2.1). */
 export class ProjectCreateResponseDto {
   @ApiProperty({ description: '프로젝트 ID', example: 1 })
   project_id!: number;

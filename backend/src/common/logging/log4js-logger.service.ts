@@ -62,7 +62,7 @@ log4js.configure({
 });
 
 /**
- * 01_TECH_STACK.md의 application log(log4js) 정책 — NestJS LoggerService를 log4js로 위임한다.
+ * 02_TECH_STACK.md의 application log(log4js) 정책 — NestJS LoggerService를 log4js로 위임한다.
  *
  * @author trisakion
  */

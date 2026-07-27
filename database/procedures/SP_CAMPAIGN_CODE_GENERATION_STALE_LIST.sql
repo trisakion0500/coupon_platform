@@ -2,7 +2,7 @@ DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_CODE_GENERATION_STALE_LIST`;
 DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_CODE_GENERATION_STALE_LIST` (
     IN i_stale_seconds INT UNSIGNED  -- "정체 판정" 임계값(초) — SP_CAMPAIGN_CODE_ABORT와 동일 기준
-) COMMENT '정체된(generation_status=2) 코드생성 job 감지 전용 - 상태 변경 없음, 모니터링 크론용 (05_COUPON_ISSUANCE_SCENARIO.md 2.4)'
+) COMMENT '정체된(generation_status=2) 코드생성 job 감지 전용 - 상태 변경 없음, 모니터링 크론용 (07_COUPON_ISSUANCE_SCENARIO.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_GENERATION_STALE_LIST

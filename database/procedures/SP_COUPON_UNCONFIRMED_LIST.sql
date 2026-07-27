@@ -6,12 +6,12 @@ CREATE PROCEDURE `SP_COUPON_UNCONFIRMED_LIST` (
     IN i_campaign_id BIGINT UNSIGNED,  -- 두 모드 공통 선택 필터 (NULL이면 전체)
     IN i_page_size   INT,              -- 전체유저 조회 모드에서만 사용(특정유저 모드면 NULL)
     IN i_offset      INT               -- 전체유저 조회 모드에서만 사용(특정유저 모드면 NULL)
-) COMMENT '미컨슘(confirm 안 된) 쿠폰 사용 조회 - 특정유저 전체반환/전체유저 페이지네이션 (18_COUPON_USAGE_API.md 3.1)'
+) COMMENT '미컨슘(confirm 안 된) 쿠폰 사용 조회 - 특정유저 전체반환/전체유저 페이지네이션 (20_COUPON_USAGE_API.md 3.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COUPON_UNCONFIRMED_LIST
     -- 작성 : 2026.07.22 trisakion
-    -- 내용 : 06_COUPON_USAGE_SCENARIO.md 3장 - 두 모드(특정유저/전체유저) 모두 실제 쿼리는
+    -- 내용 : 08_COUPON_USAGE_SCENARIO.md 3장 - 두 모드(특정유저/전체유저) 모두 실제 쿼리는
     --        coupon_code_usage.project_id(비정규화 컬럼) 기준으로 스코핑하고 confirmed_at IS
     --        NULL 조건은 공통이다. game_user_id만으로 조회하는 특정유저 모드도 project_id로
     --        함께 스코핑해 다른 프로젝트의 동일 game_user_id 데이터가 섞이지 않는다(3.2 참고).

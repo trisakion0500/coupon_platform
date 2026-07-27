@@ -4,13 +4,13 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Header } from '@/layouts/Header';
 import { Footer } from '@/layouts/Footer';
 
-/** 16_LAYOUT.md 3장 — 기본 레이아웃(Header + Sidebar + Content + Footer). */
+/** 18_LAYOUT.md 3장 — 기본 레이아웃(Header + Sidebar + Content + Footer). */
 export function MainLayout() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
 
-  /** 16_LAYOUT.md 3.1 — 비관리 업무(쿠폰 컨트롤) 사이드바. 4개 role 전부 접근 가능. */
+  /** 18_LAYOUT.md 3.1 — 비관리 업무(쿠폰 컨트롤) 사이드바. 4개 role 전부 접근 가능. */
   const menuItems = [
     { key: '/campaigns', label: t('nav.campaigns') },
     { key: '/coupon-use-logs', label: t('nav.couponUseLogs') },

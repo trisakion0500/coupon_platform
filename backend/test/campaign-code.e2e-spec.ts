@@ -30,14 +30,14 @@ function createCampaignPayload(
 }
 
 /**
- * 17_CAMPAIGN_API.md 3장(Coupon Code Issuance) 4개 엔드포인트 E2E — FIXED 동기 발급, RANDOM
+ * 19_CAMPAIGN_API.md 3장(Coupon Code Issuance) 4개 엔드포인트 E2E — FIXED 동기 발급, RANDOM
  * 비동기 대량생성(백그라운드 완료까지 폴링), 재시도, 중단(abort), 코드 목록 조회. `CampaignService`
  * (2장 CRUD/승인)와 분리된 `CampaignCodeService` 경계를 그대로 따라 별도 파일로 뒀다
  * (`campaign.e2e-spec.ts` 참고).
  *
  * @author trisakion
  */
-describe('Campaign Code Issuance E2E (17_CAMPAIGN_API.md 3장)', () => {
+describe('Campaign Code Issuance E2E (19_CAMPAIGN_API.md 3장)', () => {
   let app: INestApplication;
   let mgrAccessToken: string;
   let opAccessToken: string;
@@ -215,7 +215,7 @@ describe('Campaign Code Issuance E2E (17_CAMPAIGN_API.md 3장)', () => {
         .expect(202);
 
       // 방금 시작한 job이라 updated_at이 신선하다 — SP가 "아직 살아있을 가능성이 높다"고 보고
-      // 정체가 아니라고 판단해야 한다(05_COUPON_ISSUANCE_SCENARIO.md 2.4 핵심 안전장치).
+      // 정체가 아니라고 판단해야 한다(07_COUPON_ISSUANCE_SCENARIO.md 2.4 핵심 안전장치).
       const res = await request(app.getHttpServer())
         .post(`/campaigns/${campaign.coupon_campaign_id}/codes/abort`)
         .set('Authorization', `Bearer ${mgrAccessToken}`)

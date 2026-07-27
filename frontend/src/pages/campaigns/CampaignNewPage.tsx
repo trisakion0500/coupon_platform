@@ -32,7 +32,7 @@ interface CampaignForm {
   reward_data: string;
 }
 
-/** SCR-101. 17_CAMPAIGN_API.md 2.1. */
+/** SCR-101. 19_CAMPAIGN_API.md 2.1. */
 export function CampaignNewPage() {
   return (
     <RequireProjectSelected>

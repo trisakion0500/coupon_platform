@@ -10,14 +10,14 @@ import {
 import { ResultCode } from '../common/response/result-code.enum';
 import { UnconfirmedQueryDto } from './dto/unconfirmed-query.dto';
 
-/** log_coupon_use.action (18_COUPON_USAGE_API.md 1.5). */
+/** log_coupon_use.action (20_COUPON_USAGE_API.md 1.5). */
 enum UsageLogAction {
   RESERVE = 10,
   CONFIRM = 20,
 }
 
 /**
- * SP_COUPON_RESERVE 성공 시 반환 행 — 18_COUPON_USAGE_API.md 2.1 Response 그대로.
+ * SP_COUPON_RESERVE 성공 시 반환 행 — 20_COUPON_USAGE_API.md 2.1 Response 그대로.
  * `reserve()`의 반환 타입으로 그대로 노출된다(컨트롤러가 이 이름을 참조할 수 있어야 하므로
  * export가 필요 - 별도 타입 별칭을 두면 구조적 타이핑 때문에 오히려 원본 인터페이스 이름을
  * 참조하게 되어 TS4053이 난다).
@@ -38,7 +38,7 @@ interface ConfirmRow {
   confirmed_at: string;
 }
 
-/** POST /v1/coupons/{code}/confirm 응답(18_COUPON_USAGE_API.md 2.2) — coupon_campaign_id 제외. */
+/** POST /v1/coupons/{code}/confirm 응답(20_COUPON_USAGE_API.md 2.2) — coupon_campaign_id 제외. */
 export interface ConfirmResult {
   coupon_code_usage_id: number;
   confirmed_at: string;
@@ -73,7 +73,7 @@ export interface UnconfirmedItem {
 export type UnconfirmedResult =
   { items: UnconfirmedItem[] } | PaginatedResult<UnconfirmedItem>;
 
-/** RESERVE 실패 result 코드 -> log_coupon_use.result_type(18_COUPON_USAGE_API.md 4장). */
+/** RESERVE 실패 result 코드 -> log_coupon_use.result_type(20_COUPON_USAGE_API.md 4장). */
 const RESERVE_LOG_TYPE_MAP: Record<number, number> = {
   [ResultCode.COUPON_CODE_NOT_FOUND]: 10,
   [ResultCode.COUPON_CODE_ALREADY_USED_OR_STOPPED]: 20,
@@ -81,16 +81,16 @@ const RESERVE_LOG_TYPE_MAP: Record<number, number> = {
   [ResultCode.USER_USE_LIMIT_EXCEEDED]: 40,
 };
 
-/** CONFIRM 실패 result 코드 -> log_coupon_use.result_type(18_COUPON_USAGE_API.md 4장). */
+/** CONFIRM 실패 result 코드 -> log_coupon_use.result_type(20_COUPON_USAGE_API.md 4장). */
 const CONFIRM_LOG_TYPE_MAP: Record<number, number> = {
   [ResultCode.COUPON_CODE_NOT_FOUND]: 10,
   [ResultCode.USAGE_NOT_FOUND]: 50,
 };
 
 /**
- * 18_COUPON_USAGE_API.md 2장(Reserve/Confirm) + 3장(미컨슘 조회) 3개 엔드포인트의 비즈니스
+ * 20_COUPON_USAGE_API.md 2장(Reserve/Confirm) + 3장(미컨슘 조회) 3개 엔드포인트의 비즈니스
  * 로직. 게임서버가 S2S(API Key+HMAC)로 호출하는 도메인이라 `user_role` 권한 체계와 무관하고,
- * `project_id`는 `S2sAuthGuard`가 인증한 값을 컨트롤러가 그대로 전달한다(06_COUPON_USAGE_SCENARIO.md
+ * `project_id`는 `S2sAuthGuard`가 인증한 값을 컨트롤러가 그대로 전달한다(08_COUPON_USAGE_SCENARIO.md
  * 1.3 - 코드 조회 자체가 `WHERE project_id=? AND code_value=?`로 스코핑되어 다른 프로젝트
  * 소속 코드는 존재하지 않는 것과 동일하게 처리됨).
  *
@@ -106,7 +106,7 @@ export class CouponUsageService {
   ) {}
 
   /**
-   * 쿠폰 코드 예약(=즉시 소모 확정, 18_COUPON_USAGE_API.md 2.1). 성공/실패 여부와 무관하게
+   * 쿠폰 코드 예약(=즉시 소모 확정, 20_COUPON_USAGE_API.md 2.1). 성공/실패 여부와 무관하게
    * 매 호출마다 log_coupon_use에 기록한다(1.5) - 실패 시 코드가 존재했던 경우(33001/33002/
    * 33003)는 {@link resolveCampaignIdForLog}로 campaign_id를 보강한다.
    *
@@ -194,7 +194,7 @@ export class CouponUsageService {
     );
 
     // SpCallResult.result는 여러 도메인이 공유하는 SP 호출 유틸의 반환 타입이라 plain number다
-    // (02_DEV_CONVENTIONS.md 3.4) — ResultCode(숫자 enum)와 직접 비교하면
+    // (04_DEV_CONVENTIONS.md 3.4) — ResultCode(숫자 enum)와 직접 비교하면
     // no-unsafe-enum-comparison에 걸려 여기서만 지역적으로 단언한다.
     const resultCode: ResultCode = result;
     if (resultCode === ResultCode.COUPON_CODE_NOT_FOUND) {
@@ -215,10 +215,10 @@ export class CouponUsageService {
   }
 
   /**
-   * 쿠폰 사용 지급결과 기록(18_COUPON_USAGE_API.md 2.2) - reserve와 동일하게 성공/실패 무관
+   * 쿠폰 사용 지급결과 기록(20_COUPON_USAGE_API.md 2.2) - reserve와 동일하게 성공/실패 무관
    * 매 호출마다 log_coupon_use에 기록한다. 컨트롤러/클라이언트에는 공개 응답 필드
    * (coupon_code_usage_id/confirmed_at)만 명시적으로 재구성해 반환한다 - SP가 로깅용으로
-   * 함께 내려주는 coupon_campaign_id는 여기서 걸러진다(13_LOG_AUDIT_API.md 구현 때 확립한
+   * 함께 내려주는 coupon_campaign_id는 여기서 걸러진다(15_LOG_AUDIT_API.md 구현 때 확립한
    * "응답 객체는 항상 명시적으로 재구성" 원칙과 동일). `gameUserId` 누락 체크는 `reserve`와
    * 동일한 이유로 가장 먼저 수행하고, 실패는 동일하게 {@link logS2sFailure}로도 남긴다.
    */
@@ -313,7 +313,7 @@ export class CouponUsageService {
   }
 
   /**
-   * 미컨슘 쿠폰 사용 조회(18_COUPON_USAGE_API.md 3장) - `game_user_id` 지정 여부로 특정유저
+   * 미컨슘 쿠폰 사용 조회(20_COUPON_USAGE_API.md 3장) - `game_user_id` 지정 여부로 특정유저
    * (페이지네이션 미적용, 전체 반환)/전체유저(페이지네이션 필수) 모드가 갈린다. `game_user_id`
    * 미지정 상태에서 page/page_size 누락은 정확히 30001로 응답해야 해서(Errors 표) DTO의
    * `@ValidateIf` 대신 여기서 직접 검증한다(UnconfirmedQueryDto 클래스 주석 참고). 이 API는
@@ -366,7 +366,7 @@ export class CouponUsageService {
       }));
 
     if (isSpecificUserMode) {
-      // 특정유저 모드는 18_COUPON_USAGE_API.md 3장상 페이지네이션 필드 자체가 없는 응답
+      // 특정유저 모드는 20_COUPON_USAGE_API.md 3장상 페이지네이션 필드 자체가 없는 응답
       // 셰이프라(page/query.page_size가 애초에 없음) buildPaginatedResult를 쓸 수 없다 —
       // 다른 목록 API와 다른 셰이프인 게 의도된 설계이지 통일 누락이 아니다.
       return { items };
@@ -380,7 +380,7 @@ export class CouponUsageService {
   }
 
   /**
-   * SP_COUPON_RESERVE/CONFIRM은 실패 시 RESULT 단일 컬럼만 반환하므로(02_DEV_CONVENTIONS.md
+   * SP_COUPON_RESERVE/CONFIRM은 실패 시 RESULT 단일 컬럼만 반환하므로(04_DEV_CONVENTIONS.md
    * 3.4), 코드가 존재했던 실패(RESERVE의 33001/33002/33003, CONFIRM의 31006)의 로그에
    * coupon_campaign_id를 채우려면 별도 조회가 필요하다(SP_COUPON_CODE_GET_BY_VALUE.sql 헤더
    * 주석 참고). 코드없음(31005)이면 조회할 필요가 없어 곧장 NULL을 반환한다. 순수 로깅 보강용

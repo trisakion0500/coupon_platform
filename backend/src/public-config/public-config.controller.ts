@@ -8,7 +8,7 @@ interface PublicConfigResponse {
 }
 
 /**
- * 08_API_COMMON.md 6.2: 인증 불필요, 프론트가 화면 문구에 그대로 노출해야 하는 env 설정값 전용.
+ * 10_API_COMMON.md 6.2: 인증 불필요, 프론트가 화면 문구에 그대로 노출해야 하는 env 설정값 전용.
  * 민감정보가 아닌 값만 여기 추가한다 — `.env` 원본을 그대로 반환하는 범용 엔드포인트가 아니다.
  *
  * @author trisakion

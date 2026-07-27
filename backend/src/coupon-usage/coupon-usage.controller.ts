@@ -26,10 +26,10 @@ import { ReserveCouponDto } from './dto/reserve-coupon.dto';
 import { UnconfirmedQueryDto } from './dto/unconfirmed-query.dto';
 
 /**
- * 18_COUPON_USAGE_API.md 2장(Reserve/Confirm) + 3장(미컨슘 조회) 3개 엔드포인트. 게임서버가
+ * 20_COUPON_USAGE_API.md 2장(Reserve/Confirm) + 3장(미컨슘 조회) 3개 엔드포인트. 게임서버가
  * S2S(API Key+HMAC 서명)로 호출하는 도메인이라 `JwtAuthGuard`/`RolesGuard`가 아니라
  * `S2sAuthGuard`를 쓰고, `project_id`는 관리 콘솔처럼 쿼리/바디로 받지 않고 이 가드가 인증한
- * 값(`request.s2sProject.projectId`)을 그대로 서비스에 전달한다(1.2). 07_AUTH_SECURITY.md
+ * 값(`request.s2sProject.projectId`)을 그대로 서비스에 전달한다(1.2). 09_AUTH_SECURITY.md
  * 2.7 버전 정책에 따라 `/v1` 접두어를 붙인다(1.3).
  *
  * @author trisakion

@@ -5,7 +5,7 @@ import { CouponUseLogController } from './coupon-use-log.controller';
 import { CouponUseLogService } from './coupon-use-log.service';
 
 /**
- * 쿠폰 사용 로그 조회(17_CAMPAIGN_API.md 4.3) 모듈. `SpExecutorService`/`LogSpExecutorService`는
+ * 쿠폰 사용 로그 조회(19_CAMPAIGN_API.md 4.3) 모듈. `SpExecutorService`/`LogSpExecutorService`는
  * `DatabaseModule`/`LogDatabaseModule`이 전역으로 노출하므로 별도 import가 필요 없지만,
  * 컨트롤러가 쓰는 `JwtAuthGuard`/`RolesGuard`는 각자의 의존 모듈을 재노출하는
  * `JwtAuthModule`/`RolesModule`을 직접 import해야 한다(`LogAuditModule`과 동일 패턴 — 가드는

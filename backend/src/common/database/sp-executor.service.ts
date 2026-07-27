@@ -7,9 +7,9 @@ export type { SpCallResult };
 
 /**
  * 메인 서비스 DB(coupon_platform) 접근 서비스. mysql2 + Stored Procedure 전용 데이터 접근
- * 정책(01_TECH_STACK.md)에 따라 모든 SP 호출은 이 서비스를 거친다. ORM/Native SQL 직접 작성 금지.
+ * 정책(02_TECH_STACK.md)에 따라 모든 SP 호출은 이 서비스를 거친다. ORM/Native SQL 직접 작성 금지.
  * 로그 전용 DB(coupon_platform_log)는 이 서비스와 완전히 분리된 `LogSpExecutorService`를 쓴다
- * (02_DEV_CONVENTIONS.md 1장).
+ * (04_DEV_CONVENTIONS.md 1장).
  *
  * @author trisakion
  */
@@ -30,7 +30,7 @@ export class SpExecutorService implements OnModuleDestroy {
       // 레플리카당 pool 크기 — 하드코딩이었다가 스케일아웃 점검(2026-07-23)에서 env로 이전,
       // 레플리카 수를 늘릴 때 MySQL max_connections 한도에 맞춰 조정 가능해야 하므로.
       connectionLimit: configService.get<number>('DB_CONNECTION_LIMIT'),
-      // 08_API_COMMON.md 4장: 날짜/시간은 문자열로 전송 — Date 객체 변환/타임존 이슈를 피하기 위해
+      // 10_API_COMMON.md 4장: 날짜/시간은 문자열로 전송 — Date 객체 변환/타임존 이슈를 피하기 위해
       // DATETIME 컬럼을 애초에 문자열로 받는다.
       dateStrings: true,
     });
@@ -42,7 +42,7 @@ export class SpExecutorService implements OnModuleDestroy {
   }
 
   /**
-   * SP를 호출하고 RESULT SELECT 규약(02_DEV_CONVENTIONS.md 3.4)을 파싱해 반환한다.
+   * SP를 호출하고 RESULT SELECT 규약(04_DEV_CONVENTIONS.md 3.4)을 파싱해 반환한다.
    *
    * @param spName - 호출할 Stored Procedure 이름(`SP_도메인_동작`)
    * @param params - `CALL`의 IN 파라미터 목록(선언 순서대로)

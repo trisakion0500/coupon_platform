@@ -10,7 +10,7 @@ import { CouponUseLogItemDto } from './dto/coupon-use-log-response.dto';
 import { CouponUseLogService } from './coupon-use-log.service';
 
 /**
- * 17_CAMPAIGN_API.md 4.3 — GET /coupon-use-logs 1개 엔드포인트. 캠페인 도메인과 동일하게
+ * 19_CAMPAIGN_API.md 4.3 — GET /coupon-use-logs 1개 엔드포인트. 캠페인 도메인과 동일하게
  * project_id 단위 스코핑이라(1.2) 4개 role 전부 접근 가능.
  *
  * @author trisakion

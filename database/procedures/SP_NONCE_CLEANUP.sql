@@ -8,7 +8,7 @@ BEGIN
     -- 명칭 : SP_NONCE_CLEANUP
     -- 작성 : 2026.07.23 trisakion
     -- 내용 : X-API-Timestamp 허용범위(S2S_TIMESTAMP_TOLERANCE_SEC)를 벗어난 요청은 서명 검증
-    --        단계에서 이미 거부되므로(07_AUTH_SECURITY.md 2장), created_at이 그 범위보다 과거인
+    --        단계에서 이미 거부되므로(09_AUTH_SECURITY.md 2장), created_at이 그 범위보다 과거인
     --        nonce는 재사용(재전송)될 위협이 없어 물리 삭제해도 안전하다(project_api_nonce.sql
     --        헤더 주석 참고). SP_SESSION_CLEANUP/SP_PROJECT_API_SECRET_CLEANUP과 동일하게
     --        서버 크론(NonceCleanupService)만 호출하는 내부 배치 전용 SP라 호출자 권한 검증이

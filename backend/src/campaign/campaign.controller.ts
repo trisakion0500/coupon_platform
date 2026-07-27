@@ -48,14 +48,14 @@ import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { UsageListQueryDto } from './dto/usage-list-query.dto';
 
 /**
- * 17_CAMPAIGN_API.md 2장(Campaign) 7개 + 3장(Coupon Code Issuance) 4개 + 4장(Coupon Usage
+ * 19_CAMPAIGN_API.md 2장(Campaign) 7개 + 3장(Coupon Code Issuance) 4개 + 4장(Coupon Usage
  * History) 1개 엔드포인트.
  * company/project/user 도메인과 달리 SUPER_ADMIN/DEVELOPER/MANAGER/OPERATOR 전부 project_id
  * 단위로만 스코핑하므로(1.2), 승인/반려를 제외한 나머지는 4개 role 전부를 컨트롤러 레벨에서
  * 허용하고 실제 프로젝트 배정 재검증은 SP가 담당한다. 승인/반려는 OPERATOR가 원천적으로
  * 불가능하므로(2.6/2.7 Permission) 컨트롤러 레벨에서도 미리 걸러 불필요한 DB 왕복 없이 20001을
- * 반환한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2와 같은 원칙을 앱 레이어에도 적용). 코드
- * 발급(3.1/3.2/3.3)은 승인 여부와 무관하게 4개 role 전부 호출 가능하다(05_COUPON_ISSUANCE_SCENARIO.md
+ * 반환한다(방어적 이중 체크, 04_DEV_CONVENTIONS.md 3.2와 같은 원칙을 앱 레이어에도 적용). 코드
+ * 발급(3.1/3.2/3.3)은 승인 여부와 무관하게 4개 role 전부 호출 가능하다(07_COUPON_ISSUANCE_SCENARIO.md
  * 1장) — 단 3.4(Abort)는 승인/반려와 동일하게 OPERATOR를 제외한다(시스템이 자동으로 못 정하는 걸
  * 사람이 강제로 결정하는 급의 판단이라서).
  *
@@ -251,7 +251,7 @@ export class CampaignController {
   }
 
   /**
-   * 진행중(generation_status=2) 정체 캠페인 수동 복구(17_CAMPAIGN_API.md 3.4). 승인/반려와
+   * 진행중(generation_status=2) 정체 캠페인 수동 복구(19_CAMPAIGN_API.md 3.4). 승인/반려와
    * 동일한 급의 판단이라 그 권한 범위(OPERATOR 제외)를 그대로 따른다 — 다른 코드 발급
    * 엔드포인트(3.1/3.2/3.3)와 달리 4개 role 전부를 허용하지 않는다.
    */
@@ -270,7 +270,7 @@ export class CampaignController {
     );
   }
 
-  /** 캠페인별 쿠폰 사용 이력 조회(17_CAMPAIGN_API.md 4.1) — 조회 전용, 승인/종료여부 무관. */
+  /** 캠페인별 쿠폰 사용 이력 조회(19_CAMPAIGN_API.md 4.1) — 조회 전용, 승인/종료여부 무관. */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
     RoleCode.SUPER_ADMIN,
@@ -290,7 +290,7 @@ export class CampaignController {
     });
   }
 
-  /** 캠페인 변경 이력 조회(17_CAMPAIGN_API.md 4.2) — 조회 전용, 승인/종료여부 무관. */
+  /** 캠페인 변경 이력 조회(19_CAMPAIGN_API.md 4.2) — 조회 전용, 승인/종료여부 무관. */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
     RoleCode.SUPER_ADMIN,

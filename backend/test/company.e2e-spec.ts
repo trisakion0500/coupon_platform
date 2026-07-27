@@ -12,7 +12,7 @@ import { failure, success } from './utils/envelope';
 import { createE2eApp } from './utils/test-app';
 
 /**
- * 10_COMPANY_API.md 6개 엔드포인트(코드조회/헤더데이터/생성/목록/상세/수정) E2E. 관리메뉴
+ * 12_COMPANY_API.md 6개 엔드포인트(코드조회/헤더데이터/생성/목록/상세/수정) E2E. 관리메뉴
  * 4개(생성/목록/상세/수정)는 SUPER_ADMIN 전용이라 `sa`/`mgr` 시드 계정으로 허용·거부 양쪽을
  * 함께 검증한다. 이 도메인은 로그인 rate limiter 대상 라우트(signup/login)를 딱 2번만 쓰므로
  * (auth.e2e-spec.ts와 달리) 예산 걱정 없이 자유롭게 테스트를 추가해도 된다.
@@ -26,7 +26,7 @@ import { createE2eApp } from './utils/test-app';
  *
  * @author trisakion
  */
-describe('Company E2E (10_COMPANY_API.md)', () => {
+describe('Company E2E (12_COMPANY_API.md)', () => {
   let app: INestApplication;
   let saAccessToken: string;
   let mgrAccessToken: string;

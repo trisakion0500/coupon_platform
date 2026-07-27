@@ -4,7 +4,7 @@ import { UserRoleController } from './user-role.controller';
 import { UserRoleService } from './user-role.service';
 
 /**
- * 11_PROJECT_API.md 3.1 `GET /user-roles/me` 전용 모듈.
+ * 13_PROJECT_API.md 3.1 `GET /user-roles/me` 전용 모듈.
  *
  * @author trisakion
  */

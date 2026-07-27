@@ -36,7 +36,7 @@ const EXPORT_PAGE_SIZE = 100;
 const FILTER_ALL = 'ALL';
 
 /**
- * SCR-102 탭 2(코드 목록). 17_CAMPAIGN_API.md 3장 — RANDOM은 백그라운드 대량생성 진행상황을
+ * SCR-102 탭 2(코드 목록). 19_CAMPAIGN_API.md 3장 — RANDOM은 백그라운드 대량생성 진행상황을
  * 보여주고 발급/재시도/중단 버튼을, FIXED는 단건 등록 폼(미발급 시) 또는 등록된 코드를 보여준다.
  */
 export function CampaignCodesTab({

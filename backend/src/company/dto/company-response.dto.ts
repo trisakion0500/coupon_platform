@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
- * 회사 응답 셰이프(생성/목록/상세/수정 공통). 10_COMPANY_API.md.
+ * 회사 응답 셰이프(생성/목록/상세/수정 공통). 12_COMPANY_API.md.
  *
  * @author trisakion
  */

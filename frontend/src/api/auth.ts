@@ -2,7 +2,7 @@ import { apiClient } from '@/api/client';
 import type { ApiEnvelope } from '@/types/api';
 import type { AuthUser, LoginResponse, SignupRequest } from '@/types/auth';
 
-/** 09_AUTH_API.md 4장 — 응답은 user 원본 컬럼(password_hash 제외)이라 AuthUser와 셰이프 동일. */
+/** 11_AUTH_API.md 4장 — 응답은 user 원본 컬럼(password_hash 제외)이라 AuthUser와 셰이프 동일. */
 export async function signup(dto: SignupRequest): Promise<AuthUser> {
   const { data } = await apiClient.post<ApiEnvelope<AuthUser>>(
     '/auth/signup',
@@ -11,7 +11,7 @@ export async function signup(dto: SignupRequest): Promise<AuthUser> {
   return data.data;
 }
 
-/** 09_AUTH_API.md 5장. */
+/** 11_AUTH_API.md 5장. */
 export async function login(
   loginId: string,
   password: string,
@@ -23,18 +23,18 @@ export async function login(
   return data.data;
 }
 
-/** 09_AUTH_API.md 6장 — 현재 세션 종료. */
+/** 11_AUTH_API.md 6장 — 현재 세션 종료. */
 export async function logout(): Promise<void> {
   await apiClient.post('/auth/logout');
 }
 
-/** 09_AUTH_API.md 8장 — `role_code`는 응답에 없다(로그인/재발급 응답 값을 별도로 사용). */
+/** 11_AUTH_API.md 8장 — `role_code`는 응답에 없다(로그인/재발급 응답 값을 별도로 사용). */
 export async function getMe(): Promise<AuthUser> {
   const { data } = await apiClient.get<ApiEnvelope<AuthUser>>('/auth/me');
   return data.data;
 }
 
-/** 09_AUTH_API.md 9장. */
+/** 11_AUTH_API.md 9장. */
 export async function changePassword(
   currentPassword: string,
   newPassword: string,

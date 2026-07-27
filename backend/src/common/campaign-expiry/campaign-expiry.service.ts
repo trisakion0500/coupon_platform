@@ -39,12 +39,12 @@ interface ExpiredCampaignRow {
   edit_count: number;
 }
 
-/** log_coupon_campaign 작업유형(04_DATABASE_SCHEMA.md 10장) — STATUS_CHANGE. */
+/** log_coupon_campaign 작업유형(06_DATABASE_SCHEMA.md 10장) — STATUS_CHANGE. */
 const STATUS_CHANGE_ACTION = 30;
 
 /**
  * 실제 user_id는 1부터 시작하는 AUTO_INCREMENT라 0은 안전한 sentinel이다 — 이 프로젝트 최초의
- * "시스템이 수행한 액션" 로그 컨벤션(02_DEV_CONVENTIONS.md 4.2, SP_CAMPAIGN_EXPIRE 헤더 주석 참고).
+ * "시스템이 수행한 액션" 로그 컨벤션(04_DEV_CONVENTIONS.md 4.2, SP_CAMPAIGN_EXPIRE 헤더 주석 참고).
  */
 const SYSTEM_ACTOR_USER_ID = 0;
 const SYSTEM_ACTOR_NAME = 'SYSTEM';
@@ -55,7 +55,7 @@ const SYSTEM_ACTOR_NAME = 'SYSTEM';
  * 서비스는 크론 등록 + 반환된 각 행을 `log_coupon_campaign`에 STATUS_CHANGE로 기록하는
  * 역할만 한다. 다른 크론(`NonceCleanupService` 등)과 동일하게 `runExclusive`로 감싸
  * 스케일아웃 환경에서 레플리카 여러 대가 같은 배치를 중복 실행하지 않게 한다
- * (02_DEV_CONVENTIONS.md 4.1).
+ * (04_DEV_CONVENTIONS.md 4.1).
  *
  * @author trisakion
  */
@@ -126,7 +126,7 @@ export class CampaignExpiryService implements OnModuleInit, OnModuleDestroy {
   /**
    * log_coupon_campaign 적재 — CampaignService의 도메인 SP 호출용 로그 헬퍼와 달리 실제 요청자
    * (JWT `user_id`)가 없는 배치 컨텍스트라, 여기서는 SYSTEM sentinel을 직접 채운다. 실패는
-   * `logCall`이 삼켜 배치 자체에 영향을 주지 않는다(02_DEV_CONVENTIONS.md 1장).
+   * `logCall`이 삼켜 배치 자체에 영향을 주지 않는다(04_DEV_CONVENTIONS.md 1장).
    */
   private async logExpiry(row: ExpiredCampaignRow): Promise<void> {
     await this.logSpExecutor.logCall('SP_LOG_COUPON_CAMPAIGN_CREATE', [

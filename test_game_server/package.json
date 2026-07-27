@@ -1,7 +1,7 @@
 {
   "name": "test_game_server",
   "version": "0.1.0",
-  "description": "coupon_platform S2S 연동 검증용 독립 테스트 게임서버 (docs/20_TEST_GAME_SERVER.md)",
+  "description": "coupon_platform S2S 연동 검증용 독립 테스트 게임서버 (docs/21_TEST_GAME_SERVER.md)",
   "private": true,
   "license": "UNLICENSED",
   "type": "commonjs",

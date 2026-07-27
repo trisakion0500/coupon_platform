@@ -49,10 +49,10 @@ export interface CampaignRow {
 
 /**
  * CREATE/UPDATE/CHANGE_STATUS/APPROVE/REJECT 5개 SP 전용 반환 행 — log_coupon_campaign.
- * created_by_name(17_CAMPAIGN_API.md 4.2)을 채우기 위한 requester_name이 추가로 온다.
+ * created_by_name(19_CAMPAIGN_API.md 4.2)을 채우기 위한 requester_name이 추가로 온다.
  * GET_BY_ID/LIST는 이 컬럼이 없어 CampaignRow를 그대로 쓴다. requester_name은 API 응답
  * 스키마에 없는 로그 전용 컬럼이라 controller로 나가는 반환값에서는 toPublicRow로 제외한다
- * (company/project/user 도메인과 동일 원칙 — 02_DEV_CONVENTIONS.md).
+ * (company/project/user 도메인과 동일 원칙 — 04_DEV_CONVENTIONS.md).
  */
 interface CampaignActionRow extends CampaignRow {
   requester_name: string | null;
@@ -121,7 +121,7 @@ export interface UsageListItem {
 
 /**
  * SP_LOG_COUPON_CAMPAIGN_LIST(로그 DB) 반환 행 — coupon_campaign 컬럼 스냅샷 + action +
- * created_by_name(17_CAMPAIGN_API.md 4.2). reward_data는 log_coupon_campaign에서도 JSON
+ * created_by_name(19_CAMPAIGN_API.md 4.2). reward_data는 log_coupon_campaign에서도 JSON
  * 타입 컬럼이라 mysql2가 자동 파싱한다(log_audit의 LONGTEXT before/after_json과 다름).
  */
 interface CampaignLogListRow {
@@ -177,7 +177,7 @@ export interface CampaignLogListItem {
   created_at: string;
 }
 
-/** log_coupon_campaign 작업유형(04_DATABASE_SCHEMA.md 10장). */
+/** log_coupon_campaign 작업유형(06_DATABASE_SCHEMA.md 10장). */
 enum CampaignLogAction {
   CREATE = 10,
   UPDATE = 20,
@@ -187,7 +187,7 @@ enum CampaignLogAction {
 }
 
 /**
- * 17_CAMPAIGN_API.md 2장(Campaign) 7개 엔드포인트 + 4장(Read & Log APIs)의 비즈니스 로직.
+ * 19_CAMPAIGN_API.md 2장(Campaign) 7개 엔드포인트 + 4장(Read & Log APIs)의 비즈니스 로직.
  * company/project/user 도메인과 달리 "회사 전체 조회" 예외가 없고 SUPER_ADMIN 이외 전부
  * project_id 단위로만 스코핑한다 — 그 재검증은 전부 SP(FN_IS_SUPER_ADMIN/FN_GET_PROJECT_ROLE_CODE/
  * FN_CHECK_PROJECT_ACCESS) 쪽에서 수행하므로 이 서비스는 role_code를 넘기지 않고
@@ -465,7 +465,7 @@ export class CampaignService {
   }
 
   /**
-   * 캠페인별 쿠폰 사용 이력 조회(17_CAMPAIGN_API.md 4.1) — 조회 전용, 승인상태/캠페인 종료여부와
+   * 캠페인별 쿠폰 사용 이력 조회(19_CAMPAIGN_API.md 4.1) — 조회 전용, 승인상태/캠페인 종료여부와
    * 무관(1.3 차단목록에 없음). game_user_id/confirmed 둘 다 선택 필터.
    */
   async listUsages(
@@ -514,9 +514,9 @@ export class CampaignService {
   }
 
   /**
-   * 캠페인 변경 이력 조회(17_CAMPAIGN_API.md 4.2) — 조회 전용, 캠페인 종료여부와 무관(1.3
+   * 캠페인 변경 이력 조회(19_CAMPAIGN_API.md 4.2) — 조회 전용, 캠페인 종료여부와 무관(1.3
    * 차단목록에 없음). log_coupon_campaign은 로그 DB에 있어 SP가 스스로 존재확인/스코핑을
-   * 재검증하지 못하므로(02_DEV_CONVENTIONS.md 3.2 예외), getById가 이미 갖고 있는
+   * 재검증하지 못하므로(04_DEV_CONVENTIONS.md 3.2 예외), getById가 이미 갖고 있는
    * 존재확인(31004)+스코핑(20001) 체크를 그대로 재사용해 메인 DB에서 먼저 통과시킨 뒤에만
    * 로그 DB(SP_LOG_COUPON_CAMPAIGN_LIST)를 조회하는 2단계 패턴이다.
    */
@@ -578,9 +578,9 @@ export class CampaignService {
 
   /**
    * log_coupon_campaign 적재(로그 DB) — log_audit과 달리 before/after JSON이 아니라
-   * coupon_campaign 컬럼을 그대로 복제하는 구조라(04_DATABASE_SCHEMA.md 10장) 도메인 SP가
+   * coupon_campaign 컬럼을 그대로 복제하는 구조라(06_DATABASE_SCHEMA.md 10장) 도메인 SP가
    * 반환한 행을 그대로 전달하기만 하면 된다. LogSpExecutorService.logCall이 실패를 삼키므로
-   * fire-and-forget으로 호출한다(02_DEV_CONVENTIONS.md 1장).
+   * fire-and-forget으로 호출한다(04_DEV_CONVENTIONS.md 1장).
    */
   private async logCampaignAction(
     action: CampaignLogAction,
@@ -615,8 +615,8 @@ export class CampaignService {
   /**
    * CampaignActionRow(requester_name 포함)를 공개 API 응답 스키마(CampaignRow)로 좁힌다.
    * requester_name은 log_coupon_campaign.created_by_name 채우기용 로그 전용 컬럼이라
-   * 17_CAMPAIGN_API.md 응답 스펙에 없다 — 컨트롤러로 나가기 전에 명시적으로 제외한다
-   * (company/project/user 도메인과 동일 원칙 — 02_DEV_CONVENTIONS.md).
+   * 19_CAMPAIGN_API.md 응답 스펙에 없다 — 컨트롤러로 나가기 전에 명시적으로 제외한다
+   * (company/project/user 도메인과 동일 원칙 — 04_DEV_CONVENTIONS.md).
    */
   private toPublicRow(row: CampaignActionRow): CampaignRow {
     return {

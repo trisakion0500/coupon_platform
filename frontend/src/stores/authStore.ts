@@ -4,7 +4,7 @@ import type { AuthUser } from '@/types/auth';
 import type { RoleCode } from '@/types/role';
 
 /**
- * 16_LAYOUT.md 9장 authStore — `accessToken`/`refreshToken`/`roleCode`만 persist된다.
+ * 18_LAYOUT.md 9장 authStore — `accessToken`/`refreshToken`/`roleCode`만 persist된다.
  * `user`는 저장하지 않고 부팅 시 `/auth/me`로 재조회한다(persist 대상에서 명시적으로 제외).
  * `isAuthenticated`라는 저장 필드는 없고 `!!accessToken`으로 파생 계산한다.
  */

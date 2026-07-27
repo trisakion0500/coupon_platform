@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-/** 08_API_COMMON.md 1.4 성공 응답 봉투의 `result` 필드만 담는다 — `data`는 `ApiEnvelopedResponse`류
+/** 10_API_COMMON.md 1.4 성공 응답 봉투의 `result` 필드만 담는다 — `data`는 `ApiEnvelopedResponse`류
  * 데코레이터가 `allOf`로 엔드포인트별 실제 타입과 합성하므로 여기 선언하지 않는다.
  *
  * @author trisakion
@@ -10,7 +10,7 @@ export class ApiResponseEnvelopeDto {
   result!: 0;
 }
 
-/** 08_API_COMMON.md 2.4 페이지네이션 응답의 메타 필드(`items`는 데코레이터가 조합). */
+/** 10_API_COMMON.md 2.4 페이지네이션 응답의 메타 필드(`items`는 데코레이터가 조합). */
 export class PaginatedEnvelopeMetaDto {
   @ApiProperty({ description: '현재 페이지', example: 1 })
   page!: number;

@@ -15,7 +15,7 @@ const ACTIONS = [10, 20] as const;
 const RESULT_TYPES = [0, 10, 20, 30, 40, 50] as const;
 
 /**
- * GET /coupon-use-logs 쿼리 파라미터. 17_CAMPAIGN_API.md 4.3 — `project_id`는 스코핑 기준이라
+ * GET /coupon-use-logs 쿼리 파라미터. 19_CAMPAIGN_API.md 4.3 — `project_id`는 스코핑 기준이라
  * 필수지만, 미지정 시 정확히 30001(REQUIRED_FIELD_MISSING)로 응답해야 해서 여기서는 선택으로
  * 두고 `CouponUseLogService.list`가 명시적으로 체크한다(`UnconfirmedQueryDto`와 동일 이유 —
  * class-validator의 필수값 누락은 ValidationPipe의 일반 400(->30002)으로만 떨어진다).

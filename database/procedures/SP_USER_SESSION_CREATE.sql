@@ -5,7 +5,7 @@ CREATE PROCEDURE `SP_USER_SESSION_CREATE` (
     IN i_access_token_jti    VARCHAR(100),      -- 발급한 Access Token의 JTI
     IN i_refresh_token_hash  VARCHAR(255),      -- Refresh Token(UUID v4) SHA-256 해시값
     IN i_expired_at          DATETIME          -- 세션 만료일시(JWT_REFRESH_EXPIRES_IN만큼 더한 절대시각)
-) COMMENT '로그인 세션 생성 - last_login_at 갱신 + user_session INSERT (09_AUTH_API.md 5장)'
+) COMMENT '로그인 세션 생성 - last_login_at 갱신 + user_session INSERT (11_AUTH_API.md 5장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_SESSION_CREATE

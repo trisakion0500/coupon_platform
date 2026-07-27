@@ -1,7 +1,7 @@
 import * as Joi from 'joi';
 
 /**
- * 01_TECH_STACK.md 환경변수 관리 항목 전체를 기동 시점에 검증한다.
+ * 02_TECH_STACK.md 환경변수 관리 항목 전체를 기동 시점에 검증한다.
  * 아직 구현되지 않은 도메인(로그인 rate limit, 세션/secret 정리 크론 등)의 값도
  * 미리 검증해두면 해당 슬라이스 구현 시 이 파일을 다시 건드릴 필요가 없다.
  *
@@ -23,7 +23,7 @@ export const envValidationSchema = Joi.object({
   // 레플리카를 늘릴 때 MySQL max_connections 한도에 맞춰 이 값을 낮춰 조정할 수 있어야 한다.
   DB_CONNECTION_LIMIT: Joi.number().integer().min(1).default(10),
 
-  // 로그 전용 DB(coupon_platform_log) — 메인 DB와 물리적으로 분리(02_DEV_CONVENTIONS.md 1장).
+  // 로그 전용 DB(coupon_platform_log) — 메인 DB와 물리적으로 분리(04_DEV_CONVENTIONS.md 1장).
   // 접속 계정이 메인 DB와 같을 수도 다를 수도 있어 별도 변수로 관리한다.
   LOG_DB_HOST: Joi.string().default('localhost'),
   LOG_DB_PORT: Joi.number().port().default(3306),
@@ -62,7 +62,7 @@ export const envValidationSchema = Joi.object({
   LOGIN_RATE_LIMIT_MAX: Joi.number().integer().min(1).default(10),
   SESSION_CLEANUP_CRON: Joi.string().default('0 4 * * *'),
 
-  // reserve/confirm 프로젝트(API Key) 기준 rate limit — 07_AUTH_SECURITY.md 2.8
+  // reserve/confirm 프로젝트(API Key) 기준 rate limit — 09_AUTH_SECURITY.md 2.8
   // 토큰 버킷 알고리즘(2026-07-24, 고정 윈도우에서 교체) — capacity는 순간 최대 버스트,
   // refill_per_sec는 정상상태 평균 처리율(초당)
   COUPON_USAGE_RATE_LIMIT_BUCKET_CAPACITY: Joi.number()
@@ -74,7 +74,7 @@ export const envValidationSchema = Joi.object({
     .min(1)
     .default(10),
 
-  // RANDOM 코드 대량생성 백그라운드 루프(05_COUPON_ISSUANCE_SCENARIO.md 2.2) — DB 일시 오류
+  // RANDOM 코드 대량생성 백그라운드 루프(07_COUPON_ISSUANCE_SCENARIO.md 2.2) — DB 일시 오류
   // 재시도 한도/지연. 코드값 충돌(1062)은 이 설정과 무관하게 무제한 즉시 재시도한다.
   CODE_GENERATION_MAX_DB_RETRIES: Joi.number().integer().min(0).default(5),
   CODE_GENERATION_RETRY_BASE_DELAY_MS: Joi.number()
@@ -82,7 +82,7 @@ export const envValidationSchema = Joi.object({
     .min(1)
     .default(200),
 
-  // POST /campaigns/{id}/codes/abort(05_COUPON_ISSUANCE_SCENARIO.md 2.4) — "얼마나 오래
+  // POST /campaigns/{id}/codes/abort(07_COUPON_ISSUANCE_SCENARIO.md 2.4) — "얼마나 오래
   // updated_at이 안 움직였으면 멈춘 것으로 볼지"를 위 두 값에서 계산하는 안전 배율. 별도
   // 독립적인 임계값을 두지 않고 재시도 설정에서 파생시켜, 두 설정이 서로 어긋나지 않게 한다.
   CODE_GENERATION_ABORT_STALE_SAFETY_MULTIPLIER: Joi.number()

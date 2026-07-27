@@ -19,7 +19,7 @@ import { failure, success } from './utils/envelope';
 import { createE2eApp } from './utils/test-app';
 
 /**
- * 13_LOG_AUDIT_API.md 4~6장(`GET /log-audits`/`GET /log-audits/{idx}`) E2E. `log_audit`은
+ * 15_LOG_AUDIT_API.md 4~6장(`GET /log-audits`/`GET /log-audits/{idx}`) E2E. `log_audit`은
  * company/project/user/user_role E2E 스펙이 실행되며 이미 여러 건 쌓이지만(같은 DB 리셋
  * 라이프사이클을 공유 — `company.e2e-spec.ts` 크로스 파일 오염 교훈 참고), 이 파일은 자기가 직접
  * 만든 대상(company/project/user/user_role)의 target_id/project_id로 필터링해 다른 파일의
@@ -32,7 +32,7 @@ import { createE2eApp } from './utils/test-app';
  *
  * @author trisakion
  */
-describe('Log Audit E2E (13_LOG_AUDIT_API.md 4~6장)', () => {
+describe('Log Audit E2E (15_LOG_AUDIT_API.md 4~6장)', () => {
   let app: INestApplication;
   let saAccessToken: string;
   let devAccessToken: string;

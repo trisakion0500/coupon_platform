@@ -8,7 +8,7 @@ import { failure, success } from './utils/envelope';
 import { createE2eApp } from './utils/test-app';
 
 /**
- * 12_USER_API.md 1장(User) 7개 엔드포인트(목록/상세/승인/반려/수정/비번초기화) E2E. 목록/상세는
+ * 14_USER_API.md 1장(User) 7개 엔드포인트(목록/상세/승인/반려/수정/비번초기화) E2E. 목록/상세는
  * SUPER_ADMIN+DEVELOPER(DEVELOPER는 회사 단위로 강제 스코핑), 나머지는 SUPER_ADMIN 전용이다.
  * 승인/반려/수정 대상은 시드 계정을 건드리지 않기 위해 매번 `POST /auth/signup`으로 새 pending
  * 사용자를 만들어 쓰되, **권한거부 테스트는 `RolesGuard`가 SP 호출 전에 막아 대상의 실제 상태와
@@ -17,7 +17,7 @@ import { createE2eApp } from './utils/test-app';
  *
  * @author trisakion
  */
-describe('User E2E (12_USER_API.md 1장)', () => {
+describe('User E2E (14_USER_API.md 1장)', () => {
   let app: INestApplication;
   let saAccessToken: string;
   let devAccessToken: string;

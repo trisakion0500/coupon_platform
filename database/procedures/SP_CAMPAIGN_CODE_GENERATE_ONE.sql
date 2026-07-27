@@ -4,7 +4,7 @@ CREATE PROCEDURE `SP_CAMPAIGN_CODE_GENERATE_ONE` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 대상 캠페인 ID
     IN i_project_id         BIGINT UNSIGNED,  -- 비정규화 project_id(coupon_code.project_id)
     IN i_code_value         VARCHAR(50)       -- 앱 레이어(nanoid)가 생성한 코드값 1건
-) COMMENT 'RANDOM 코드 1건 생성(내부용) - requested_qty 상한 + generation_status=2/status<>4 가드, INSERT/generated_qty 증가를 트랜잭션으로 원자 처리 (05_COUPON_ISSUANCE_SCENARIO.md 2.2)'
+) COMMENT 'RANDOM 코드 1건 생성(내부용) - requested_qty 상한 + generation_status=2/status<>4 가드, INSERT/generated_qty 증가를 트랜잭션으로 원자 처리 (07_COUPON_ISSUANCE_SCENARIO.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_GENERATE_ONE
@@ -43,11 +43,11 @@ BEGIN
     --        종료는 generation_status를 건드리지 않는 별개 축이라(coupon_campaign.sql 헤더 주석),
     --        "이미 목표 도달"/"job을 빼앗김(abort)"과 구분하려면 no-op 응답에 `status`도 함께
     --        반환해야 한다 - TS 루프는 `generation_status<>2 OR status=4`면 멈춘다. 종료된
-    --        캠페인의 generation_status는 억지로 전이시키지 않는다 - 17_CAMPAIGN_API.md 1.3이
+    --        캠페인의 generation_status는 억지로 전이시키지 않는다 - 19_CAMPAIGN_API.md 1.3이
     --        종료된 캠페인의 모든 쓰기 API를 이미 차단하므로 더 손댈 필요가 없는 무해한 상태다.
     -- 내용 : SP_CAMPAIGN_CODE_ISSUE/RETRY로 이미 권한 검증 + generation_status=2(진행중) 선점을
     --        마친 뒤, TS 서비스의 백그라운드 루프가 requested_qty만큼 이 SP를 반복 호출한다
-    --        (05_COUPON_ISSUANCE_SCENARIO.md 2.1 R2~R7 루프). 그래서 이 SP 자체는 요청자
+    --        (07_COUPON_ISSUANCE_SCENARIO.md 2.1 R2~R7 루프). 그래서 이 SP 자체는 요청자
     --        재검증을 하지 않는다 - 공개 API에서 직접 호출되는 대상이 아니라 이미 검증된
     --        백그라운드 작업 내부에서만 쓰인다(SP_SESSION_CLEANUP 등 기존 내부 배치 SP와 동일한
     --        원칙). nanoid로 코드값을 만드는 것은 앱 레이어 책임이다 - SQL에는 nanoid가 없고,
@@ -55,7 +55,7 @@ BEGIN
     --        오히려 복잡해진다.
     --        처리 순서: (1) "generated_qty+1, WHERE generated_qty<requested_qty AND
     --        generation_status=2 AND status<>4" 조건부 UPDATE로 슬롯을 먼저 예약한다
-    --        (02_DEV_CONVENTIONS.md 4장 "조건부 갱신 우선"). ROW_COUNT()=0이면 이미 목표
+    --        (04_DEV_CONVENTIONS.md 4장 "조건부 갱신 우선"). ROW_COUNT()=0이면 이미 목표
     --        수량에 도달했거나(정상 종료 경로), 누군가 이 job을 이미 종료시켰거나(abort),
     --        캠페인 자체가 종료됐다는 뜻이므로 코드를 만들지 않고 현재 generated_qty/
     --        generation_status/status를 그대로 반환한다(RESULT=0, no-op 성공). (2) 슬롯 예약에
@@ -65,7 +65,7 @@ BEGIN
     --        ROLLBACK으로 방금 예약한 슬롯(generated_qty 증가분)까지 함께 되돌리고(같은
     --        트랜잭션이라 한 번의 ROLLBACK으로 둘 다 취소됨) 32001을 반환해 앱이 지연 없이 새
     --        랜덤값으로 재시도하게 한다(코드값 재추첨은 backoff 대상이 아님,
-    --        05_COUPON_ISSUANCE_SCENARIO.md 2.2 표 참고). 그 외 SQLEXCEPTION(예: DB 커넥션
+    --        07_COUPON_ISSUANCE_SCENARIO.md 2.2 표 참고). 그 외 SQLEXCEPTION(예: DB 커넥션
     --        단절, 락 대기 타임아웃)은 50001로 던져지고, 앱이 이를 잡아 exponential
     --        backoff+jitter 재시도 여부를 판단한다(재시도 자체는 앱 책임 - SP는 한 번의 시도만
     --        담당).

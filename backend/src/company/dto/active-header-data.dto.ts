@@ -20,7 +20,7 @@ class ProjectHeaderItemDto {
 }
 
 /**
- * GET /companies/active-header-data 응답. 10_COMPANY_API.md 3.1 — 로그인 직후 헤더
+ * GET /companies/active-header-data 응답. 12_COMPANY_API.md 3.1 — 로그인 직후 헤더
  * 콤보박스가 1회 로드하는 활성 회사·프로젝트 목록.
  *
  * @author trisakion

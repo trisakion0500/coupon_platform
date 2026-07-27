@@ -1,4 +1,4 @@
-# 08_API_COMMON.md
+# 10_API_COMMON.md
 
 ## 개요
 
@@ -10,7 +10,7 @@
 관리 콘솔 Frontend ↔ Coupon Platform API
 ```
 
-게임서버 ↔ Coupon Platform 간 S2S 호출 규약은 [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2장을 따른다. 사용자 인증(토큰/세션) 정책은 [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 1장에 정의되어 있으며, 본 문서에서는 반복하지 않는다.
+게임서버 ↔ Coupon Platform 간 S2S 호출 규약은 [09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 2장을 따른다. 사용자 인증(토큰/세션) 정책은 [09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 1장에 정의되어 있으며, 본 문서에서는 반복하지 않는다.
 
 ---
 
@@ -225,13 +225,13 @@ script-src-attr 'none'; style-src 'self' https: 'unsafe-inline'; upgrade-insecur
 
 ## 5.3 Rate Limiting 정책
 
-세부 정책은 [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 1.4 참고.
+세부 정책은 [09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 1.4 참고.
 
 알고리즘은 Fixed Window Counter를 사용한다(`express-rate-limit` 동일 계열 라이브러리 기준). 윈도우 경계에서 최대 `max`의 2배까지 통과하는 경계 버스트가 이론상 가능하지만, 초 단위로 정밀하게 막아야 하는 시나리오가 아니라 로그인 브루트포스 방지 목적으로는 충분해 슬라이딩 윈도우 등 별도 라이브러리는 채택하지 않는다.
 
 ## 5.4 세션 정리(Session Cleanup) 정책
 
-세부 정책은 [07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 1.3 참고.
+세부 정책은 [09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 1.3 참고.
 
 서버 기동 시 `node-cron` 계열로 크론 잡을 등록하고, 만료 세션을 정리하는 Stored Procedure를 호출해 대상 행을 DELETE한다. `expired_at`은 로그인 시점에 `JWT_REFRESH_EXPIRES_IN`만큼 더한 절대 시각으로 이미 저장돼 있어, 정리 로직은 만료 기간 값 자체를 알 필요 없이 `NOW()`와 비교만 하면 된다 — `JWT_REFRESH_EXPIRES_IN`을 바꿔도 정리 로직 수정은 불필요하다. `status=1`(활성)이면서 아직 만료되지 않은 세션은 조건에 걸리지 않아 삭제되지 않는다.
 
@@ -263,7 +263,7 @@ Anonymous (인증 불필요)
 }
 ```
 
-`server_time`(UTC epoch ms, 2026-07-25 추가)은 프론트 헤더의 실시간 시계가 클라이언트-서버 시계 오프셋을 계산하는 데 쓰인다 — [16_LAYOUT.md](./16_LAYOUT.md) 2.1 참고.
+`server_time`(UTC epoch ms, 2026-07-25 추가)은 프론트 헤더의 실시간 시계가 클라이언트-서버 시계 오프셋을 계산하는 데 쓰인다 — [18_LAYOUT.md](./18_LAYOUT.md) 2.1 참고.
 
 ### 용도
 
@@ -290,7 +290,7 @@ Anonymous (인증 불필요)
 
 ### Description
 
-화면 문구에 그대로 노출해야 하는 env 설정값을 프론트가 가져오기 위한 전용 엔드포인트다 — `.env` 원본을 그대로 반환하는 범용 설정 조회 API가 아니라, 민감정보가 아닌 값만 화이트리스트로 추가한다. 예: [11_PROJECT_API.md](./11_PROJECT_API.md) 2.5 API Secret 재발급 확인 문구에 유예기간 일수를 노출할 때 이 값을 쓴다([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2.6 `API_SECRET_GRACE_PERIOD_DAYS`).
+화면 문구에 그대로 노출해야 하는 env 설정값을 프론트가 가져오기 위한 전용 엔드포인트다 — `.env` 원본을 그대로 반환하는 범용 설정 조회 API가 아니라, 민감정보가 아닌 값만 화이트리스트로 추가한다. 예: [13_PROJECT_API.md](./13_PROJECT_API.md) 2.5 API Secret 재발급 확인 문구에 유예기간 일수를 노출할 때 이 값을 쓴다([09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 2.6 `API_SECRET_GRACE_PERIOD_DAYS`).
 
 ### Response
 
@@ -407,6 +407,6 @@ Anonymous (인증 불필요)
 | 50001 | 데이터베이스 오류(SP 내부 오류) |
 | 50002 | API 실행 타임아웃(`API_EXECUTION_TIMEOUT_MS` 초과, HTTP 408) |
 
-캠페인/코드 발급 관련 오류 코드는 위 표에 반영 완료([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 참고). 쿠폰 사용(reserve/confirm) 관련 오류 코드도 위 표에 반영 완료([18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md) 참고). S2S 인증(HMAC 서명 검증) 실패 코드(`10010`~`10015`)도 위 표에 반영 완료([07_AUTH_SECURITY.md](./07_AUTH_SECURITY.md) 2장 참고).
+캠페인/코드 발급 관련 오류 코드는 위 표에 반영 완료([19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 참고). 쿠폰 사용(reserve/confirm) 관련 오류 코드도 위 표에 반영 완료([20_COUPON_USAGE_API.md](./20_COUPON_USAGE_API.md) 참고). S2S 인증(HMAC 서명 검증) 실패 코드(`10010`~`10015`)도 위 표에 반영 완료([09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 2장 참고).
 
-**50002(API 실행 타임아웃)의 한계**: 전역 `TimeoutInterceptor`가 `API_EXECUTION_TIMEOUT_MS` 안에 컨트롤러 핸들러가 응답을 만들지 못하면 408로 끊어 클라이언트에 알리지만, 이미 시작된 SP 호출(mysql2 쿼리)까지 취소하지는 못한다(RxJS `timeout()`은 구독만 취소한다) — 타임아웃 응답이 나간 뒤에도 DB 쪽 작업은 계속 진행되어 결국 커밋될 수 있다. `POST /v1/coupons/reserve`처럼 상태를 바꾸는 API는 이미 확립된 멱등성(`use_limit_per_user` 체크 등, [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md) 참고)에 기대어 재시도해도 안전하도록 설계되어 있다. RANDOM 코드 대량생성처럼 컨트롤러 응답과 분리된 fire-and-forget 백그라운드 작업([05_COUPON_ISSUANCE_SCENARIO.md](./05_COUPON_ISSUANCE_SCENARIO.md) 참고)은 이 인터셉터의 적용 범위 밖이라 영향받지 않는다.
+**50002(API 실행 타임아웃)의 한계**: 전역 `TimeoutInterceptor`가 `API_EXECUTION_TIMEOUT_MS` 안에 컨트롤러 핸들러가 응답을 만들지 못하면 408로 끊어 클라이언트에 알리지만, 이미 시작된 SP 호출(mysql2 쿼리)까지 취소하지는 못한다(RxJS `timeout()`은 구독만 취소한다) — 타임아웃 응답이 나간 뒤에도 DB 쪽 작업은 계속 진행되어 결국 커밋될 수 있다. `POST /v1/coupons/reserve`처럼 상태를 바꾸는 API는 이미 확립된 멱등성(`use_limit_per_user` 체크 등, [20_COUPON_USAGE_API.md](./20_COUPON_USAGE_API.md) 참고)에 기대어 재시도해도 안전하도록 설계되어 있다. RANDOM 코드 대량생성처럼 컨트롤러 응답과 분리된 fire-and-forget 백그라운드 작업([07_COUPON_ISSUANCE_SCENARIO.md](./07_COUPON_ISSUANCE_SCENARIO.md) 참고)은 이 인터셉터의 적용 범위 밖이라 영향받지 않는다.

@@ -4,12 +4,12 @@ CREATE PROCEDURE `SP_COUPON_RESERVE` (
     IN i_project_id  BIGINT UNSIGNED,  -- S2S 인증으로 스코핑된 project_id
     IN i_code_value  VARCHAR(50),      -- coupon_code.code_value
     IN i_game_user_id VARCHAR(100)     -- 게임서버 유저 식별자
-) COMMENT '쿠폰 코드 예약(=즉시 소모 확정) - reserve (18_COUPON_USAGE_API.md 2.1)'
+) COMMENT '쿠폰 코드 예약(=즉시 소모 확정) - reserve (20_COUPON_USAGE_API.md 2.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COUPON_RESERVE
     -- 작성 : 2026.07.22 trisakion
-    -- 내용 : 06_COUPON_USAGE_SCENARIO.md 2.1/2.2/2.3을 그대로 구현한다.
+    -- 내용 : 08_COUPON_USAGE_SCENARIO.md 2.1/2.2/2.3을 그대로 구현한다.
     --        1) 코드 조회(project_id+code_value, uk_project_code_value 활용) - 없으면 31005
     --        2) 멱등 체크(use_limit_per_user=1일 때만): (coupon_code_id, game_user_id) 매칭 기존
     --           coupon_code_usage 행이 있으면 새로 만들지 않고 그 행 그대로 RESULT=0 재반환
@@ -42,7 +42,7 @@ BEGIN
     --        없지만 같은 트랜잭션 안에서 4/5/6이 처리되어도 무해하다(단순 SELECT 체크 후 그대로
     --        진행).
     --        반환 컬럼(coupon_code_usage_id/coupon_campaign_id/code_value/game_user_id/
-    --        reward_data/created_at)은 18_COUPON_USAGE_API.md 2.1 Response를 그대로 따른다 -
+    --        reward_data/created_at)은 20_COUPON_USAGE_API.md 2.1 Response를 그대로 따른다 -
     --        TS 서비스가 이 값을 그대로 HTTP 응답으로 내보낸다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
@@ -80,7 +80,7 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        -- 멱등 체크(use_limit_per_user=1일 때만, 06_COUPON_USAGE_SCENARIO.md 1.2)
+        -- 멱등 체크(use_limit_per_user=1일 때만, 08_COUPON_USAGE_SCENARIO.md 1.2)
         IF v_use_limit = 1 THEN
             SELECT `coupon_code_usage_id` INTO v_existing_usage_id
             FROM `coupon_code_usage`

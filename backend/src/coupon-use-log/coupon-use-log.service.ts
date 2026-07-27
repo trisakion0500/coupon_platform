@@ -47,8 +47,8 @@ export interface CouponUseLogRequester {
 }
 
 /**
- * 17_CAMPAIGN_API.md 4.3(GET /coupon-use-logs) 비즈니스 로직. log_coupon_use는 로그 DB에
- * 있어 SP_LOG_COUPON_USE_LIST가 호출자 권한을 스스로 재검증하지 못하므로(02_DEV_CONVENTIONS.md
+ * 19_CAMPAIGN_API.md 4.3(GET /coupon-use-logs) 비즈니스 로직. log_coupon_use는 로그 DB에
+ * 있어 SP_LOG_COUPON_USE_LIST가 호출자 권한을 스스로 재검증하지 못하므로(04_DEV_CONVENTIONS.md
  * 3.2 예외), 이 서비스가 먼저 메인 DB(SP_PROJECT_CHECK_ACCESS)로 project_id 접근권한만
  * 확인하고(통과 못하면 로그 DB는 호출조차 하지 않음), 통과했을 때만 로그 DB를 조회하는 2단계
  * 패턴을 쓴다.
@@ -135,8 +135,8 @@ export class CouponUseLogService {
 
   /**
    * campaign_name은 log_coupon_use 자체 컬럼이 아니다 — 로그 DB는 메인 DB와 물리 분리라 SQL
-   * JOIN이 불가능해(02_DEV_CONVENTIONS.md 1장), coupon_campaign_id가 있는 행만 메인 DB에서
-   * 배치 조회해 붙인다(17_CAMPAIGN_API.md 4.3). 이미 project_id 접근권한이 확인된 뒤라 각
+   * JOIN이 불가능해(04_DEV_CONVENTIONS.md 1장), coupon_campaign_id가 있는 행만 메인 DB에서
+   * 배치 조회해 붙인다(19_CAMPAIGN_API.md 4.3). 이미 project_id 접근권한이 확인된 뒤라 각
    * 캠페인은 그 프로젝트 범위 안에 있는 게 보장되므로 SP_CAMPAIGN_GET_BY_ID의 스코핑 재검증은
    * 항상 통과한다. 순수 로깅 보강용 조회라 개별 조회가 실패해도(레이스로 그 사이 등) 에러를
    * 전파하지 않고 해당 캠페인만 이름 없이 남긴다(CouponUsageService.resolveCampaignIdForLog와

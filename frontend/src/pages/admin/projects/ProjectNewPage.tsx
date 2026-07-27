@@ -17,7 +17,7 @@ interface ProjectForm {
   description?: string;
 }
 
-/** SCR-021. 11_PROJECT_API.md 2.1 — 등록 성공 시 api_key/api_secret을 모달로 1회 노출. */
+/** SCR-021. 13_PROJECT_API.md 2.1 — 등록 성공 시 api_key/api_secret을 모달로 1회 노출. */
 export function ProjectNewPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();

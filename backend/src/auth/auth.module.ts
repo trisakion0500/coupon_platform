@@ -11,7 +11,7 @@ import { AuthRateLimitMiddleware } from './auth.rate-limit.middleware';
 import { AuthService } from './auth.service';
 
 /**
- * 09_AUTH_API.md 도메인 모듈 — signup/login/logout/refresh/me/password 6개 엔드포인트.
+ * 11_AUTH_API.md 도메인 모듈 — signup/login/logout/refresh/me/password 6개 엔드포인트.
  *
  * @author trisakion
  */

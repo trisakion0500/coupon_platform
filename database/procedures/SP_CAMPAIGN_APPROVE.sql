@@ -4,17 +4,17 @@ CREATE PROCEDURE `SP_CAMPAIGN_APPROVE` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 승인할 캠페인 ID
     IN i_edit_count         INT UNSIGNED,     -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 edit_count 그대로)
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 승인 - edit_count 낙관적 락 + OPERATOR 승인불가(20001) + approval_status 2->3 조건부 UPDATE (17_CAMPAIGN_API.md 2.6)'
+) COMMENT '캠페인 승인 - edit_count 낙관적 락 + OPERATOR 승인불가(20001) + approval_status 2->3 조건부 UPDATE (19_CAMPAIGN_API.md 2.6)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_APPROVE
     -- 작성 : 2026.07.20 trisakion
     -- 내용 : 존재 확인(31004) -> 프로젝트 스코핑 + 승인권한 재검증 -> 조건부 UPDATE 순으로
     --        처리한다. 승인은 SUPER_ADMIN/DEVELOPER/MANAGER만 가능하고 OPERATOR는 불가하다
-    --        (17_CAMPAIGN_API.md 2.6 Permission) - FN_GET_PROJECT_ROLE_CODE로 얻은 role_code가
+    --        (19_CAMPAIGN_API.md 2.6 Permission) - FN_GET_PROJECT_ROLE_CODE로 얻은 role_code가
     --        40(OPERATOR)이면 "배정은 있으나 승인 권한이 없는" 경우이므로 이것도 20001로 응답한다
     --        (배정 자체가 없는 경우와 동일한 코드를 쓴다 - 이 도메인은 "권한 부족"과 "배정 없음"을
-    --        세분화하지 않는다, 02_DEV_CONVENTIONS.md 3.2 원칙과 동일하게 SP가 최종 방어선).
+    --        세분화하지 않는다, 04_DEV_CONVENTIONS.md 3.2 원칙과 동일하게 SP가 최종 방어선).
     --        log_coupon_campaign(action=40 APPROVE) 기록은 SP_CAMPAIGN_CREATE와 동일한 이유로
     --        이 SP가 직접 하지 않는다 - 반환 행 전체를 TS 서비스가
     --        SP_LOG_COUPON_CAMPAIGN_CREATE(로그 DB)에 그대로 전달한다.
@@ -26,9 +26,9 @@ BEGIN
     --        것과 다른 버전을 승인하게 된다(사용자 지적 - 캠페인을 바꾸는 액션은 승인/거부/상태
     --        변경/수정 순서로 다양하게 섞여 들어올 수 있어 SP_CAMPAIGN_UPDATE 하나만 검증해서는
     --        부족하다). ROW_COUNT()=0이면 edit_count 불일치(30005)인지 승인 대상 상태 자체가
-    --        아닌지(30004, 17_CAMPAIGN_API.md 2.6 State Transition/1.3 종료 잠금)를 재조회로
+    --        아닌지(30004, 19_CAMPAIGN_API.md 2.6 State Transition/1.3 종료 잠금)를 재조회로
     --        구분한다 - SP_CAMPAIGN_UPDATE와 동일한 패턴.
-    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(19_CAMPAIGN_API.md 4.2
     --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다
     --        (SP_CAMPAIGN_CREATE와 동일한 이유/패턴).
     -- ------------------------------------------------------------------------------------------------------------ --

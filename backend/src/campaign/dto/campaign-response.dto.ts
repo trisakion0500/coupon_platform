@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
  * 캠페인 응답 셰이프(생성/상세/수정/상태변경/승인/반려 공통, coupon_campaign 전체 컬럼).
- * 17_CAMPAIGN_API.md.
+ * 19_CAMPAIGN_API.md.
  *
  * @author trisakion
  */

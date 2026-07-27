@@ -6,7 +6,7 @@ CREATE FUNCTION `FN_GET_PROJECT_ROLE_CODE` (
 ) RETURNS TINYINT UNSIGNED
 NOT DETERMINISTIC
 READS SQL DATA
-COMMENT '사용자의 해당 프로젝트 활성 role_code 조회 - 배정 없으면 NULL (02_DEV_CONVENTIONS.md 3.2)'
+COMMENT '사용자의 해당 프로젝트 활성 role_code 조회 - 배정 없으면 NULL (04_DEV_CONVENTIONS.md 3.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : FN_GET_PROJECT_ROLE_CODE

@@ -7,13 +7,13 @@ CREATE PROCEDURE `SP_COMPANY_UPDATE` (
     IN i_description       VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
     IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '회사 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE (10_COMPANY_API.md 2.4)'
+) COMMENT '회사 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE (12_COMPANY_API.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COMPANY_UPDATE
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 회사 정보 수정. 존재 확인(31001) -> company_code 변경 시 중복 확인(자기 자신 제외, 32001)
-    --        -> COALESCE 기반 조건부 UPDATE(02_DEV_CONVENTIONS.md 4장)로 NULL로 넘어온 필드는 기존
+    --        -> COALESCE 기반 조건부 UPDATE(04_DEV_CONVENTIONS.md 4장)로 NULL로 넘어온 필드는 기존
     --        값을 유지한다. 관리자 폼이 매번 전체 필드를 채워 보내는 단순 CRUD라 "필드를 명시적으로
     --        NULL로 비우는" 시나리오까지는 다루지 않는다(description을 지우고 싶으면 빈 문자열을
     --        보내는 것으로 충분 — 실제 NULL 저장이 필요해지면 그때 별도 플래그를 추가한다).
@@ -22,7 +22,7 @@ BEGIN
     --        핸들러를 둔다(2026-07-19 리뷰에서 CREATE에만 있고 UPDATE에는 없던 것을 발견).
     --        회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
-    --        02_DEV_CONVENTIONS.md 3.2).
+    --        04_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다.
     --        2026-07-22: before_json 캡처가 락 없는 별도 SELECT로 UPDATE보다 먼저 실행돼, 그 사이

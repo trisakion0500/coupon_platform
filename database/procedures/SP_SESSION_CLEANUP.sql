@@ -1,6 +1,6 @@
 DROP PROCEDURE IF EXISTS `SP_SESSION_CLEANUP`;
 DELIMITER $$
-CREATE PROCEDURE `SP_SESSION_CLEANUP` () COMMENT '만료 세션 물리 삭제 배치 (08_API_COMMON.md 5.4, SESSION_CLEANUP_CRON)'
+CREATE PROCEDURE `SP_SESSION_CLEANUP` () COMMENT '만료 세션 물리 삭제 배치 (10_API_COMMON.md 5.4, SESSION_CLEANUP_CRON)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_SESSION_CLEANUP

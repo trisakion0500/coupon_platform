@@ -2,14 +2,14 @@ DROP PROCEDURE IF EXISTS `SP_LOCK_ACQUIRE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_LOCK_ACQUIRE` (
     IN i_lock_name VARCHAR(64)  -- 획득할 advisory lock 이름(레플리카 간 공유되는 배치 식별 키)
-) COMMENT '레플리카 간 배치 중복실행 방지용 MySQL advisory lock 획득 (GET_LOCK, non-blocking) - 02_DEV_CONVENTIONS.md 4.1'
+) COMMENT '레플리카 간 배치 중복실행 방지용 MySQL advisory lock 획득 (GET_LOCK, non-blocking) - 04_DEV_CONVENTIONS.md 4.1'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_LOCK_ACQUIRE
     -- 작성 : 2026.07.26 trisakion
     -- 내용 : SpExecutorService.runExclusive가 쓰는 세션 수준 advisory lock 획득 전용 SP. GET_LOCK을
     --        raw SQL(SELECT GET_LOCK(...))로 직접 호출하던 걸 SP로 감쌌다 — 이 프로젝트의
-    --        "ORM/Native SQL 직접 작성 금지, SP 전용" 정책(01_TECH_STACK.md)의 유일한 예외였고,
+    --        "ORM/Native SQL 직접 작성 금지, SP 전용" 정책(02_TECH_STACK.md)의 유일한 예외였고,
     --        운영 DB 계정을 SP 실행(EXECUTE) 권한만 허용하는 모델로 굳힐 계획이라 SP로 감싸지
     --        않은 순수 SELECT 문은 그 계정으로 아예 실행이 안 될 수 있다.
     --        timeout=0(non-blocking)으로 시도해 이미 다른 레플리카가 점유 중이면 즉시 포기한다 —

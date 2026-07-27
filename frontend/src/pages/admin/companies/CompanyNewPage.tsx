@@ -14,7 +14,7 @@ interface CompanyForm {
   description?: string;
 }
 
-/** SCR-011. 10_COMPANY_API.md 2.1. */
+/** SCR-011. 12_COMPANY_API.md 2.1. */
 export function CompanyNewPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();

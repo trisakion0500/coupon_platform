@@ -50,7 +50,7 @@ interface RejectForm {
   reject_reason: string;
 }
 
-/** SCR-102 탭 1(캠페인 정보). 17_CAMPAIGN_API.md 2.4~2.7. */
+/** SCR-102 탭 1(캠페인 정보). 19_CAMPAIGN_API.md 2.4~2.7. */
 export function CampaignInfoTab({
   campaign,
   projectRoleCode,
@@ -223,7 +223,7 @@ export function CampaignInfoTab({
   }
 
   /**
-   * 17_CAMPAIGN_API.md 2.5 — 활성화(1→2)/재활성화(3→2)는 `campaign_end > NOW()`가 SP 조건부
+   * 19_CAMPAIGN_API.md 2.5 — 활성화(1→2)/재활성화(3→2)는 `campaign_end > NOW()`가 SP 조건부
    * UPDATE에도 걸려있다(2026-07-25 추가). 여기서도 같은 조건으로 버튼을 미리 비활성화하고
    * 기간 표시를 빨간색으로 구분해, 클릭 후 30004를 받고서야 이유를 알게 되는 대신 바로
    * 안내한다(`isCampaignExpired`는 `getServerNow()` 기준이라 관리자 기기 시계가 어긋나 있어도

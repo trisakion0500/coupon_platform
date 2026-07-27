@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
- * GET /log-audits 목록 항목. 13_LOG_AUDIT_API.md 5장.
+ * GET /log-audits 목록 항목. 15_LOG_AUDIT_API.md 5장.
  *
  * @author trisakion
  */

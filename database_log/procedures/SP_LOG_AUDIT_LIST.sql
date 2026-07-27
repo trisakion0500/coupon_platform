@@ -11,17 +11,17 @@ CREATE PROCEDURE `SP_LOG_AUDIT_LIST` (
     IN i_page_size       INT,               -- 페이지당 행 수
     IN i_offset          INT,               -- 시작 오프셋
     IN i_developer_project_ids VARCHAR(4000) -- DEVELOPER의 project/user_role 로그 추가 스코핑용 콤마 목록(NULL=제한없음, SUPER_ADMIN 전용)
-) COMMENT '감사 로그 목록 조회 - 페이지네이션 (13_LOG_AUDIT_API.md 5장)'
+) COMMENT '감사 로그 목록 조회 - 페이지네이션 (15_LOG_AUDIT_API.md 5장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_LOG_AUDIT_LIST
     -- 작성 : 2026.07.22 trisakion
-    -- 내용 : log_audit를 created_at DESC로 정렬해 페이지 단위로 반환한다(13_LOG_AUDIT_API.md 5장
+    -- 내용 : log_audit를 created_at DESC로 정렬해 페이지 단위로 반환한다(15_LOG_AUDIT_API.md 5장
     --        Sorting). 이 SP는 로그 DB(coupon_platform_log)에서 실행되며 메인 DB의 user/user_role
-    --        테이블에 접근할 수 없다(02_DEV_CONVENTIONS.md 1장, 물리 분리) - 그래서 이 프로젝트의
+    --        테이블에 접근할 수 없다(04_DEV_CONVENTIONS.md 1장, 물리 분리) - 그래서 이 프로젝트의
     --        일반 원칙("SP가 FN_IS_SUPER_ADMIN 등으로 호출자 권한을 스스로 재검증")을 여기서는
     --        적용할 수 없다. 권한 판단(SUPER_ADMIN 전체조회/DEVELOPER는 본인 소속 company_id로
-    --        고정 스코핑, 13_LOG_AUDIT_API.md 3장)은 전부 앱 레이어(LogAuditService)가 담당하고,
+    --        고정 스코핑, 15_LOG_AUDIT_API.md 3장)은 전부 앱 레이어(LogAuditService)가 담당하고,
     --        i_company_id는 이미 스코핑이 끝난 값을 그대로 받는다 - SP_LOG_AUDIT_CREATE가 같은
     --        이유(로그 DB는 인프라 호출 전용, 메인 SP가 권한 검증을 이미 끝낸 뒤 호출)로 권한
     --        검증 자체를 아예 두지 않는 것과 같은 물리적 제약이다.
@@ -36,8 +36,8 @@ BEGIN
     --        타이밍에 의존하지 않고 항상 정확한 최신순이 보장된다.
     --        i_developer_project_ids(2026-07-24 추가): DEVELOPER의 project/user_role 테이블
     --        로그 조회 범위를 "본인 소속 회사 전체"에서 "실제 role_code<=20으로 배정된 프로젝트"로
-    --        좁히기 위한 필터(13_LOG_AUDIT_API.md 3장) - 프로젝트 관리메뉴 스코핑을 회사 단위에서
-    --        배정 프로젝트 단위로 좁힌 것(02_DEV_CONVENTIONS.md 3.2)과 같은 방향이다. company/user
+    --        좁히기 위한 필터(15_LOG_AUDIT_API.md 3장) - 프로젝트 관리메뉴 스코핑을 회사 단위에서
+    --        배정 프로젝트 단위로 좁힌 것(04_DEV_CONVENTIONS.md 3.2)과 같은 방향이다. company/user
     --        테이블 로그는 이 필터의 영향을 받지 않는다(회사 단위 스코핑 그대로 유지) - 두 테이블은
     --        프로젝트 단위 정보가 없거나(company) 간접적이라(user) 같은 기준으로 좁힐 근거가 없다고
     --        판단했다. 앱 레이어(LogAuditService)가 SP_USER_ROLE_LIST_DEVELOPER_PROJECT_IDS(메인

@@ -8,7 +8,7 @@ import type {
 } from '@/types/company';
 import type { ActiveHeaderData } from '@/types/header';
 
-/** 10_COMPANY_API.md 2.2. */
+/** 12_COMPANY_API.md 2.2. */
 export async function listCompanies(
   query: CompanyListQuery,
 ): Promise<PaginatedResult<Company>> {
@@ -19,7 +19,7 @@ export async function listCompanies(
   return data.data;
 }
 
-/** 10_COMPANY_API.md 2.3. */
+/** 12_COMPANY_API.md 2.3. */
 export async function getCompany(companyId: number): Promise<Company> {
   const { data } = await apiClient.get<ApiEnvelope<Company>>(
     `/companies/${companyId}`,
@@ -27,7 +27,7 @@ export async function getCompany(companyId: number): Promise<Company> {
   return data.data;
 }
 
-/** 10_COMPANY_API.md 2.1. */
+/** 12_COMPANY_API.md 2.1. */
 export async function createCompany(
   dto: CreateCompanyRequest,
 ): Promise<Company> {
@@ -38,7 +38,7 @@ export async function createCompany(
   return data.data;
 }
 
-/** 10_COMPANY_API.md 2.4. */
+/** 12_COMPANY_API.md 2.4. */
 export async function updateCompany(
   companyId: number,
   dto: UpdateCompanyRequest,
@@ -50,7 +50,7 @@ export async function updateCompany(
   return data.data;
 }
 
-/** 10_COMPANY_API.md 3.1 — 로그인 시 1회 로드하는 헤더 콤보박스용 활성 회사/프로젝트 목록. */
+/** 12_COMPANY_API.md 3.1 — 로그인 시 1회 로드하는 헤더 콤보박스용 활성 회사/프로젝트 목록. */
 export async function getActiveHeaderData(): Promise<ActiveHeaderData> {
   const { data } = await apiClient.get<ApiEnvelope<ActiveHeaderData>>(
     '/companies/active-header-data',
@@ -63,7 +63,7 @@ interface CompanyLookupResponse {
   company_name: string;
 }
 
-/** 10_COMPANY_API.md 2.5 — 회원가입 화면 전용, 인증 불필요. 미존재/비활성 시 31001. */
+/** 12_COMPANY_API.md 2.5 — 회원가입 화면 전용, 인증 불필요. 미존재/비활성 시 31001. */
 export async function lookupCompany(
   companyCode: string,
 ): Promise<CompanyLookupResponse> {

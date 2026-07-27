@@ -10,7 +10,7 @@ import type { ScheduledTask } from 'node-cron';
 import { SpExecutorService } from '../database/sp-executor.service';
 
 /**
- * 07_AUTH_SECURITY.md 2.6: 유예기간이 지난 `project.api_secret_prev`를 주기적으로 NULL 처리하는
+ * 09_AUTH_SECURITY.md 2.6: 유예기간이 지난 `project.api_secret_prev`를 주기적으로 NULL 처리하는
  * 배치. 서버 기동 시 `API_SECRET_CLEANUP_CRON` 스케줄로 등록한다(`SessionCleanupService`와 동일한
  * 구조).
  *

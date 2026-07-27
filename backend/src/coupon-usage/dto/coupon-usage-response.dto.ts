@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-/** POST /v1/coupons/{code}/reserve 응답. 18_COUPON_USAGE_API.md 2.1. */
+/** POST /v1/coupons/{code}/reserve 응답. 20_COUPON_USAGE_API.md 2.1. */
 export class ReserveResultDto {
   @ApiProperty({ description: '사용 이력 ID', example: 5001 })
   coupon_code_usage_id!: number;
@@ -27,7 +27,7 @@ export class ReserveResultDto {
   created_at!: string;
 }
 
-/** POST /v1/coupons/{code}/confirm 응답. 18_COUPON_USAGE_API.md 2.2. */
+/** POST /v1/coupons/{code}/confirm 응답. 20_COUPON_USAGE_API.md 2.2. */
 export class ConfirmResultDto {
   @ApiProperty({ description: '사용 이력 ID', example: 5001 })
   coupon_code_usage_id!: number;
@@ -36,7 +36,7 @@ export class ConfirmResultDto {
   confirmed_at!: string;
 }
 
-/** POST /v1/coupons/unconfirmed 응답 항목. 18_COUPON_USAGE_API.md 3.1. */
+/** POST /v1/coupons/unconfirmed 응답 항목. 20_COUPON_USAGE_API.md 3.1. */
 export class UnconfirmedItemDto {
   @ApiProperty({ description: '코드 값', example: '23A4-B7C9-DEF2' })
   code_value!: string;

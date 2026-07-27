@@ -9,7 +9,7 @@ import {
 } from 'class-validator';
 
 /**
- * PATCH /users/{user_id} 요청 바디. 12_USER_API.md 1.6의 Updatable Fields만 받는다
+ * PATCH /users/{user_id} 요청 바디. 14_USER_API.md 1.6의 Updatable Fields만 받는다
  * (user_id/company_id/requested_project_id/login_id는 DTO에 아예 없어 수정 대상이 될 수 없다).
  *
  * @author trisakion

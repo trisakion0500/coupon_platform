@@ -3,7 +3,7 @@ import { config } from '../../config';
 
 /**
  * coupon_platform 메인 DB용 커넥션 풀. `CALL SPTG_*(...)`만 호출한다(raw SELECT 없음,
- * docs/20_TEST_GAME_SERVER.md 2.2 "DB 콜은 SP로만" 원칙).
+ * docs/21_TEST_GAME_SERVER.md 2.2 "DB 콜은 SP로만" 원칙).
  */
 export const dbPool = mysql.createPool({
   host: config.db.host,

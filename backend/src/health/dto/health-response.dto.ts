@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-/** GET /health 응답. 08_API_COMMON.md 6장. */
+/** GET /health 응답. 10_API_COMMON.md 6장. */
 export class HealthResponseDto {
   @ApiProperty({ description: '상태', example: 'ok' })
   status!: string;

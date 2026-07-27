@@ -1,4 +1,4 @@
-# 02_DEV_CONVENTIONS.md
+# 04_DEV_CONVENTIONS.md
 
 # 개발 컨벤션
 
@@ -8,7 +8,7 @@
 
 # 1. 로깅 원칙
 
-`log_audit`/`log_coupon_campaign`/`log_coupon_use` 등 로그 테이블은 **메인 서비스 DB와 물리적으로 별도인 DB에 둔다** — "향후 분리될 수도 있다"는 가능성이 아니라 확정된 전제이며, 2026.07.19부터 **로컬 개발 환경에서도** 실제로 분리되어 있다(`coupon_platform`=메인, `coupon_platform_log`=로그 전용 DB). DDL은 `database_log/tables/`(개별 파일 + `all_log_tables.sql` 통합본)에 있고, `database/tables/all_tables.sql`에는 더 이상 포함되지 않는다 — 메인 DB용 `database/`와 로그 DB용 `database_log/`를 별도 최상위 폴더로 분리해 물리적 DB 분리를 폴더 구조에서도 드러낸다. 접속 계정은 메인 DB와 같을 수도, 다를 수도 있어(운영 환경에서는 별도 계정일 가능성이 높음) 환경변수를 따로 관리한다(`LOG_DB_HOST`/`LOG_DB_PORT`/`LOG_DB_USER`/`LOG_DB_PASSWORD`/`LOG_DB_NAME`, `01_TECH_STACK.md` 참고). 과거 로그 적재 문제로 DB 전체가 장애를 겪은 경험 때문에, 로그가 안 쌓이는 상황이 오더라도 메인 트랜잭션(쿠폰 발급/사용 등 핵심 기능)은 절대 실패하면 안 된다.
+`log_audit`/`log_coupon_campaign`/`log_coupon_use` 등 로그 테이블은 **메인 서비스 DB와 물리적으로 별도인 DB에 둔다** — "향후 분리될 수도 있다"는 가능성이 아니라 확정된 전제이며, 2026.07.19부터 **로컬 개발 환경에서도** 실제로 분리되어 있다(`coupon_platform`=메인, `coupon_platform_log`=로그 전용 DB). DDL은 `database_log/tables/`(개별 파일 + `all_log_tables.sql` 통합본)에 있고, `database/tables/all_tables.sql`에는 더 이상 포함되지 않는다 — 메인 DB용 `database/`와 로그 DB용 `database_log/`를 별도 최상위 폴더로 분리해 물리적 DB 분리를 폴더 구조에서도 드러낸다. 접속 계정은 메인 DB와 같을 수도, 다를 수도 있어(운영 환경에서는 별도 계정일 가능성이 높음) 환경변수를 따로 관리한다(`LOG_DB_HOST`/`LOG_DB_PORT`/`LOG_DB_USER`/`LOG_DB_PASSWORD`/`LOG_DB_NAME`, `02_TECH_STACK.md` 참고). 과거 로그 적재 문제로 DB 전체가 장애를 겪은 경험 때문에, 로그가 안 쌓이는 상황이 오더라도 메인 트랜잭션(쿠폰 발급/사용 등 핵심 기능)은 절대 실패하면 안 된다.
 
 - 로그 테이블에 FK를 걸지 않는다(물리적으로 분리된 DB는 FK로 묶을 수 없음)
 - 로그 조회에 필요한 참조 정보는 조인 없이 볼 수 있도록 스냅샷 컬럼(예: `created_by_name`)으로 미리 비정규화해둔다
@@ -24,10 +24,10 @@
 
 ## 1.2 API 실행 타임아웃
 
-`API_EXECUTION_TIMEOUT_MS`(기본 30000ms, `01_TECH_STACK.md`)를 전역 `TimeoutInterceptor`(`backend/src/common/response/timeout.interceptor.ts`, `main.ts`에서 `ResponseInterceptor` 뒤에 등록)가 소비한다(2026-07-23 도입 — 그 전에는 값 검증만 있고 실제로 소비하는 코드가 없었다). 컨트롤러 핸들러가 이 시간 안에 응답을 만들지 못하면 RxJS `timeout()`이 던지는 `TimeoutError`를 잡아 `BusinessException(ResultCode.API_EXECUTION_TIMEOUT)`(408, `08_API_COMMON.md` 1.3/8장 `50002`)으로 변환한다.
+`API_EXECUTION_TIMEOUT_MS`(기본 30000ms, `02_TECH_STACK.md`)를 전역 `TimeoutInterceptor`(`backend/src/common/response/timeout.interceptor.ts`, `main.ts`에서 `ResponseInterceptor` 뒤에 등록)가 소비한다(2026-07-23 도입 — 그 전에는 값 검증만 있고 실제로 소비하는 코드가 없었다). 컨트롤러 핸들러가 이 시간 안에 응답을 만들지 못하면 RxJS `timeout()`이 던지는 `TimeoutError`를 잡아 `BusinessException(ResultCode.API_EXECUTION_TIMEOUT)`(408, `10_API_COMMON.md` 1.3/8장 `50002`)으로 변환한다.
 
 - **인터셉터 등록 순서가 중요하다**: `ResponseInterceptor`를 먼저, `TimeoutInterceptor`를 나중에 등록해야 한다 — Nest의 인터셉터는 등록 순서대로 바깥→안쪽으로 감싸므로, 나중에 등록한 쪽이 컨트롤러 실행에 더 가깝다. `TimeoutInterceptor`가 컨트롤러 핸들러의 Observable에 직접 `timeout()`을 걸어야 하므로 안쪽에 있어야 하고, `ResponseInterceptor`는 성공 응답만 `map()`으로 감싸 오류를 그대로 통과시키므로 바깥에서 타임아웃 예외를 가로막지 않는다.
-- **타임아웃은 "클라이언트에게 실패를 알림"일 뿐 "DB 작업 취소"가 아니다** — RxJS `timeout()`은 구독을 취소할 뿐, 이미 던져진 SP 호출(mysql2 쿼리)을 서버 사이드에서 강제 종료하지 못한다. 즉 408 응답이 나간 뒤에도 해당 SP는 계속 실행되다 커밋될 수 있다. `POST /v1/coupons/reserve`처럼 상태를 바꾸는 API가 이미 멱등하게 설계된 것(`06_COUPON_USAGE_SCENARIO.md` 1.2)이 이 한계에 대한 실질적 방어선이다 — 새 쓰기 API를 추가할 때도 "타임아웃 이후 커밋될 수 있다"는 전제 하에 재시도 안전성을 갖추도록 한다.
+- **타임아웃은 "클라이언트에게 실패를 알림"일 뿐 "DB 작업 취소"가 아니다** — RxJS `timeout()`은 구독을 취소할 뿐, 이미 던져진 SP 호출(mysql2 쿼리)을 서버 사이드에서 강제 종료하지 못한다. 즉 408 응답이 나간 뒤에도 해당 SP는 계속 실행되다 커밋될 수 있다. `POST /v1/coupons/reserve`처럼 상태를 바꾸는 API가 이미 멱등하게 설계된 것(`08_COUPON_USAGE_SCENARIO.md` 1.2)이 이 한계에 대한 실질적 방어선이다 — 새 쓰기 API를 추가할 때도 "타임아웃 이후 커밋될 수 있다"는 전제 하에 재시도 안전성을 갖추도록 한다.
 - RANDOM 코드 대량생성(`CampaignCodeService.generateRandomCodes`)처럼 컨트롤러 응답과 분리된 fire-and-forget 백그라운드 작업은 이 인터셉터가 감싸는 Observable 범위 밖이라 타임아웃 대상이 아니다.
 
 ## 1.3 S2S 실패 운영 로그
@@ -58,7 +58,7 @@
 
 `nest-cli.json`에 `@nestjs/swagger` CLI 플러그인(`classValidatorShim: true`)이 등록돼 있어 필수/타입 추론은 어느 정도 자동화되지만, 설명(description)과 example 값은 자동 생성되지 않는다. 새 요청 DTO(`*.dto.ts`)를 추가하거나 필드를 수정할 때는 `@ApiProperty()`(필수)/`@ApiPropertyOptional()`(선택)를 함께 붙여 `description`과 `example`을 채운다 — enum류 필드는 값의 실제 의미를 한글로 명시한다(예: `역할 코드(20:DEVELOPER/30:MANAGER/40:OPERATOR)`).
 
-**응답도 동일 컨벤션을 따른다** — 컨트롤러가 반환하는 값은 서비스 내부의 순수 TS interface(예: `CampaignRow`)를 그대로 노출하지 말고, `*-response.dto.ts`에 `@ApiProperty()` 붙은 클래스(예: `CampaignResponseDto`)를 별도로 두고 컨트롤러 메서드에 `common/response/api-envelope.decorator.ts`의 `ApiEnvelopedResponse(Model)`/`ApiEnvelopedPaginatedResponse(Model)`/`ApiEnvelopedEmptyResponse()`를 붙인다. 이 데코레이터들은 `ResponseInterceptor`가 모든 성공 응답을 감싸는 `{result, data}` 봉투(08_API_COMMON.md 1.4)까지 Swagger 스키마에 그대로 반영해준다 — 컨트롤러 메서드 자체의 반환 타입 어노테이션만으로는 `nest-cli` 플러그인이 `Object`로만 추론해(interface는 런타임 타입 정보가 없어서) 응답 스키마가 비어버리므로, 반드시 이 데코레이터를 명시적으로 붙여야 한다. 응답 셰이프가 상황에 따라 달라지는 드문 경우(예: `POST /v1/coupons/unconfirmed`)는 이 헬퍼 대신 `@ApiExtraModels`+`@ApiResponse`+`oneOf`를 직접 조합한다(`coupon-usage.controller.ts` 참고).
+**응답도 동일 컨벤션을 따른다** — 컨트롤러가 반환하는 값은 서비스 내부의 순수 TS interface(예: `CampaignRow`)를 그대로 노출하지 말고, `*-response.dto.ts`에 `@ApiProperty()` 붙은 클래스(예: `CampaignResponseDto`)를 별도로 두고 컨트롤러 메서드에 `common/response/api-envelope.decorator.ts`의 `ApiEnvelopedResponse(Model)`/`ApiEnvelopedPaginatedResponse(Model)`/`ApiEnvelopedEmptyResponse()`를 붙인다. 이 데코레이터들은 `ResponseInterceptor`가 모든 성공 응답을 감싸는 `{result, data}` 봉투(10_API_COMMON.md 1.4)까지 Swagger 스키마에 그대로 반영해준다 — 컨트롤러 메서드 자체의 반환 타입 어노테이션만으로는 `nest-cli` 플러그인이 `Object`로만 추론해(interface는 런타임 타입 정보가 없어서) 응답 스키마가 비어버리므로, 반드시 이 데코레이터를 명시적으로 붙여야 한다. 응답 셰이프가 상황에 따라 달라지는 드문 경우(예: `POST /v1/coupons/unconfirmed`)는 이 헬퍼 대신 `@ApiExtraModels`+`@ApiResponse`+`oneOf`를 직접 조합한다(`coupon-usage.controller.ts` 참고).
 
 ---
 
@@ -98,14 +98,14 @@ FN_GET_PROJECT_ROLE_CODE(user_id, project_id) RETURNS TINYINT UNSIGNED  -- 배�
 
 - 권한 판단 로직이 바뀌면 이 Function들만 수정하면 되고, SP마다 흩어진 동일 로직을 일일이 찾아 고치지 않아도 된다
 - `FN_IS_SUPER_ADMIN`은 `user_role`에 `role_code=10`인 활성 배정이 있는지 확인한다 — SUPER_ADMIN 전용 SP(예: `SP_COMPANY_CREATE`)가 호출자의 SUPER_ADMIN 여부를 DB에서 직접 재확인할 때 쓴다. 이 Function 자체가 SUPER_ADMIN 판별을 담당하므로, 다른 세 Function처럼 "role_code=10이면 건너뛴다" 우회 로직이 필요 없다 — 반환값을 그대로 권한 판단에 쓴다.
-- `FN_CHECK_COMPANY_ACCESS`는 `user.company_id` 자체를 확인한다 — DEVELOPER의 회사 단위 스코핑(12_USER_API.md 1.1~1.3)처럼 프로젝트 배정과 무관하게 소속 회사만 맞으면 되는 경우에 쓴다.
+- `FN_CHECK_COMPANY_ACCESS`는 `user.company_id` 자체를 확인한다 — DEVELOPER의 회사 단위 스코핑(14_USER_API.md 1.1~1.3)처럼 프로젝트 배정과 무관하게 소속 회사만 맞으면 되는 경우에 쓴다.
 - `FN_CHECK_PROJECT_ACCESS`는 "배정되어 있는가"만 boolean으로 답한다 — role_code 수준과 무관하게 배정 유무만 확인하면 되는 경우(예: 캠페인 등 쿠폰 도메인의 `SP_CAMPAIGN_LIST`처럼 MANAGER/OPERATOR를 포함한 모든 배정을 인정해야 하는 스코핑)에 쓴다. `FN_GET_PROJECT_ROLE_CODE`는 실제 role_code 값을 반환한다 — role_code의 **값에 따라 처리가 갈리거나 특정 등급 이상만 허용해야 하는** SP를 위한 것으로, `FN_CHECK_PROJECT_ACCESS(u,p)`는 `FN_GET_PROJECT_ROLE_CODE(u,p) IS NOT NULL`과 동치다. `FN_CHECK_COMPANY_ACCESS`/`FN_CHECK_PROJECT_ACCESS`/`FN_GET_PROJECT_ROLE_CODE`는 SUPER_ADMIN 우회를 책임지지 않는다 — 호출하는 SP가 `NOT FN_IS_SUPER_ADMIN(i_requester_user_id)`로 먼저 확인한 뒤에만 이 Function들을 호출한다(SUPER_ADMIN은 특정 회사/프로젝트에 매인 값이 아니라 이 Function들로 표현할 수 없다).
-- **"배정 여부"와 "그 프로젝트에서의 role_code 등급"을 혼동하지 말 것**(2026-07-24 발견) — 프로젝트 관리메뉴(목록/상세/Secret 재발급)는 처음에 `FN_CHECK_PROJECT_ACCESS`(배정 존재 여부만)로 구현했다가, 이 프로젝트에서 OPERATOR(40)로만 배정된 사용자가 다른 프로젝트에서는 DEVELOPER(20)라 JWT의 MIN role_code가 20이면 관리메뉴 진입 자체는 허용되어 이 프로젝트까지 조회·재발급이 가능해지는 결함이 드러났다(10_COMPANY_API.md 1.2가 "프로젝트 관리메뉴는 DEVELOPER 이상 전용"이라고 규정하는데, 그 판단을 "이 프로젝트에서" 다시 해야 하는데 안 했던 것). `FN_GET_PROJECT_ROLE_CODE`로 실제 role_code를 가져와 `<= 20`까지 확인해야 하는 경우와, `FN_CHECK_PROJECT_ACCESS`로 배정 여부만 확인하면 되는 경우(예: 캠페인 도메인은 MANAGER/OPERATOR도 접근 가능하므로 배정 여부만 확인)를 SP 작성 시 반드시 구분한다 — "이 role_code 값이면 안 되는 하한선이 있는가"를 먼저 따져본다.
+- **"배정 여부"와 "그 프로젝트에서의 role_code 등급"을 혼동하지 말 것**(2026-07-24 발견) — 프로젝트 관리메뉴(목록/상세/Secret 재발급)는 처음에 `FN_CHECK_PROJECT_ACCESS`(배정 존재 여부만)로 구현했다가, 이 프로젝트에서 OPERATOR(40)로만 배정된 사용자가 다른 프로젝트에서는 DEVELOPER(20)라 JWT의 MIN role_code가 20이면 관리메뉴 진입 자체는 허용되어 이 프로젝트까지 조회·재발급이 가능해지는 결함이 드러났다(12_COMPANY_API.md 1.2가 "프로젝트 관리메뉴는 DEVELOPER 이상 전용"이라고 규정하는데, 그 판단을 "이 프로젝트에서" 다시 해야 하는데 안 했던 것). `FN_GET_PROJECT_ROLE_CODE`로 실제 role_code를 가져와 `<= 20`까지 확인해야 하는 경우와, `FN_CHECK_PROJECT_ACCESS`로 배정 여부만 확인하면 되는 경우(예: 캠페인 도메인은 MANAGER/OPERATOR도 접근 가능하므로 배정 여부만 확인)를 SP 작성 시 반드시 구분한다 — "이 role_code 값이면 안 되는 하한선이 있는가"를 먼저 따져본다.
 - **역할 검증이 필요한 모든 SP는 이 Function들 중 해당하는 것을 사용해 액션 처리 전에 검증한다**(2026-07-19 정책 확정) — 앱(TypeScript) 서비스 레이어가 이미 같은 판단을 하고 있더라도, SP도 호출자의 `i_requester_user_id`를 받아 동일한 검증을 반복한다(방어적 이중 체크: 앱 레이어 버그나 우회 호출에도 DB가 마지막 방어선이 되도록). SP는 호출자의 `role_code` 값 자체를 앱으로부터 전달받아 신뢰하지 않는다 — `FN_IS_SUPER_ADMIN`이 DB에서 직접 재확인하므로 별도 `i_requester_role` 파라미터가 필요 없다. 예: `SP_COMPANY_CREATE/LIST/GET_BY_ID/UPDATE`, `SP_PROJECT_CREATE/UPDATE`, `SP_USER_APPROVE/REJECT/UPDATE/PASSWORD_RESET`, `SP_USER_ROLE_CREATE/LIST/UPDATE`는 `FN_IS_SUPER_ADMIN`만으로, `SP_USER_LIST/GET_BY_ID`는 `FN_IS_SUPER_ADMIN` + `FN_CHECK_COMPANY_ACCESS`로, `SP_PROJECT_LIST/GET_BY_ID`·`SP_PROJECT_API_SECRET_ROTATE`는 `FN_IS_SUPER_ADMIN` + `FN_GET_PROJECT_ROLE_CODE(<=20 확인)`으로 재검증한다(`SP_PROJECT_API_SECRET_ROTATE`도 처음엔 앱이 전달한 `i_role_code`로 SUPER_ADMIN 우회를 판단했으나 2026-07-19 감사에서 이 정책 위반이 발견돼 나머지와 동일하게 통일됨; 세 SP 모두 2026-07-24 이전엔 회사 단위(`FN_CHECK_COMPANY_ACCESS`) 또는 배정 존재 여부(`FN_CHECK_PROJECT_ACCESS`)만 확인했으나, 위 항목의 결함이 드러나 role_code 등급까지 확인하는 `FN_GET_PROJECT_ROLE_CODE`로 최종 통일). 검증 실패 시 `PERMISSION_DENIED`(20001)를 반환한다.
-- 캠페인/코드/사용이력 API([17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 1.2 참고)처럼 여러 엔드포인트가 동일한 스코핑 규칙을 공유하는 경우 특히 중요하다
-- **예외 — 로그 DB(`coupon_platform_log`) SP는 이 Function들을 쓸 수 없다.** 물리적으로 분리된 별도 DB라(1장) 메인 DB의 `user`/`user_role`을 참조하지 못해 `FN_IS_SUPER_ADMIN` 등을 호출할 방법이 없다. `SP_LOG_AUDIT_CREATE`(기록)는 이미 검증이 끝난 메인 도메인 SP 호출 이후에만 실행되는 내부 인프라 호출이라 문제가 없지만, `SP_LOG_AUDIT_LIST`/`GET_BY_ID`([13_LOG_AUDIT_API.md](./13_LOG_AUDIT_API.md) 5/6장, HTTP로 직접 노출되는 조회 API)는 이 예외 때문에 "방어적 이중 체크" 자체가 불가능하다 — 앱 레이어(`LogAuditService`)가 유일한 권한 판단 지점이 된다(2026-07-22).
-- **로그 DB 조회 API가 project/campaign 단위 스코핑(캠페인 도메인 규칙)을 써야 하는 경우 — "메인 DB 접근권한 확인 → 로그 DB 목록 조회" 2단계 호출**(2026-07-22, [17_CAMPAIGN_API.md](./17_CAMPAIGN_API.md) 4.2/4.3). `log_audit`의 회사 단위 스코핑은 JWT의 `companyId`를 그대로 비교하면 끝나 쿼리가 필요 없었지만, 캠페인 도메인 스코핑(`user_role`에 실제 활성 배정된 `project_id`인지)은 메인 DB 조회 없이는 판단 자체가 불가능하다. 그렇다고 로그 DB SP가 이 체크를 할 수도 없으므로(바로 위 예외), 앱(TS) 레이어가 **먼저 메인 DB SP로 접근권한만 확인하고(통과 못하면 즉시 20001/31004, 로그 DB는 호출조차 하지 않음), 통과했을 때만 로그 DB SP로 실제 목록을 조회**하는 2단계 구조를 쓴다. 캠페인 하위 로그(`GET /campaigns/{id}/logs`)는 캠페인 도메인이 이미 갖고 있는 존재확인+스코핑 체크(`SP_CAMPAIGN_GET_BY_ID`와 동일 로직)를 재사용하면 되지만, 캠페인에 종속되지 않고 프로젝트 단위로만 스코핑되는 조회(`GET /coupon-use-logs`)는 "접근권한 확인만" 하는 전용 SP가 기존에 없어 신규로 만든다(`SP_PROJECT_CHECK_ACCESS`) — `SP_CAMPAIGN_LIST`가 `FN_CHECK_PROJECT_ACCESS`를 SP 안에서 바로 쓸 수 있는 것과 대비되는 지점(그건 `coupon_campaign`이 메인 DB에 있어서 가능한 것).
-- **2단계 패턴의 변형 — boolean 접근권한이 아니라 "허용 목록 자체"를 필터로 넘기는 경우**(2026-07-24, [13_LOG_AUDIT_API.md](./13_LOG_AUDIT_API.md) 3장). 위 항목은 "특정 하나의 project_id에 접근권한이 있는가"를 확인해 통과/차단만 결정하지만, `log_audit` 목록 조회(`SP_LOG_AUDIT_LIST`)처럼 한 번의 호출에 여러 `project_id`가 섞여 나올 수 있는 페이지네이션 조회는 그 방식이 안 맞는다 — 대신 앱(TS) 레이어가 메인 DB SP(`SP_USER_ROLE_LIST_DEVELOPER_PROJECT_IDS`)로 호출자가 `role_code<=20`으로 배정된 **프로젝트 ID 목록**(콤마 문자열)을 먼저 조회하고, 로그 DB SP 호출 시 이 문자열을 필터 파라미터로 그대로 전달해 `FIND_IN_SET`으로 SQL 단에서 걸러낸다. `NULL`(SUPER_ADMIN, 제한 없음)과 `''`(DEVELOPER이지만 배정된 프로젝트가 하나도 없음, 전부 제외)을 명확히 구분해야 한다 — `GROUP_CONCAT`이 빈 목록에 `NULL`을 반환하므로 앱 레이어가 이를 빈 문자열로 정규화하지 않으면 "제한 없음"으로 잘못 해석될 수 있다.
+- 캠페인/코드/사용이력 API([19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 1.2 참고)처럼 여러 엔드포인트가 동일한 스코핑 규칙을 공유하는 경우 특히 중요하다
+- **예외 — 로그 DB(`coupon_platform_log`) SP는 이 Function들을 쓸 수 없다.** 물리적으로 분리된 별도 DB라(1장) 메인 DB의 `user`/`user_role`을 참조하지 못해 `FN_IS_SUPER_ADMIN` 등을 호출할 방법이 없다. `SP_LOG_AUDIT_CREATE`(기록)는 이미 검증이 끝난 메인 도메인 SP 호출 이후에만 실행되는 내부 인프라 호출이라 문제가 없지만, `SP_LOG_AUDIT_LIST`/`GET_BY_ID`([15_LOG_AUDIT_API.md](./15_LOG_AUDIT_API.md) 5/6장, HTTP로 직접 노출되는 조회 API)는 이 예외 때문에 "방어적 이중 체크" 자체가 불가능하다 — 앱 레이어(`LogAuditService`)가 유일한 권한 판단 지점이 된다(2026-07-22).
+- **로그 DB 조회 API가 project/campaign 단위 스코핑(캠페인 도메인 규칙)을 써야 하는 경우 — "메인 DB 접근권한 확인 → 로그 DB 목록 조회" 2단계 호출**(2026-07-22, [19_CAMPAIGN_API.md](./19_CAMPAIGN_API.md) 4.2/4.3). `log_audit`의 회사 단위 스코핑은 JWT의 `companyId`를 그대로 비교하면 끝나 쿼리가 필요 없었지만, 캠페인 도메인 스코핑(`user_role`에 실제 활성 배정된 `project_id`인지)은 메인 DB 조회 없이는 판단 자체가 불가능하다. 그렇다고 로그 DB SP가 이 체크를 할 수도 없으므로(바로 위 예외), 앱(TS) 레이어가 **먼저 메인 DB SP로 접근권한만 확인하고(통과 못하면 즉시 20001/31004, 로그 DB는 호출조차 하지 않음), 통과했을 때만 로그 DB SP로 실제 목록을 조회**하는 2단계 구조를 쓴다. 캠페인 하위 로그(`GET /campaigns/{id}/logs`)는 캠페인 도메인이 이미 갖고 있는 존재확인+스코핑 체크(`SP_CAMPAIGN_GET_BY_ID`와 동일 로직)를 재사용하면 되지만, 캠페인에 종속되지 않고 프로젝트 단위로만 스코핑되는 조회(`GET /coupon-use-logs`)는 "접근권한 확인만" 하는 전용 SP가 기존에 없어 신규로 만든다(`SP_PROJECT_CHECK_ACCESS`) — `SP_CAMPAIGN_LIST`가 `FN_CHECK_PROJECT_ACCESS`를 SP 안에서 바로 쓸 수 있는 것과 대비되는 지점(그건 `coupon_campaign`이 메인 DB에 있어서 가능한 것).
+- **2단계 패턴의 변형 — boolean 접근권한이 아니라 "허용 목록 자체"를 필터로 넘기는 경우**(2026-07-24, [15_LOG_AUDIT_API.md](./15_LOG_AUDIT_API.md) 3장). 위 항목은 "특정 하나의 project_id에 접근권한이 있는가"를 확인해 통과/차단만 결정하지만, `log_audit` 목록 조회(`SP_LOG_AUDIT_LIST`)처럼 한 번의 호출에 여러 `project_id`가 섞여 나올 수 있는 페이지네이션 조회는 그 방식이 안 맞는다 — 대신 앱(TS) 레이어가 메인 DB SP(`SP_USER_ROLE_LIST_DEVELOPER_PROJECT_IDS`)로 호출자가 `role_code<=20`으로 배정된 **프로젝트 ID 목록**(콤마 문자열)을 먼저 조회하고, 로그 DB SP 호출 시 이 문자열을 필터 파라미터로 그대로 전달해 `FIND_IN_SET`으로 SQL 단에서 걸러낸다. `NULL`(SUPER_ADMIN, 제한 없음)과 `''`(DEVELOPER이지만 배정된 프로젝트가 하나도 없음, 전부 제외)을 명확히 구분해야 한다 — `GROUP_CONCAT`이 빈 목록에 `NULL`을 반환하므로 앱 레이어가 이를 빈 문자열로 정규화하지 않으면 "제한 없음"으로 잘못 해석될 수 있다.
 
 ## 3.3 주석은 철저히
 
@@ -115,11 +115,11 @@ SP/Function 본문에는 **무엇을 하는지(what)뿐 아니라 왜 이렇게 
 
 SP는 **OUT 파라미터를 쓰지 않는다** — mysql2는 `CALL sp(?, ?)`의 placeholder로 OUT 파라미터를 바인딩할 수 없어(MySQL 프로토콜 제약) 세션 변수(`SET @out; CALL ...; SELECT @out;`) 우회가 필요하고, 코드가 지저분해진다. 대신 아래 규약을 따른다.
 
-- **첫 SELECT는 항상 `RESULT` 컬럼 하나만 있는 단일 행**이다(`08_API_COMMON.md`의 result 코드를 그대로 사용, 성공은 `0`)
+- **첫 SELECT는 항상 `RESULT` 컬럼 하나만 있는 단일 행**이다(`10_API_COMMON.md`의 result 코드를 그대로 사용, 성공은 `0`)
 - **성공(`RESULT=0`)일 때만 이어서 두 번째 SELECT로 실제 데이터**를 반환한다. 실패 시엔 두 번째 SELECT를 아예 실행하지 않는다 — NestJS 쪽은 항상 첫 result set의 `RESULT`부터 확인하고, `0`일 때만 두 번째 result set을 읽는다는 계약을 지킨다
   - **예외**: 호출부가 반환값 자체를 쓰지 않는 순수 로그 적재 SP(예: `SP_LOG_AUDIT_CREATE`, `LogSpExecutorService.logCall`이 호출)는 성공해도 두 번째 SELECT를 생략할 수 있다 — `sp-result.util.ts`의 `callStoredProcedure`가 두 번째 result set 부재를 `data: undefined`로 그냥 처리하므로 호출부가 깨지지 않는다(2026-07-20, `SP_LOG_AUDIT_CREATE` 도입 시 확정)
 - **예측 가능한 비즈니스 실패**(코드 없음, 한도 초과 등)는 예외(`SIGNAL`)로 던지지 않고, 검증 실패 시점에 바로 `SELECT <해당 result 코드> AS RESULT`를 실행한 뒤 라벨 블록(`label: BEGIN ... LEAVE label; END;`)으로 빠져나간다 — 이건 정상적인 제어 흐름이지 예외 상황이 아니다
-- **예측 못한 시스템 오류**(제약 위반, 데드락 등 SQL 자체의 예외)는 `DECLARE EXIT HANDLER FOR SQLEXCEPTION`으로 잡는다. 핸들러는 `ROLLBACK` 후 `GET DIAGNOSTICS`로 얻은 `SQLSTATE`/`MYSQL_ERRNO`/`MESSAGE_TEXT`를 `SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE`로 반환한다(`50001` = `08_API_COMMON.md`의 "데이터베이스 오류(SP 내부 오류)"). 이 진단 컬럼들은 API 응답에 그대로 노출하지 않고 서버 로그용으로만 사용한다
+- **예측 못한 시스템 오류**(제약 위반, 데드락 등 SQL 자체의 예외)는 `DECLARE EXIT HANDLER FOR SQLEXCEPTION`으로 잡는다. 핸들러는 `ROLLBACK` 후 `GET DIAGNOSTICS`로 얻은 `SQLSTATE`/`MYSQL_ERRNO`/`MESSAGE_TEXT`를 `SELECT 50001 AS RESULT, sql_state AS SQL_STATE, error_no AS ERROR_NO, error_message AS ERROR_MESSAGE`로 반환한다(`50001` = `10_API_COMMON.md`의 "데이터베이스 오류(SP 내부 오류)"). 이 진단 컬럼들은 API 응답에 그대로 노출하지 않고 서버 로그용으로만 사용한다
 - **`SIGNAL SQLSTATE`도 별도 경로가 아니다** — SP/Function 내부 어딘가에서 `SIGNAL`로 명시적으로 예외를 던지더라도, 이는 `SQLEXCEPTION` 조건이라 위와 동일한 `EXIT HANDLER`에 그대로 잡혀 `RESULT`로 변환된다. 즉 예외가 엔진이 직접 낸 것이든(제약 위반 등) 코드 중간에 `SIGNAL`로 던진 것이든 최종적으로는 하나의 핸들러를 거쳐 동일한 형태로 응답된다 — SIGNAL 전용 처리 로직을 별도로 둘 필요가 없다
 - 조건 검증 실패 시 얼리 리턴처럼 빠져나가기 위해 `label: BEGIN ... END;` 블록 + `LEAVE label` 패턴을 쓴다(중첩 IF/ELSE 대신)
 
@@ -142,7 +142,7 @@ BEGIN
     END;
 
     proc_block: BEGIN
-        -- ... 코드 존재 확인, 멱등 체크, 조건부 UPDATE 등 (06_COUPON_USAGE_SCENARIO.md 2장 참고)
+        -- ... 코드 존재 확인, 멱등 체크, 조건부 UPDATE 등 (08_COUPON_USAGE_SCENARIO.md 2장 참고)
 
         IF /* 코드 없음 */ THEN
             SELECT 31005 AS RESULT;
@@ -171,7 +171,7 @@ DROP PROCEDURE IF EXISTS `SP_PROJECT_GET_BY_API_KEY`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_GET_BY_API_KEY` (
     IN i_api_key VARCHAR(64)  -- 조회할 API Key (project.api_key)
-) COMMENT 'API Key로 project 조회 (S2S 인증 가드 전용, docs/07_AUTH_SECURITY.md 2.4)'
+) COMMENT 'API Key로 project 조회 (S2S 인증 가드 전용, docs/09_AUTH_SECURITY.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_GET_BY_API_KEY
@@ -228,7 +228,7 @@ LEFT JOIN (
 
 **해결**: `SpExecutorService.runExclusive(lockName, fn)` — MySQL 세션 수준 advisory lock(`GET_LOCK`/`RELEASE_LOCK`, timeout=0 non-blocking)으로 감싸 한 시점에 한 레플리카만 실제로 `fn`을 실행하도록 한다. Redis 등 별도 분산 락 인프라를 새로 들이지 않고 이미 쓰고 있는 MySQL만으로 해결한 것 — `GET_LOCK`은 락을 커넥션 세션에 묶어 관리하므로 반드시 pool에서 커넥션 하나를 직접 뽑아 잡고 있어야 하고(`callProcedure`처럼 매 호출마다 pool이 임의로 골라주는 커넥션으로는 락을 건 커넥션과 푸는 커넥션이 달라질 수 있음), timeout=0으로 시도해 이미 다른 레플리카가 실행 중이면 대기 없이 즉시 포기한다(크론은 다음 스케줄에 또 돌아오므로 기다릴 이유가 없음).
 
-`GET_LOCK`/`RELEASE_LOCK`은 도입 당시(2026-07-23) `SpExecutorService`가 `conn.query('SELECT GET_LOCK(?, 0) AS acquired', ...)`로 raw SQL을 직접 호출했다 — 이 프로젝트의 "ORM/Native SQL 직접 작성 금지, SP 전용" 정책(01_TECH_STACK.md)의 유일한 예외였다. 운영 DB 계정을 SP 실행(EXECUTE) 권한만 허용하는 모델로 굳힐 계획이 확정되면서(2026-07-26) 이 raw SQL이 실제로 실행 불가능해질 수 있다는 게 드러나, `SP_LOCK_ACQUIRE`/`SP_LOCK_RELEASE`(`database/procedures/`) 2개로 감쌌다 — `CALL SP_LOCK_ACQUIRE(?)`/`CALL SP_LOCK_RELEASE(?)`도 여전히 `runExclusive`가 붙잡고 있는 동일 커넥션 위에서 호출해야 하는 제약은 그대로다(SP로 감싼다고 세션 종속성이 사라지지 않음). 두 SP 모두 특정 도메인에 속하지 않는 인프라 전용이라 `SP_LOCK_ACQUIRE`/`SP_LOCK_RELEASE`처럼 `LOCK`을 도메인처럼 취급하는 이름을 쓴다.
+`GET_LOCK`/`RELEASE_LOCK`은 도입 당시(2026-07-23) `SpExecutorService`가 `conn.query('SELECT GET_LOCK(?, 0) AS acquired', ...)`로 raw SQL을 직접 호출했다 — 이 프로젝트의 "ORM/Native SQL 직접 작성 금지, SP 전용" 정책(02_TECH_STACK.md)의 유일한 예외였다. 운영 DB 계정을 SP 실행(EXECUTE) 권한만 허용하는 모델로 굳힐 계획이 확정되면서(2026-07-26) 이 raw SQL이 실제로 실행 불가능해질 수 있다는 게 드러나, `SP_LOCK_ACQUIRE`/`SP_LOCK_RELEASE`(`database/procedures/`) 2개로 감쌌다 — `CALL SP_LOCK_ACQUIRE(?)`/`CALL SP_LOCK_RELEASE(?)`도 여전히 `runExclusive`가 붙잡고 있는 동일 커넥션 위에서 호출해야 하는 제약은 그대로다(SP로 감싼다고 세션 종속성이 사라지지 않음). 두 SP 모두 특정 도메인에 속하지 않는 인프라 전용이라 `SP_LOCK_ACQUIRE`/`SP_LOCK_RELEASE`처럼 `LOCK`을 도메인처럼 취급하는 이름을 쓴다.
 
 **새로 크론 배치를 추가할 때는 이 패턴을 그대로 재사용한다** — `SP_SESSION_CLEANUP`/`SP_PROJECT_API_SECRET_CLEANUP`/`SP_NONCE_CLEANUP`(`NonceCleanupService`, 스케일아웃 점검 4번, 2026-07-23 뒤늦게 구현 완료)/`SP_CAMPAIGN_CODE_GENERATION_STALE_LIST`(`CodeGenerationStaleMonitorService`, 스케일아웃 점검 5번)/`SP_CAMPAIGN_EXPIRE`(`CampaignExpiryService`, 2026-07-25)까지 5개 크론 배치 전부 이미 이렇게 감싸져 있다.
 
@@ -268,7 +268,7 @@ LEFT JOIN (
 
 - 처리 전에 **이미 처리된 기존 결과가 있는지 먼저 확인**하고, 있으면 새로 만들지 않고 그 결과를 그대로 재반환한다(체크 후 진행이 아니라, "이미 끝난 요청인지" 확인이 잠금/생성보다 앞선다는 뜻)
 - 멱등 판단 키(예: `coupon_code_usage`의 `(coupon_code_id, game_user_id)`)가 **하나의 논리적 요청을 유일하게 식별할 수 있을 때만** 적용한다 — 같은 키로 정당하게 여러 번 호출되는 경우(예: `use_limit_per_user>1`인 FIXED 코드의 반복 사용)까지 있으면 재시도와 정당한 반복을 구분할 수 없으므로, 이 경우엔 억지로 멱등 처리하지 않고 한계로 남긴다(클라이언트가 시도마다 별도 식별자를 보내야 완전히 해결되는데, 현재 스펙엔 그런 식별자가 없음)
-- 구체적인 사례: [06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md) 1.2(reserve 멱등성), [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md) 2.2(confirm 멱등성)
+- 구체적인 사례: [08_COUPON_USAGE_SCENARIO.md](./08_COUPON_USAGE_SCENARIO.md) 1.2(reserve 멱등성), [20_COUPON_USAGE_API.md](./20_COUPON_USAGE_API.md) 2.2(confirm 멱등성)
 
 ---
 
@@ -277,7 +277,7 @@ LEFT JOIN (
 **모든 소스코드(TypeScript 백엔드/프론트엔드 전체)는 클래스/메서드/함수에 JSDoc 형식(`/** ... */`) 주석을 작성한다.**
 
 - 무엇을 하는지뿐 아니라, 비자명한 경우 왜 이렇게 처리하는지도 함께 남긴다(3.3의 SP/Function 주석 원칙과 같은 정신을 TypeScript 코드에도 동일하게 적용)
-- 클래스 상단에는 그 클래스의 책임과, 관련 설계 문서(예: `07_AUTH_SECURITY.md` 2.4)를 함께 적어 어떤 스펙을 구현한 코드인지 바로 추적할 수 있게 한다
+- 클래스 상단에는 그 클래스의 책임과, 관련 설계 문서(예: `09_AUTH_SECURITY.md` 2.4)를 함께 적어 어떤 스펙을 구현한 코드인지 바로 추적할 수 있게 한다
 - 인터페이스/타입 선언도 필드의 의미가 이름만으로 분명하지 않으면 JSDoc으로 보충한다
 - 파일마다 최상단 JSDoc(클래스가 있으면 클래스 doc, 없으면 파일의 대표 export)에 `@author trisakion` 태그를 남긴다
 - SQL(SP/Function)은 JSDoc 문법 자체가 없으므로 이 규칙의 대상이 아니다 — SQL 주석은 3.3(SP/Function 컨벤션의 주석 규칙)을 따르고, 개별 파일과 통합 파일(Procedure는 `all_procedures.sql`, Function은 `all_functions.sql`) 양쪽에 동일한 주석을 빠짐없이 유지한다(`all_tables.sql`이 개별 테이블 파일의 헤더 주석을 그대로 유지하는 것과 동일한 원칙)
@@ -297,8 +297,8 @@ export const ERROR_MAP: Record<ResultCode, ErrorEntry> = {
 throw new BusinessException(ResultCode.PROJECT_NOT_FOUND);
 ```
 
-- HTTP status를 새로 정할 때는 08_API_COMMON.md 1.3 매핑 규칙(10000번대→401, 20000번대→403, 31000~31999→404, 그 외 30000번대→400, 40000번대→429, 50000번대→500)을 따른다
-- `HttpExceptionFilter`(전역 예외 필터)가 `BusinessException`은 그대로, NestJS 기본 예외(ValidationPipe 등)와 미분류 예외는 별도 규칙으로 `{result, message}` 형태로 정규화해 응답한다 — 08_API_COMMON.md 1.5 "비즈니스 오류를 HTTP 200으로 반환하지 않는다" 원칙의 실제 구현체
+- HTTP status를 새로 정할 때는 10_API_COMMON.md 1.3 매핑 규칙(10000번대→401, 20000번대→403, 31000~31999→404, 그 외 30000번대→400, 40000번대→429, 50000번대→500)을 따른다
+- `HttpExceptionFilter`(전역 예외 필터)가 `BusinessException`은 그대로, NestJS 기본 예외(ValidationPipe 등)와 미분류 예외는 별도 규칙으로 `{result, message}` 형태로 정규화해 응답한다 — 10_API_COMMON.md 1.5 "비즈니스 오류를 HTTP 200으로 반환하지 않는다" 원칙의 실제 구현체
 
 ### SP 시스템 오류(RESULT=50001)는 DB 접근 레이어에서 한 번만 처리한다
 
@@ -308,7 +308,7 @@ throw new BusinessException(ResultCode.PROJECT_NOT_FOUND);
 - 호출부마다 "혹시 50001 아닌가"를 따로 확인할 필요가 없어, 그 확인이 누락되어 시스템 오류가 엉뚱한 비즈니스 실패(예: 로그인 실패, 세션 무효)로 잘못 분류되는 사고를 원천 차단한다(2026-07-19 리뷰에서 이 누락 패턴이 여러 곳에서 발견된 뒤 도입)
 - 로그 적재처럼 실패를 절대 밖으로 던지면 안 되는 곳(`LogSpExecutorService.logCall`)은 이 예외를 그냥 try/catch로 잡아 삼키면 되므로 호환에 문제없다
 
-**예외(2026-07-21 추가)**: `BusinessException`은 던져질 때 `sqlDiagnostics`(`{sqlState, errorNo}`)를 함께 실을 수 있다 — HTTP 응답 바디(`{result, message}`)에는 절대 포함되지 않고, 예외 인스턴스 자체에만 붙어 있다. 이건 위 원칙(호출부는 특정 비즈니스 코드만 신경 쓴다)을 깨는 게 아니라, "재시도 가능한 시스템 오류인지"까지 스스로 판단해야 하는 극히 드문 내부 호출부(코드 발급 백그라운드 루프의 `CampaignCodeService.generateRandomCodes` — `05_COUPON_ISSUANCE_SCENARIO.md` 2.2 "재시도 가능 에러만 대상, 4xx류 등은 즉시 실패 처리")를 위해 열어둔 좁은 탈출구다. 대부분의 호출부는 여전히 `if (result !== 0) throw` 패턴만으로 충분하고 이 필드를 알 필요가 없다.
+**예외(2026-07-21 추가)**: `BusinessException`은 던져질 때 `sqlDiagnostics`(`{sqlState, errorNo}`)를 함께 실을 수 있다 — HTTP 응답 바디(`{result, message}`)에는 절대 포함되지 않고, 예외 인스턴스 자체에만 붙어 있다. 이건 위 원칙(호출부는 특정 비즈니스 코드만 신경 쓴다)을 깨는 게 아니라, "재시도 가능한 시스템 오류인지"까지 스스로 판단해야 하는 극히 드문 내부 호출부(코드 발급 백그라운드 루프의 `CampaignCodeService.generateRandomCodes` — `07_COUPON_ISSUANCE_SCENARIO.md` 2.2 "재시도 가능 에러만 대상, 4xx류 등은 즉시 실패 처리")를 위해 열어둔 좁은 탈출구다. 대부분의 호출부는 여전히 `if (result !== 0) throw` 패턴만으로 충분하고 이 필드를 알 필요가 없다.
 
 # 8. 의존성 버전 관리
 
@@ -319,6 +319,6 @@ throw new BusinessException(ResultCode.PROJECT_NOT_FOUND);
 
 # 9. 관련 문서
 
-- DB 접근 정책(mysql2, SP 전용): [01_TECH_STACK.md](./01_TECH_STACK.md)
-- 테이블별 특징/공통 정책: [04_DATABASE_SCHEMA.md](./04_DATABASE_SCHEMA.md)
-- 쿠폰 사용(reserve/confirm) 멱등/동시성 설계 근거: [06_COUPON_USAGE_SCENARIO.md](./06_COUPON_USAGE_SCENARIO.md)
+- DB 접근 정책(mysql2, SP 전용): [02_TECH_STACK.md](./02_TECH_STACK.md)
+- 테이블별 특징/공통 정책: [06_DATABASE_SCHEMA.md](./06_DATABASE_SCHEMA.md)
+- 쿠폰 사용(reserve/confirm) 멱등/동시성 설계 근거: [08_COUPON_USAGE_SCENARIO.md](./08_COUPON_USAGE_SCENARIO.md)

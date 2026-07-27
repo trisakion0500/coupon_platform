@@ -1,4 +1,4 @@
-# 20_TEST_GAME_SERVER.md
+# 21_TEST_GAME_SERVER.md
 
 # 테스트게임서버 설계
 
@@ -57,7 +57,7 @@
 **DB 콜은 이 프로젝트도 예외 없이 SP로만 한다** — coupon_platform 전체 원칙(ORM/Native SQL 직접 작성
 금지, `CLAUDE.md` 아키텍처 절)을 이 테스트 도구에도 그대로 적용한다. `testing/db/queries.ts`는 raw
 `SELECT`를 직접 조립하지 않고 전부 `CALL SPTG_*(...)`만 호출한다(10장). 이렇게 하는 이유는 단순히
-일관성 때문만이 아니라, 이 프로젝트가 지향하는 운영 DB 계정 모델(`02_DEV_CONVENTIONS.md` 4.1 — 운영
+일관성 때문만이 아니라, 이 프로젝트가 지향하는 운영 DB 계정 모델(`04_DEV_CONVENTIONS.md` 4.1 — 운영
 계정은 EXECUTE 권한만 부여)과도 맞물린다 — "외부에서 DB를 직접 조회하는" 이 도구조차 raw SELECT
 권한 없이 동작 가능해야, 실제로 그런 제한된 계정을 발급해도 이 도구가 계속 쓸 수 있다.
 
@@ -65,7 +65,7 @@
 
 이 도구는 **쿠폰 DB에 직접 접근해 `project.api_secret`(암호문)을 읽고 `ENCRYPTION_KEY`로 복호화**한다.
 실제 운영 환경의 게임서버는 절대 이렇게 동작하지 않는다 — API Secret은 발급/재발급 시점에 평문으로
-1회만 노출되고, 그 이후로는 게임서버 자신이 별도 보관하는 것이 정상적인 모델이다(`docs/07_AUTH_SECURITY.md`).
+1회만 노출되고, 그 이후로는 게임서버 자신이 별도 보관하는 것이 정상적인 모델이다(`docs/09_AUTH_SECURITY.md`).
 `ENCRYPTION_KEY`를 외부 게임서버가 갖고 있다는 전제 자체가 이미 보안모델을 벗어난다.
 
 이 방식을 택한 이유는 순수하게 **테스트 편의성** 때문이다 — 캠페인/코드를 관리 콘솔 API로 매번
@@ -180,7 +180,7 @@ test_game_server/
 ## 6.2 멱등 재시도 (기본 가중치 10%)
 
 6.1이 기록해둔 이력 중 `use_limit_per_user=1`인 성공 건을 무작위로 골라 **동일한 코드+동일한
-`game_user_id`로 reserve를 다시 호출**한다. `18_COUPON_USAGE_API.md` 2.1의 멱등 규칙에 따라
+`game_user_id`로 reserve를 다시 호출**한다. `20_COUPON_USAGE_API.md` 2.1의 멱등 규칙에 따라
 새 소모를 만들지 않고 최초 성공 응답과 동일한 `coupon_code_usage_id`가 돌아와야 한다 — 다르면
 버그로 로그에 강조 출력한다. confirm도 동일한 방식으로 재호출해 멱등성을 확인한다.
 
@@ -217,7 +217,7 @@ reserve를 재호출해 RANDOM은 33001, FIXED 한도초과는 33003이 정확�
 ## 6.6 보상지급 중단 재처리 (리컨실리에이션, 기본 가중치 10%)
 
 6.1의 10%가 만들어낸(confirm이 오지 않은) 미컨슘 건을 게임서버 스스로 나중에 발견해 재처리하는
-흐름을 재현한다 — `06_COUPON_USAGE_SCENARIO.md` 3장이 정의한 "confirm이 안 와도 쿠폰서버는 되돌리지
+흐름을 재현한다 — `08_COUPON_USAGE_SCENARIO.md` 3장이 정의한 "confirm이 안 와도 쿠폰서버는 되돌리지
 않고, 재처리 여부/시점 판단은 전적으로 게임서버 책임"이라는 설계를 실제로 소비하는 유일한 시나리오다.
 
 1. `CouponS2sClient.getUnconfirmed({ page: 1, pageSize: 20 })`(전체유저 모드, 9.3)를 호출해 이
@@ -233,12 +233,12 @@ reserve를 재호출해 RANDOM은 33001, FIXED 한도초과는 33003이 정확�
 
 이 시나리오는 새로운 소모(reserve)를 만들지 않고 기존 미컨슘 건을 조회·재처리만 하므로, 6.3(동시성
 레이스)과 달리 DB 사후 검증은 필요 없다(confirm은 상태를 바꾸지 않는 지급 결과 기록일 뿐이라
-동시 확정 문제 자체가 없음 — `18_COUPON_USAGE_API.md` 2.2 Business Rules 참고).
+동시 확정 문제 자체가 없음 — `20_COUPON_USAGE_API.md` 2.2 Business Rules 참고).
 
 ## 6.7 레이트리밋(40001)은 mismatch로 취급하지 않는다
 
 `TICK_INTERVAL_MS`를 공격적으로 낮추면(예: 50ms, 초당 20 tick) 프로젝트 단위 토큰버킷
-(`COUPON_USAGE_RATE_LIMIT_BUCKET_CAPACITY`/`REFILL_PER_SEC`, `07_AUTH_SECURITY.md` 2.8)이 실제로
+(`COUPON_USAGE_RATE_LIMIT_BUCKET_CAPACITY`/`REFILL_PER_SEC`, `09_AUTH_SECURITY.md` 2.8)이 실제로
 고갈돼 `RATE_LIMIT_EXCEEDED`(40001)가 섞여 들어올 수 있다 — 이건 각 시나리오가 검증하려는
 비즈니스 로직(SP 동시성/멱등성)과 무관한 외부 스로틀링이라, 그대로 두면 "기대와 다른 결과"로
 오판해 `mismatch.log`를 가짜 양성으로 오염시킨다(2026-07-27, 실제로 재현되어 발견). 그래서
@@ -308,14 +308,14 @@ S2S 연동을 구현할 때 그대로 복사해가거나 참고할 수 있는 �
   이 SDK와 완전히 분리된 별도 파일이며, 그 결과(평문)만 `CouponS2sClient` 생성자에 넘긴다. 이렇게
   나눠야 "이 SDK를 그대로 입점사에 준다"는 전제가 실제 배포 시에도 안전하다(복호화 로직·`ENCRYPTION_KEY`가
   섞여 들어가지 않음, 2.3의 캐비어트와 동일한 경계).
-- **`07_AUTH_SECURITY.md` 2.3 규칙 그대로**: `stringToSign = [method, path, rawQuery, timestamp, nonce, bodyString].join('\n')`,
+- **`09_AUTH_SECURITY.md` 2.3 규칙 그대로**: `stringToSign = [method, path, rawQuery, timestamp, nonce, bodyString].join('\n')`,
   `nonce`는 매 요청 새 UUID, `timestamp`는 Unix epoch seconds. 4개 헤더(`X-API-Key`/`X-API-Timestamp`/
   `X-API-Nonce`/`X-API-Signature`)를 자동으로 구성해 붙인다 — `backend/test/utils/s2s.ts`(E2E
   테스트 하네스)와 동일한 규칙을 쓰되, 그 파일을 import하지 않고 이 SDK 안에 자체 구현한다(테스트
   코드에 대한 의존을 배포 산출물에 남기지 않기 위함).
 - **에러는 타입화해서 던진다**: HTTP 에러 응답(`{result, message}`)을 `CouponApiError`(필드:
   `resultCode`/`httpStatus`/`message`)로 감싸 던진다 — 입점사가 `err instanceof CouponApiError`로
-  잡아 `resultCode`별 분기(33001/33002/33003 등, `18_COUPON_USAGE_API.md` 참고)를 하기 쉽게 한다.
+  잡아 `resultCode`별 분기(33001/33002/33003 등, `20_COUPON_USAGE_API.md` 참고)를 하기 쉽게 한다.
 
 ## 9.3 공개 API (초안)
 
@@ -332,7 +332,7 @@ export class CouponS2sClient {
   reserve(codeValue: string, gameUserId: string): Promise<ReserveResult>;
   confirm(codeValue: string, gameUserId: string): Promise<ConfirmResult>;
 
-  // game_user_id 지정 시 특정유저 모드, 미지정 시 page/pageSize 필수(전체유저 모드) — 18_COUPON_USAGE_API.md 3장
+  // game_user_id 지정 시 특정유저 모드, 미지정 시 page/pageSize 필수(전체유저 모드) — 20_COUPON_USAGE_API.md 3장
   getUnconfirmed(params: { gameUserId?: string; campaignId?: number; page?: number; pageSize?: number }): Promise<UnconfirmedResult>;
 }
 
@@ -368,7 +368,7 @@ DDL/DML 산출물도 그 프로젝트에 딸린 것은 그 프로젝트 폴더 �
 
 네이밍은 기존 `SP_도메인_동작` 규칙과 구분되도록 **`SPTG_동작`**(전부 대문자, `SP_`가 아니라 `SPTG_`)
 접두어를 쓴다 — 이름만 보고도 "이건 제품 SP가 아니라 테스트게임서버 전용"이라는 걸 즉시 알 수 있게
-하기 위함이다. 일반 SP처럼 RESULT 단일 컬럼 규약(`02_DEV_CONVENTIONS.md` 3.4)은 따르지 않는다 —
+하기 위함이다. 일반 SP처럼 RESULT 단일 컬럼 규약(`04_DEV_CONVENTIONS.md` 3.4)은 따르지 않는다 —
 이 SP들은 `SpExecutorService`를 거치지 않고 `test_game_server`가 mysql2로 직접 `CALL`해 첫 번째
 결과셋을 그대로 읽으며, 실패할 만한 비즈니스 조건이 없는 순수 조회이기 때문이다(정상적으로는
 빈 결과셋이 곧 "이번엔 대상 없음"을 의미할 뿐 에러가 아니다).
@@ -389,7 +389,7 @@ DDL/DML 산출물도 그 프로젝트에 딸린 것은 그 프로젝트 폴더 �
 분포한다.
 
 `SPTG_EXHAUSTED_FIXED_TARGET`이 `use_limit_per_user > 1`인 조합만 대상으로 하는 이유는, `=1`인 경우는
-`18_COUPON_USAGE_API.md` 2.1의 멱등 규칙(같은 코드+같은 `game_user_id` 재시도 시 에러가 아니라 최초
+`20_COUPON_USAGE_API.md` 2.1의 멱등 규칙(같은 코드+같은 `game_user_id` 재시도 시 에러가 아니라 최초
 성공 응답을 그대로 재반환)이 적용돼 재시도해도 33003이 아니라 200이 돌아오기 때문이다 — 그 케이스는
 6.4가 아니라 6.2(멱등 재시도)의 영역이라 처음부터 후보에서 제외한다.
 

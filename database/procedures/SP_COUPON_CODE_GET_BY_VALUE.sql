@@ -8,7 +8,7 @@ BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COUPON_CODE_GET_BY_VALUE
     -- 작성 : 2026.07.22 trisakion
-    -- 내용 : SP_COUPON_RESERVE/SP_COUPON_CONFIRM은 02_DEV_CONVENTIONS.md 3.4 규약상 실패 시
+    -- 내용 : SP_COUPON_RESERVE/SP_COUPON_CONFIRM은 04_DEV_CONVENTIONS.md 3.4 규약상 실패 시
     --        RESULT 단일 컬럼만 반환하므로, 코드는 존재하지만 다른 사유로 실패한 경우(RESERVE의
     --        33001/33002/33003, CONFIRM의 31006)에도 coupon_campaign_id를 알 수 없다. 하지만
     --        log_coupon_use.coupon_campaign_id는 "코드 자체가 없는 시도만 NULL"이 설계 의도라

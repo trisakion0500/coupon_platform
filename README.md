@@ -55,7 +55,7 @@ coupon_platform은 인앱결제의 consume/acknowledge 패턴을 참고해 **res
 | 로깅        | log_audit / log_coupon_campaign / log_coupon_use + application log(log4js) |
 
 > **왜 SP/Function 전용으로 강제했는가**
-> 정합성이 중요한 도메인(코드 중복소모 방지, 캠페인 오버셀 방지, 낙관적 동시성 제어)일수록 애플리케이션 레이어의 트랜잭션 코드보다 DB 제약·락으로 강제하는 편이 실수할 여지가 적다. ORM이나 Native SQL 직접 작성을 금지하고 모든 쓰기를 Stored Procedure로 강제한 이유다 — `docs/02_DEV_CONVENTIONS.md` 참고.
+> 정합성이 중요한 도메인(코드 중복소모 방지, 캠페인 오버셀 방지, 낙관적 동시성 제어)일수록 애플리케이션 레이어의 트랜잭션 코드보다 DB 제약·락으로 강제하는 편이 실수할 여지가 적다. ORM이나 Native SQL 직접 작성을 금지하고 모든 쓰기를 Stored Procedure로 강제한 이유다 — `docs/04_DEV_CONVENTIONS.md` 참고.
 
 **Frontend**
 
@@ -69,7 +69,7 @@ coupon_platform은 인앱결제의 consume/acknowledge 패턴을 참고해 **res
 | HTTP      | Axios                 |
 | 다국어    | react-i18next(ko/en)  |
 
-세부 환경변수 및 버전은 [`docs/01_TECH_STACK.md`](docs/01_TECH_STACK.md) 참고.
+세부 환경변수 및 버전은 [`docs/02_TECH_STACK.md`](docs/02_TECH_STACK.md) 참고.
 
 ---
 
@@ -90,26 +90,27 @@ coupon_platform은 인앱결제의 consume/acknowledge 패턴을 참고해 **res
 
 | 문서 | 내용 |
 | ---- | ---- |
-| [01_TECH_STACK.md](docs/01_TECH_STACK.md) | 기술 스택, 환경변수 |
-| [02_DEV_CONVENTIONS.md](docs/02_DEV_CONVENTIONS.md) | 로깅 원칙, 코드 모듈화 기준, SP 네이밍, 동시성 처리 컨벤션 |
-| [03_ERD.md](docs/03_ERD.md) | 전체 테이블 ERD, 비정규화 FK, 상태코드 요약 |
-| [04_DATABASE_SCHEMA.md](docs/04_DATABASE_SCHEMA.md) | 테이블별 특징/상태/특수규칙 |
-| [05_COUPON_ISSUANCE_SCENARIO.md](docs/05_COUPON_ISSUANCE_SCENARIO.md) | 캠페인/코드 발급 흐름, 비동기 생성, 재시도 처리 |
-| [06_COUPON_USAGE_SCENARIO.md](docs/06_COUPON_USAGE_SCENARIO.md) | 쿠폰 사용 흐름, 동시성 처리 |
-| [07_AUTH_SECURITY.md](docs/07_AUTH_SECURITY.md) | 사용자 인증, S2S 인증 정책 |
-| [08_API_COMMON.md](docs/08_API_COMMON.md) | 응답포맷/에러코드/페이지네이션 |
-| [09_AUTH_API.md](docs/09_AUTH_API.md) | 회원가입/로그인/로그아웃 등 |
-| [10_COMPANY_API.md](docs/10_COMPANY_API.md) | 회사 CRUD |
-| [11_PROJECT_API.md](docs/11_PROJECT_API.md) | 프로젝트 CRUD, Secret 발급/재발급 |
-| [12_USER_API.md](docs/12_USER_API.md) | 사용자 승인/반려/권한 배정 |
-| [13_LOG_AUDIT_API.md](docs/13_LOG_AUDIT_API.md) | 감사로그 조회 |
-| [14_MENU_PERMISSION.md](docs/14_MENU_PERMISSION.md) | 역할별 메뉴 접근 권한 |
-| [15_SCREEN_LIST.md](docs/15_SCREEN_LIST.md) | 화면 목록 및 연관 API |
-| [16_LAYOUT.md](docs/16_LAYOUT.md) | 레이아웃, 라우트, 공통 컴포넌트 |
-| [17_CAMPAIGN_API.md](docs/17_CAMPAIGN_API.md) | 캠페인 CRUD, 상태변경, 승인/반려, 코드 발급(RANDOM 비동기/FIXED 동기) |
-| [18_COUPON_USAGE_API.md](docs/18_COUPON_USAGE_API.md) | 쿠폰 사용 reserve/confirm, 미컨슘 조회 |
-| [19_DEV_SETUP.md](docs/19_DEV_SETUP.md) | 로컬 개발 환경 설정 |
-| [20_TEST_GAME_SERVER.md](docs/20_TEST_GAME_SERVER.md) | S2S 연동 검증용 독립 테스트 클라이언트(test_game_server) 설계 |
+| [01_COUPON_PLATFORM_GUIDE.md](docs/01_COUPON_PLATFORM_GUIDE.md) | 입점 게임사 담당자용 이용/연동 가이드(콘솔 사용법 + S2S 연동) |
+| [02_TECH_STACK.md](docs/02_TECH_STACK.md) | 기술 스택, 환경변수 |
+| [03_DEV_SETUP.md](docs/03_DEV_SETUP.md) | 로컬 개발 환경 설정 |
+| [04_DEV_CONVENTIONS.md](docs/04_DEV_CONVENTIONS.md) | 로깅 원칙, 코드 모듈화 기준, SP 네이밍, 동시성 처리 컨벤션 |
+| [05_ERD.md](docs/05_ERD.md) | 전체 테이블 ERD, 비정규화 FK, 상태코드 요약 |
+| [06_DATABASE_SCHEMA.md](docs/06_DATABASE_SCHEMA.md) | 테이블별 특징/상태/특수규칙 |
+| [07_COUPON_ISSUANCE_SCENARIO.md](docs/07_COUPON_ISSUANCE_SCENARIO.md) | 캠페인/코드 발급 흐름, 비동기 생성, 재시도 처리 |
+| [08_COUPON_USAGE_SCENARIO.md](docs/08_COUPON_USAGE_SCENARIO.md) | 쿠폰 사용 흐름, 동시성 처리 |
+| [09_AUTH_SECURITY.md](docs/09_AUTH_SECURITY.md) | 사용자 인증, S2S 인증 정책 |
+| [10_API_COMMON.md](docs/10_API_COMMON.md) | 응답포맷/에러코드/페이지네이션 |
+| [11_AUTH_API.md](docs/11_AUTH_API.md) | 회원가입/로그인/로그아웃 등 |
+| [12_COMPANY_API.md](docs/12_COMPANY_API.md) | 회사 CRUD |
+| [13_PROJECT_API.md](docs/13_PROJECT_API.md) | 프로젝트 CRUD, Secret 발급/재발급 |
+| [14_USER_API.md](docs/14_USER_API.md) | 사용자 승인/반려/권한 배정 |
+| [15_LOG_AUDIT_API.md](docs/15_LOG_AUDIT_API.md) | 감사로그 조회 |
+| [16_MENU_PERMISSION.md](docs/16_MENU_PERMISSION.md) | 역할별 메뉴 접근 권한 |
+| [17_SCREEN_LIST.md](docs/17_SCREEN_LIST.md) | 화면 목록 및 연관 API |
+| [18_LAYOUT.md](docs/18_LAYOUT.md) | 레이아웃, 라우트, 공통 컴포넌트 |
+| [19_CAMPAIGN_API.md](docs/19_CAMPAIGN_API.md) | 캠페인 CRUD, 상태변경, 승인/반려, 코드 발급(RANDOM 비동기/FIXED 동기) |
+| [20_COUPON_USAGE_API.md](docs/20_COUPON_USAGE_API.md) | 쿠폰 사용 reserve/confirm, 미컨슘 조회 |
+| [21_TEST_GAME_SERVER.md](docs/21_TEST_GAME_SERVER.md) | S2S 연동 검증용 독립 테스트 클라이언트(test_game_server) 설계 |
 
 ---
 
@@ -167,14 +168,14 @@ coupon_platform/
   - ✅ 사용기간 만료 캠페인 자동 종료 — 활성+승인완료(또는 승인불요) 상태에서 `campaign_end`가 지나면 배치가 `status=4`(종료)로 전환(`CampaignExpiryService`, 종료 후엔 예외 없이 모든 수정 차단)
   - ✅ 운영 보완 — 로그 파일 일별 로테이션 + ERROR 전용 분리, S2S 호출자 IP 기록, 전역 API 실행 타임아웃, reserve/confirm 프로젝트 단위 rate limiter(토큰 버킷)
   - ✅ Swagger 문서화 — `nest-cli.json`에 swagger CLI 플러그인(`classValidatorShim`) 등록 + 전체 요청 DTO(32개)에 `@ApiProperty()`/`@ApiPropertyOptional()`(설명/예시 포함) 추가. 응답 스키마도 문서화 완료 — 응답 타입(순수 TS interface)을 데코레이터 붙은 클래스로 옮기고, `{result, data}` 응답 봉투까지 그대로 반영하는 공용 데코레이터(`ApiEnvelopedResponse`/`ApiEnvelopedPaginatedResponse`/`ApiEnvelopedEmptyResponse`)를 신설해 전체 엔드포인트에 연결. `SWAGGER_ENABLED=true`일 때 `/docs`에서 요청/응답 스키마·example이 실제 API 응답 모양 그대로 채워진 문서로 확인 가능
-  - ✅ E2E 테스트 스위트(`docs/19_DEV_SETUP.md` 5.3) — 문서화된 42개 엔드포인트 전체를 실제 로컬 DB로 검증하는 E2E 테스트 8개 도메인/141개(`npm run test:e2e`). 실행마다 DB를 TRUNCATE 후 시드 재적용하는 자동 리셋(`test/global-setup.ts`), `.env.test`로 dev DB와 분리된 전용 테스트 DB 지정 가능(선택). 이 과정에서 실제 애플리케이션 결함(크론 배치 5개의 그레이스풀 셧다운 미비)도 발견해 함께 수정
-- ✅ Frontend 구현 완료(`docs/19_DEV_SETUP.md`, React 18 + TypeScript + Vite + Ant Design + Zustand + Axios)
-  - ✅ 구조 스캐폴딩 — 레이아웃 3종(AuthLayout/MainLayout/AdminLayout), 라우트 전체 골격(`16_LAYOUT.md` 7장), role 기반 가드 4종(`RoleGuard`/`PermissionGuard`/`RequireAuth`/`RequireGuest`/`RequireProjectSelected`), Zustand `authStore`/`globalStore`, axios 클라이언트(Access Token 자동 첨부 + 만료 시 자동 재발급·재시도)
+  - ✅ E2E 테스트 스위트(`docs/03_DEV_SETUP.md` 5.3) — 문서화된 42개 엔드포인트 전체를 실제 로컬 DB로 검증하는 E2E 테스트 8개 도메인/141개(`npm run test:e2e`). 실행마다 DB를 TRUNCATE 후 시드 재적용하는 자동 리셋(`test/global-setup.ts`), `.env.test`로 dev DB와 분리된 전용 테스트 DB 지정 가능(선택). 이 과정에서 실제 애플리케이션 결함(크론 배치 5개의 그레이스풀 셧다운 미비)도 발견해 함께 수정
+- ✅ Frontend 구현 완료(`docs/03_DEV_SETUP.md`, React 18 + TypeScript + Vite + Ant Design + Zustand + Axios)
+  - ✅ 구조 스캐폴딩 — 레이아웃 3종(AuthLayout/MainLayout/AdminLayout), 라우트 전체 골격(`18_LAYOUT.md` 7장), role 기반 가드 4종(`RoleGuard`/`PermissionGuard`/`RequireAuth`/`RequireGuest`/`RequireProjectSelected`), Zustand `authStore`/`globalStore`, axios 클라이언트(Access Token 자동 첨부 + 만료 시 자동 재발급·재시도)
   - ✅ 로그인(SCR-001) + 내 계정 조회·로그아웃(SCR-200) — 실제 백엔드 연동, 브라우저 라이브 검증 완료
-  - ✅ 다국어(i18n) — react-i18next로 ko/en 지원, 로그인 화면 포함 전체 공통 UI(헤더/사이드바/푸터/에러 페이지) 번역 + 언어 선택 드롭다운(`localStorage` 유지), 백엔드 에러 메시지는 한글 유지가 원칙(`01_TECH_STACK.md` 참고)
+  - ✅ 다국어(i18n) — react-i18next로 ko/en 지원, 로그인 화면 포함 전체 공통 UI(헤더/사이드바/푸터/에러 페이지) 번역 + 언어 선택 드롭다운(`localStorage` 유지), 백엔드 에러 메시지는 한글 유지가 원칙(`02_TECH_STACK.md` 참고)
   - ✅ 회원가입(SCR-002) — 회사/프로젝트 코드 텍스트 입력(드롭다운 아님, 인증 불필요 lookup API 사용) + 제출 시점 검증, 실제 백엔드 연동, 브라우저 라이브 검증 완료. 구현 중 `requested_project_id`가 문서(선택)와 실제 백엔드(필수 강제)가 어긋난 걸 발견해 백엔드를 선택 입력으로 수정(`SignupDto`/`SP_USER_SIGNUP`)
   - ✅ 관리메뉴 — 회사(SCR-010–012, 목록/등록/상세수정), 프로젝트(SCR-020–022, 목록/등록/상세수정 + API Secret 재발급 — `edit_count` 낙관적 락, 등록·재발급 시 평문 Secret 1회 노출 모달), 사용자(SCR-030–031, 목록/상세 + 승인·반려·반려취소·수정·비밀번호강제초기화·프로젝트 권한배정), 감사로그(SCR-040–041, 목록/상세 — before/after JSON 비교, 회사/프로젝트 이름 resolve) 실제 백엔드 연동 + SUPER_ADMIN·DEVELOPER 권한별 화면(조회전용/스코핑) 브라우저 라이브 검증 완료. 목록 화면 상태/필터에 "전체" 옵션 추가
-  - ✅ 캠페인 목록·등록·상세(SCR-100~102) — 목록(프로젝트/상태/승인상태/발급상태/코드유형 필터), 등록(RANDOM/FIXED 분기), 상세(탭 4개: 정보·코드목록·사용이력·변경이력 — 정보 탭은 `edit_count` 낙관적 락 수정 + 상태전이 + 승인/반려, 코드목록 탭은 RANDOM 발급/재시도/중단 + FIXED 등록) 실제 백엔드 연동 + 브라우저 라이브 검증 완료. 캠페인 활성화/재활성화에 `campaign_end > NOW()` 조건 추가(사용기간이 지난 캠페인은 활성화 자체를 막음 — `17_CAMPAIGN_API.md` 2.5)
+  - ✅ 캠페인 목록·등록·상세(SCR-100~102) — 목록(프로젝트/상태/승인상태/발급상태/코드유형 필터), 등록(RANDOM/FIXED 분기), 상세(탭 4개: 정보·코드목록·사용이력·변경이력 — 정보 탭은 `edit_count` 낙관적 락 수정 + 상태전이 + 승인/반려, 코드목록 탭은 RANDOM 발급/재시도/중단 + FIXED 등록) 실제 백엔드 연동 + 브라우저 라이브 검증 완료. 캠페인 활성화/재활성화에 `campaign_end > NOW()` 조건 추가(사용기간이 지난 캠페인은 활성화 자체를 막음 — `19_CAMPAIGN_API.md` 2.5)
   - ✅ 헤더 실시간 서버 시각 — `GET /health`의 `server_time`으로 클라이언트-서버 시계 오프셋을 계산해 표시(초당 폴링 아님, 5분마다 재동기화). 기기 시계가 어긋나 있어도 실제 판정 기준(서버 시각)을 보여주기 위함
   - ✅ 쿠폰 사용 로그(SCR-103) — 캠페인/유저/코드값/작업유형/결과/기간 필터 + 페이지네이션, 캠페인 열은 값이 있는 행만 SCR-102로 링크(존재하지 않는 코드로 시도한 행은 `coupon_campaign_id`가 null이라 링크 없이 코드값만 표시) 실제 백엔드 연동 + 브라우저 라이브 검증 완료. 이걸로 화면 목록 전체 구현 완료
 
@@ -184,7 +185,7 @@ coupon_platform/
 - **Redis 도입 시 함께 이관할 대상**(총 3개):
   1. 유저 단위 rate limit 카운터 — 위 항목, Redis 도입 시점에 맞춰 신규 구현
   2. `project_api_nonce` — S2S nonce 재전송 방지용, Redis로 가면 TTL 자연만료라 정리 배치(`S2S_NONCE_CLEANUP_CRON`) 자체가 불필요해짐
-  3. `user_session` — Redis로 가면 TTL 자연만료라 `SESSION_CLEANUP_CRON` 불필요해짐 — `user_session.user_id`에 FK를 안 건 것도 애초에 이 전환을 대비한 설계(`04_DATABASE_SCHEMA.md` 참고)
+  3. `user_session` — Redis로 가면 TTL 자연만료라 `SESSION_CLEANUP_CRON` 불필요해짐 — `user_session.user_id`에 FK를 안 건 것도 애초에 이 전환을 대비한 설계(`06_DATABASE_SCHEMA.md` 참고)
 
   프로젝트 단위 rate limiter(`CouponUsageRateLimitMiddleware`)는 in-memory로 유지하기로 확정된 설계라 이관 대상 아님.
 

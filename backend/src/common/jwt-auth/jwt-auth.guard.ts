@@ -21,10 +21,10 @@ export interface AuthenticatedRequest extends Request {
 }
 
 /**
- * 관리 콘솔 사용자 인증 가드. docs/07_AUTH_SECURITY.md 1.5의 4단계 검증 순서를 그대로 구현한다:
+ * 관리 콘솔 사용자 인증 가드. docs/09_AUTH_SECURITY.md 1.5의 4단계 검증 순서를 그대로 구현한다:
  * 헤더 존재 → 서명/만료 → 세션 상태(user_session) → 사용자 상태(user.status). role_code는
  * DB를 다시 조회하지 않고 JWT 페이로드에 실린 값을 그대로 신뢰한다 — 로그인/재발급 시점에만
- * 재계산되고(09_AUTH_API.md 7장), 그 사이에는 서명으로 위변조가 보장되기 때문이다.
+ * 재계산되고(11_AUTH_API.md 7장), 그 사이에는 서명으로 위변조가 보장되기 때문이다.
  * SP 시스템 오류(RESULT=50001)는 `SpExecutorService.callProcedure`가 이미
  * `BusinessException(DATABASE_ERROR)`로 던지므로 여기서 따로 확인하지 않는다.
  *

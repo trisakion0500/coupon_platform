@@ -13,7 +13,7 @@ import { failure, success } from './utils/envelope';
 import { createE2eApp } from './utils/test-app';
 
 /**
- * 11_PROJECT_API.md 6개 엔드포인트(코드조회/생성/목록/상세/수정/Secret재발급) E2E. 이 도메인의
+ * 13_PROJECT_API.md 6개 엔드포인트(코드조회/생성/목록/상세/수정/Secret재발급) E2E. 이 도메인의
  * 핵심은 2026-07-24에 두 단계로 확정된 **DEVELOPER 스코핑**(회사 소속이 아니라 실제 활성
  * `user_role` 배정 + 그 프로젝트에서 role_code<=20 여부)이라, 시드 계정만으로는 재현이 안 돼
  * 새 프로젝트를 만들어 `dev`(DEV_PROJECT에만 배정됨)가 그 프로젝트를 못 보는 것까지 직접
@@ -21,7 +21,7 @@ import { createE2eApp } from './utils/test-app';
  *
  * @author trisakion
  */
-describe('Project E2E (11_PROJECT_API.md)', () => {
+describe('Project E2E (13_PROJECT_API.md)', () => {
   let app: INestApplication;
   let saAccessToken: string;
   let devAccessToken: string;

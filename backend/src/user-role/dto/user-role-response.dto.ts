@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
- * 사용자 권한배정 응답 셰이프(생성/목록/수정 공통). 12_USER_API.md 3장.
+ * 사용자 권한배정 응답 셰이프(생성/목록/수정 공통). 14_USER_API.md 3장.
  *
  * @author trisakion
  */
@@ -25,7 +25,7 @@ export class UserRoleResponseDto {
   updated_at!: string;
 }
 
-/** GET /user-roles/me 응답. 11_PROJECT_API.md 3.1 — 헤더의 프로젝트 선택 시 내 role 조회.
+/** GET /user-roles/me 응답. 13_PROJECT_API.md 3.1 — 헤더의 프로젝트 선택 시 내 role 조회.
  * 배정이 없으면 `role_code`가 `null`. */
 export class MyRoleForProjectDto {
   @ApiProperty({ description: '조회한 프로젝트 ID', example: 1 })

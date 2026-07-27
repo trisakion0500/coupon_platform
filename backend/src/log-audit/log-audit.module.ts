@@ -5,7 +5,7 @@ import { LogAuditController } from './log-audit.controller';
 import { LogAuditService } from './log-audit.service';
 
 /**
- * 감사 로그 조회(13_LOG_AUDIT_API.md) 모듈. `SpExecutorService`/`LogSpExecutorService`는
+ * 감사 로그 조회(15_LOG_AUDIT_API.md) 모듈. `SpExecutorService`/`LogSpExecutorService`는
  * `DatabaseModule`/`LogDatabaseModule`이 전역으로 노출하므로 여기서 별도 import가 필요 없지만
  * (`SpExecutorService`는 DEVELOPER의 project/user_role 로그 스코핑용 배정 프로젝트 조회에
  * 2026-07-24 추가로 쓰이게 됐다), 컨트롤러가 쓰는 `JwtAuthGuard`/`RolesGuard`는 각자의 의존

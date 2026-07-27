@@ -13,7 +13,7 @@ import { buildS2sHeaders } from './utils/s2s';
 import { createE2eApp } from './utils/test-app';
 
 /**
- * 17_CAMPAIGN_API.md 4.3(`GET /coupon-use-logs`) E2E — S2S reserve/confirm 시도(성공+실패)를
+ * 19_CAMPAIGN_API.md 4.3(`GET /coupon-use-logs`) E2E — S2S reserve/confirm 시도(성공+실패)를
  * 먼저 몇 건 만들어두고, 관리 콘솔(JWT)로 그 로그를 조회·필터링하는 시나리오. 로그 DB
  * (`log_coupon_use`)가 메인 DB의 `user_role`을 참조 못해 "메인 DB 접근권한 확인
  * (`SP_PROJECT_CHECK_ACCESS`) → 통과 시에만 로그 DB 조회" 2단계 패턴을 쓰는 게 이 API의 핵심이라,
@@ -21,7 +21,7 @@ import { createE2eApp } from './utils/test-app';
  *
  * @author trisakion
  */
-describe('Coupon Use Log E2E (17_CAMPAIGN_API.md 4.3)', () => {
+describe('Coupon Use Log E2E (19_CAMPAIGN_API.md 4.3)', () => {
   let app: INestApplication;
   let saAccessToken: string;
   let mgrAccessToken: string;

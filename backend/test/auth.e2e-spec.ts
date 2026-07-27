@@ -8,7 +8,7 @@ import { failure, success } from './utils/envelope';
 import { createE2eApp } from './utils/test-app';
 
 /**
- * 09_AUTH_API.md 6개 엔드포인트(회원가입/로그인/로그아웃/재발급/내정보/비번변경) E2E — 백엔드
+ * 11_AUTH_API.md 6개 엔드포인트(회원가입/로그인/로그아웃/재발급/내정보/비번변경) E2E — 백엔드
  * vertical-slice 검증 방식(공통 인프라부터 실제 DB까지 파이프라인 전체 확인)을 프론트 없이
  * HTTP 레벨에서 그대로 재현한 첫 도메인. 실제 로컬 DB를 쓰므로 `npm run test:e2e`의
  * Jest globalSetup(`global-setup.ts`)이 매번 리셋+재시딩한다.
@@ -19,7 +19,7 @@ import { createE2eApp } from './utils/test-app';
  *
  * @author trisakion
  */
-describe('Auth E2E (09_AUTH_API.md)', () => {
+describe('Auth E2E (11_AUTH_API.md)', () => {
   let app: INestApplication;
 
   const testLoginId = 'e2e_user01';

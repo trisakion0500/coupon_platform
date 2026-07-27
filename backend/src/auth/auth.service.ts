@@ -57,7 +57,7 @@ interface PasswordChangeAuditRow {
 }
 
 /**
- * 09_AUTH_API.md 6개 엔드포인트(회원가입/로그인/로그아웃/재발급/내정보/비번변경)의 비즈니스 로직.
+ * 11_AUTH_API.md 6개 엔드포인트(회원가입/로그인/로그아웃/재발급/내정보/비번변경)의 비즈니스 로직.
  * SP가 시스템 오류(RESULT=50001)를 반환하면 `SpExecutorService.callProcedure` 자체가 이미
  * `BusinessException(DATABASE_ERROR)`을 던지므로(`sp-result.util.ts` 참고), 아래 각 메서드는
  * "SP가 정상적으로 반환한 특정 비즈니스 코드"만 신경 쓰면 된다 — 시스템 오류를 특정 비즈니스
@@ -198,7 +198,7 @@ export class AuthService {
       PasswordChangeAuditRow[]
     >('SP_USER_PASSWORD_CHANGE', [userId, newPasswordHash]);
 
-    // 13_LOG_AUDIT_API.md 2.4 — 본인 비밀번호 변경도 user UPDATE 감사 로그 대상.
+    // 15_LOG_AUDIT_API.md 2.4 — 본인 비밀번호 변경도 user UPDATE 감사 로그 대상.
     const row = data?.[0];
     if (row) {
       void this.auditLog.record({
@@ -216,7 +216,7 @@ export class AuthService {
     }
   }
 
-  /** 로그인 성공 시 Access/Refresh Token을 발급하고 세션을 생성한다(09_AUTH_API.md 5장). */
+  /** 로그인 성공 시 Access/Refresh Token을 발급하고 세션을 생성한다(11_AUTH_API.md 5장). */
   private async issueSession(
     userId: number,
     companyId: number,

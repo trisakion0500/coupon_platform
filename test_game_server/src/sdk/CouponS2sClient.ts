@@ -2,13 +2,13 @@ import { createHmac, randomUUID } from 'crypto';
 
 /**
  * coupon_platform S2S(Server-to-Server) 쿠폰 사용 API 연동 SDK — 입점사(게임사)가 그대로
- * 가져다 쓸 수 있는 독립 산출물이다(docs/20_TEST_GAME_SERVER.md 9장).
+ * 가져다 쓸 수 있는 독립 산출물이다(docs/21_TEST_GAME_SERVER.md 9장).
  *
  * - 외부 의존성 0개: Node.js 22 LTS 내장 `crypto`(HMAC 서명)와 전역 `fetch`(HTTP 호출)만 쓴다.
  * - 입력은 항상 평문 `apiKey`/`apiSecret`이다 — 이 파일 자체에는 복호화 로직이 없다. DB에서 읽은
  *   암호문을 다루는 코드는 이 SDK와 완전히 분리된 별도 계층(test_game_server의 testing/ 폴더)에서만
  *   쓰이고, 그 결과(평문)만 이 클라이언트 생성자에 넘긴다.
- * - 서명 규칙은 07_AUTH_SECURITY.md 2.3, backend의 `S2sAuthGuard.buildStringToSign`과 동일하다 —
+ * - 서명 규칙은 09_AUTH_SECURITY.md 2.3, backend의 `S2sAuthGuard.buildStringToSign`과 동일하다 —
  *   그 파일을 import하지 않고 이 SDK 안에 자체 구현했다(테스트 코드에 대한 의존을 배포 산출물에
  *   남기지 않기 위함).
  */
@@ -90,7 +90,7 @@ export class CouponS2sClient {
   }
 
   /**
-   * `POST /v1/coupons/{code}/reserve` — 18_COUPON_USAGE_API.md 2.1. 성공 시 즉시 최종 소모
+   * `POST /v1/coupons/{code}/reserve` — 20_COUPON_USAGE_API.md 2.1. 성공 시 즉시 최종 소모
    * 확정이다(예약 중간 상태 없음) — 응답을 못 받아 재시도할 때의 동작이 캠페인 설정에 따라
    * 달라지므로 반드시 알아두어야 한다:
    *
@@ -112,7 +112,7 @@ export class CouponS2sClient {
     );
   }
 
-  /** `POST /v1/coupons/{code}/confirm` — 18_COUPON_USAGE_API.md 2.2 */
+  /** `POST /v1/coupons/{code}/confirm` — 20_COUPON_USAGE_API.md 2.2 */
   async confirm(codeValue: string, gameUserId: string): Promise<ConfirmResult> {
     return this.request<ConfirmResult>(
       `/v1/coupons/${encodeURIComponent(codeValue)}/confirm`,
@@ -121,7 +121,7 @@ export class CouponS2sClient {
   }
 
   /**
-   * `POST /v1/coupons/unconfirmed` — 18_COUPON_USAGE_API.md 3.1. 조회 전용이지만 GET이 아니라
+   * `POST /v1/coupons/unconfirmed` — 20_COUPON_USAGE_API.md 3.1. 조회 전용이지만 GET이 아니라
    * POST다(2026-07-27 변경) — GET 쿼리스트링에 `game_user_id` 등을 실으면 웹서버/프록시/CDN
    * 접근 로그에 그대로 남기 쉬워, 나머지 두 엔드포인트와 동일하게 바디로 받도록 통일했다.
    */

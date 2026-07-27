@@ -6,7 +6,7 @@ CREATE PROCEDURE `SP_USER_LIST` (
     IN i_limit             INT,              -- 페이지당 행 수
     IN i_offset            INT,              -- 시작 오프셋
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '사용자 목록 조회 - status ASC 정렬, 회사 접근 재검증 (12_USER_API.md 1.1/1.2)'
+) COMMENT '사용자 목록 조회 - status ASC 정렬, 회사 접근 재검증 (14_USER_API.md 1.1/1.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_LIST
@@ -16,13 +16,13 @@ BEGIN
     --        2-result-set 규약을 유지한다(COUNT(*) OVER()는 offset이 범위를 벗어나 0행이 반환되면
     --        total_count도 0으로 사라지는 버그가 있어 2026-07-19 이 패턴으로 교체).
     --        다른 테이블은 status DESC가 기본이지만 user는 "가입승인대기(0)"가 가장 먼저 보여야
-    --        하는 화면 요구사항이 있어 status ASC로 정렬한다(12_USER_API.md 1.1 Sorting, 다른
+    --        하는 화면 요구사항이 있어 status ASC로 정렬한다(14_USER_API.md 1.1 Sorting, 다른
     --        도메인과 다른 정렬 방향이라는 점을 주석으로 명시).
     --        password_hash는 반환 컬럼에서 제외한다 — 목록/상세 어디서도 앱으로 내보낼 이유가 없다.
     --        DEVELOPER의 회사 단위 스코핑은 앱 레이어(UserService)가 i_company_id에 항상 자기
     --        companyId를 채워 호출하는 방식으로 1차 강제하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로
     --        호출자가 실제 그 회사 소속인지 2차로 재검증한다(방어적 이중 체크,
-    --        02_DEV_CONVENTIONS.md 3.2). SUPER_ADMIN 우회는 FN_IS_SUPER_ADMIN(i_requester_user_id)로
+    --        04_DEV_CONVENTIONS.md 3.2). SUPER_ADMIN 우회는 FN_IS_SUPER_ADMIN(i_requester_user_id)로
     --        SP가 직접 DB에서 재확인한다 - 앱이 넘긴 role_code 값을 그대로 믿지 않는다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';

@@ -7,7 +7,7 @@ CREATE PROCEDURE `SP_CAMPAIGN_USAGE_LIST` (
     IN i_page_size          INT,              -- 페이지당 행 수
     IN i_offset             INT,              -- 시작 오프셋
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인별 쿠폰 사용 이력 조회 - 페이지네이션 (17_CAMPAIGN_API.md 4.1)'
+) COMMENT '캠페인별 쿠폰 사용 이력 조회 - 페이지네이션 (19_CAMPAIGN_API.md 4.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_USAGE_LIST
@@ -17,7 +17,7 @@ BEGIN
     --        있다(SP_CAMPAIGN_CODE_LIST와 동일한 권한 범위, 1.3에 따라 status=4 종료 캠페인도
     --        차단 안 됨 - 이 SP는 status를 아예 조건에 넣지 않는다). total_count는 SP_CAMPAIGN_LIST/
     --        SP_CAMPAIGN_CODE_LIST와 동일하게 COUNT(*) OVER()가 아니라 별도 서브쿼리 + LEFT JOIN
-    --        ... ON TRUE 패턴(02_DEV_CONVENTIONS.md 3.6). code_value는 coupon_code_usage에
+    --        ... ON TRUE 패턴(04_DEV_CONVENTIONS.md 3.6). code_value는 coupon_code_usage에
     --        비정규화돼 있지 않아(project_id만 비정규화됨, coupon_code_usage.sql 참고)
     --        coupon_code를 조인해서 가져온다. 정렬은 최근 이력이 먼저 보이도록 created_at DESC로
     --        고정한다(SP_LOG_AUDIT_LIST와 동일한 원칙 - 로그성 조회는 최신순).

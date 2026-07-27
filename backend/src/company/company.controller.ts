@@ -32,9 +32,9 @@ import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 
 /**
- * 10_COMPANY_API.md 6개 엔드포인트. 2장(관리메뉴)은 SUPER_ADMIN 전용, 3.1(헤더 데이터)은
+ * 12_COMPANY_API.md 6개 엔드포인트. 2장(관리메뉴)은 SUPER_ADMIN 전용, 3.1(헤더 데이터)은
  * 전체 역할, 2.5(코드 조회)는 인증 불필요. `active-header-data`/`lookup`은 정적 경로라
- * `:company_id` 동적 라우트보다 반드시 먼저 등록한다(10_COMPANY_API.md 2.5/3.1 참고).
+ * `:company_id` 동적 라우트보다 반드시 먼저 등록한다(12_COMPANY_API.md 2.5/3.1 참고).
  *
  * @author trisakion
  */

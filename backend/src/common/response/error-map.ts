@@ -11,7 +11,7 @@ export interface ErrorEntry {
  * 이 맵만 보고 응답을 구성하므로, 새 오류 코드를 추가할 때 이 파일 하나만 갱신하면 된다 —
  * 메시지/상태코드가 여러 파일에 흩어져 따로 관리되는 것을 방지한다.
  *
- * 새 코드의 httpStatus를 정할 때는 08_API_COMMON.md 1.3 매핑 규칙을 따른다:
+ * 새 코드의 httpStatus를 정할 때는 10_API_COMMON.md 1.3 매핑 규칙을 따른다:
  * 10000번대→401, 20000번대→403, 31000~31999(Not Found)→404, 그 외 30000번대→400,
  * 40000번대→429, 50000번대→500.
  *
@@ -182,7 +182,7 @@ export const ERROR_MAP: Record<ResultCode, ErrorEntry> = {
     message: 'DB 오류가 발생했습니다.',
     httpStatus: 500,
   },
-  // 08_API_COMMON.md 1.3 예외 — System 범위지만 500이 아니라 408을 쓴다(요청 자체는
+  // 10_API_COMMON.md 1.3 예외 — System 범위지만 500이 아니라 408을 쓴다(요청 자체는
   // 정상이었고 처리 시간 초과가 원인이라는 걸 클라이언트가 구분할 수 있어야 함).
   [ResultCode.API_EXECUTION_TIMEOUT]: {
     message: '요청 처리 시간이 초과되었습니다.',

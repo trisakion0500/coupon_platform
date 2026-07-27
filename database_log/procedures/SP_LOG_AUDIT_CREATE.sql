@@ -11,14 +11,14 @@ CREATE PROCEDURE `SP_LOG_AUDIT_CREATE` (
     IN i_after_json      LONGTEXT,          -- 변경 후 전체 Row JSON
     IN i_created_by      BIGINT UNSIGNED,   -- 작업 수행자 user_id
     IN i_created_by_name VARCHAR(50)        -- 작업 수행자명 스냅샷
-) COMMENT '감사 로그 적재 (Append-Only, 13_LOG_AUDIT_API.md 2장)'
+) COMMENT '감사 로그 적재 (Append-Only, 15_LOG_AUDIT_API.md 2장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_LOG_AUDIT_CREATE
     -- 작성 : 2026.07.20 trisakion
     -- 내용 : log_audit 단순 INSERT. 이 SP는 로그 DB(coupon_platform_log)에서만 실행되며,
     --        메인 DB(coupon_platform)와 물리적으로 분리돼 있어 메인 SP가 직접 호출할 수 없다
-    --        (02_DEV_CONVENTIONS.md 1장) — 그래서 before_json/after_json/requester_name은
+    --        (04_DEV_CONVENTIONS.md 1장) — 그래서 before_json/after_json/requester_name은
     --        메인 도메인 SP(SP_COMPANY_UPDATE 등)가 이미 계산해 반환한 값을 TS
     --        (LogSpExecutorService.logCall)가 그대로 전달하기만 한다. 권한 검증이 없다 —
     --        외부(HTTP)에 직접 노출되지 않는 백엔드 내부 인프라 호출 전용이고, 호출 시점엔

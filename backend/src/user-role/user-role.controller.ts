@@ -39,8 +39,8 @@ class GetMyRoleQueryDto {
 }
 
 /**
- * 11_PROJECT_API.md 3.1 `GET /user-roles/me`(전체 역할, JwtAuthGuard만) +
- * 12_USER_API.md 3장(User Role) 생성/목록/수정(SUPER_ADMIN 전용) 4개 엔드포인트.
+ * 13_PROJECT_API.md 3.1 `GET /user-roles/me`(전체 역할, JwtAuthGuard만) +
+ * 14_USER_API.md 3장(User Role) 생성/목록/수정(SUPER_ADMIN 전용) 4개 엔드포인트.
  * `me`는 정적 경로라 파라미터를 받는 다른 라우트와 겹치지 않는다.
  *
  * @author trisakion

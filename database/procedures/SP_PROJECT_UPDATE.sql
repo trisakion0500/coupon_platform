@@ -7,7 +7,7 @@ CREATE PROCEDURE `SP_PROJECT_UPDATE` (
     IN i_description       VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
     IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '프로젝트 수정 - SUPER_ADMIN 재검증, edit_count 낙관적 락 + 조건부 UPDATE (11_PROJECT_API.md 2.4)'
+) COMMENT '프로젝트 수정 - SUPER_ADMIN 재검증, edit_count 낙관적 락 + 조건부 UPDATE (13_PROJECT_API.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_UPDATE
@@ -18,16 +18,16 @@ BEGIN
     --        도입 — WHERE절에 `edit_count = i_edit_count`를 추가하고 성공 시 +1, 불일치하면
     --        ROW_COUNT()=0으로 감지해 30005(동시 수정 충돌)를 반환한다(project.sql 헤더 주석 참고).
     -- 내용 : 프로젝트 정보 수정. company_id/project_code/api_key/api_secret은 이 SP의 파라미터에
-    --        아예 없다 — 생성 후 변경 불가 필드라 애초에 받지 않는다(11_PROJECT_API.md 2.4
+    --        아예 없다 — 생성 후 변경 불가 필드라 애초에 받지 않는다(13_PROJECT_API.md 2.4
     --        Non-Updatable Fields). 존재 확인(31002) -> COALESCE 기반 조건부 UPDATE
-    --        (02_DEV_CONVENTIONS.md 4장)로 NULL로 넘어온 필드는 기존 값을 유지한다.
+    --        (04_DEV_CONVENTIONS.md 4장)로 NULL로 넘어온 필드는 기존 값을 유지한다.
     --        프로젝트 수정은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
-    --        02_DEV_CONVENTIONS.md 3.2).
+    --        04_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다.
     --        api_secret/api_secret_prev는 이 SP가 건드리지 않는 필드지만 "전체 Row" 스냅샷
-    --        원칙(13_LOG_AUDIT_API.md 2.3)상 JSON에 포함하고 '***'로 마스킹한다.
+    --        원칙(15_LOG_AUDIT_API.md 2.3)상 JSON에 포함하고 '***'로 마스킹한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;

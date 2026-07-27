@@ -34,7 +34,7 @@ export const GenerationStatus = {
 } as const;
 export type GenerationStatus = (typeof GenerationStatus)[keyof typeof GenerationStatus];
 
-/** 17_CAMPAIGN_API.md 2장 — coupon_campaign 원본 컬럼 전체(GET /campaigns/{id} 등 단건 응답). */
+/** 19_CAMPAIGN_API.md 2장 — coupon_campaign 원본 컬럼 전체(GET /campaigns/{id} 등 단건 응답). */
 export interface Campaign {
   coupon_campaign_id: number;
   project_id: number;
@@ -64,7 +64,7 @@ export interface Campaign {
   edit_count: number;
 }
 
-/** 17_CAMPAIGN_API.md 2.2 GET /campaigns 목록 항목(요약 필드만, edit_count 없음). */
+/** 19_CAMPAIGN_API.md 2.2 GET /campaigns 목록 항목(요약 필드만, edit_count 없음). */
 export interface CampaignListItem {
   coupon_campaign_id: number;
   project_id: number;
@@ -83,7 +83,7 @@ export interface CampaignListItem {
   updated_at: string;
 }
 
-/** 17_CAMPAIGN_API.md 2.2 쿼리 파라미터 — project_id는 필수(회사 전체 조회 예외 없음). */
+/** 19_CAMPAIGN_API.md 2.2 쿼리 파라미터 — project_id는 필수(회사 전체 조회 예외 없음). */
 export interface CampaignListQuery extends PaginationQuery {
   project_id: number;
   status?: number;
@@ -92,7 +92,7 @@ export interface CampaignListQuery extends PaginationQuery {
   code_type?: number;
 }
 
-/** 17_CAMPAIGN_API.md 2.1 POST /campaigns 요청. */
+/** 19_CAMPAIGN_API.md 2.1 POST /campaigns 요청. */
 export interface CreateCampaignRequest {
   project_id: number;
   name: string;
@@ -105,7 +105,7 @@ export interface CreateCampaignRequest {
   reward_data: Record<string, unknown>;
 }
 
-/** 17_CAMPAIGN_API.md 2.4 PATCH /campaigns/{id} 요청 — edit_count 필수, 나머지 전부 선택. */
+/** 19_CAMPAIGN_API.md 2.4 PATCH /campaigns/{id} 요청 — edit_count 필수, 나머지 전부 선택. */
 export interface UpdateCampaignRequest {
   edit_count: number;
   name?: string;
@@ -116,30 +116,30 @@ export interface UpdateCampaignRequest {
   reward_data?: Record<string, unknown>;
 }
 
-/** 17_CAMPAIGN_API.md 2.5 POST /campaigns/{id}/status 요청. */
+/** 19_CAMPAIGN_API.md 2.5 POST /campaigns/{id}/status 요청. */
 export interface ChangeCampaignStatusRequest {
   edit_count: number;
   status: number;
 }
 
-/** 17_CAMPAIGN_API.md 2.6 POST /campaigns/{id}/approve 요청. */
+/** 19_CAMPAIGN_API.md 2.6 POST /campaigns/{id}/approve 요청. */
 export interface ApproveCampaignRequest {
   edit_count: number;
 }
 
-/** 17_CAMPAIGN_API.md 2.7 POST /campaigns/{id}/reject 요청. */
+/** 19_CAMPAIGN_API.md 2.7 POST /campaigns/{id}/reject 요청. */
 export interface RejectCampaignRequest {
   edit_count: number;
   reject_reason: string;
 }
 
-/** 17_CAMPAIGN_API.md 3.1 POST /campaigns/{id}/codes 요청 — FIXED만 code_value를 보낸다. */
+/** 19_CAMPAIGN_API.md 3.1 POST /campaigns/{id}/codes 요청 — FIXED만 code_value를 보낸다. */
 export interface IssueCodesRequest {
   code_value?: string;
 }
 
 /**
- * 17_CAMPAIGN_API.md 3.1 응답 — RANDOM(202)/FIXED(200) 공용. generated_qty/coupon_code는
+ * 19_CAMPAIGN_API.md 3.1 응답 — RANDOM(202)/FIXED(200) 공용. generated_qty/coupon_code는
  * FIXED 응답에만 존재한다(RANDOM은 백그라운드 진행 중이라 아직 알 수 없음).
  */
 export interface IssueCodesResult {
@@ -153,13 +153,13 @@ export interface IssueCodesResult {
   };
 }
 
-/** 17_CAMPAIGN_API.md 3.2/3.4 응답 — retry/abort 공용 셰이프. */
+/** 19_CAMPAIGN_API.md 3.2/3.4 응답 — retry/abort 공용 셰이프. */
 export interface CodeJobStatusResult {
   coupon_campaign_id: number;
   generation_status: number;
 }
 
-/** 17_CAMPAIGN_API.md 3.3 — coupon_code 목록 항목. status: 0=중지, 1=미사용(RANDOM)/사용중(FIXED), 2=사용완료(RANDOM). */
+/** 19_CAMPAIGN_API.md 3.3 — coupon_code 목록 항목. status: 0=중지, 1=미사용(RANDOM)/사용중(FIXED), 2=사용완료(RANDOM). */
 export interface CouponCode {
   coupon_code_id: number;
   code_value: string;
@@ -171,7 +171,7 @@ export interface CodeListQuery extends PaginationQuery {
   status?: number;
 }
 
-/** 17_CAMPAIGN_API.md 4.1 — 캠페인별 쿠폰 사용 이력 항목. confirmed_at이 null이면 미컨슘. */
+/** 19_CAMPAIGN_API.md 4.1 — 캠페인별 쿠폰 사용 이력 항목. confirmed_at이 null이면 미컨슘. */
 export interface CampaignUsage {
   coupon_code_usage_id: number;
   code_value: string;
@@ -187,7 +187,7 @@ export interface UsageListQuery extends PaginationQuery {
 }
 
 /**
- * 17_CAMPAIGN_API.md 4.2 — log_coupon_campaign 스냅샷 항목. `log_audit`의 before/after_json
+ * 19_CAMPAIGN_API.md 4.2 — log_coupon_campaign 스냅샷 항목. `log_audit`의 before/after_json
  * 방식이 아니라 그 시점 coupon_campaign 전체 스냅샷 1행이라, edit_count/generation_status/
  * generation_error/updated_by/updated_at은 이 로그에 없다(테이블 자체가 이 컬럼들을 안 둠).
  */

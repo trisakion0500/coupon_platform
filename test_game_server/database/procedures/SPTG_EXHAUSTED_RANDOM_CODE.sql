@@ -1,12 +1,12 @@
 DROP PROCEDURE IF EXISTS `SPTG_EXHAUSTED_RANDOM_CODE`;
 DELIMITER $$
 CREATE PROCEDURE `SPTG_EXHAUSTED_RANDOM_CODE` ()
-COMMENT 'test_game_server 전용 - 이미 사용완료(status=2)된 RANDOM 코드 + 소속 프로젝트 자격증명 무작위 1건 (docs/20_TEST_GAME_SERVER.md 10.2, 6.4)'
+COMMENT 'test_game_server 전용 - 이미 사용완료(status=2)된 RANDOM 코드 + 소속 프로젝트 자격증명 무작위 1건 (docs/21_TEST_GAME_SERVER.md 10.2, 6.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SPTG_EXHAUSTED_RANDOM_CODE
     -- 작성 : 2026.07.27 trisakion
-    -- 내용 : docs/20_TEST_GAME_SERVER.md 10장 참고(RESULT 규약 미적용). status=2(사용완료)는
+    -- 내용 : docs/21_TEST_GAME_SERVER.md 10장 참고(RESULT 규약 미적용). status=2(사용완료)는
     --        coupon_code.sql 헤더 주석상 RANDOM 전용 값이라 code_type 조인 없이도 자연히
     --        RANDOM 코드만 걸린다. 6.4 "이미 소진된 쿠폰 재시도" 시나리오가 이 코드로 reserve를
     --        재호출해 33001(코드 이미 소모됨)이 정확히 돌아오는지 검증한다. 이 시나리오는 현재

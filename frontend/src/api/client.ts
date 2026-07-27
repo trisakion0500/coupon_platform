@@ -4,7 +4,7 @@ import type { ApiEnvelope, ApiErrorBody } from '@/types/api';
 import type { RefreshResponse } from '@/types/auth';
 
 /**
- * 08_API_COMMON.md 1장 공통 응답 봉투를 다루는 axios 인스턴스. 요청 인터셉터가
+ * 10_API_COMMON.md 1장 공통 응답 봉투를 다루는 axios 인스턴스. 요청 인터셉터가
  * `authStore.accessToken`을 매번 `Authorization` 헤더에 실어 보내고, 응답 인터셉터가
  * Access Token 만료(10003)를 감지하면 `/auth/refresh`로 자동 재발급 후 원 요청을 1회
  * 재시도한다(그 이상 반복하면 무한루프가 되므로 요청당 1회만).
@@ -40,7 +40,7 @@ let refreshPromise: Promise<string> | null = null;
 /**
  * 동시에 여러 요청이 401을 맞아도 `/auth/refresh` 호출은 1번만 나가도록 진행 중인 재발급
  * Promise를 공유한다(요청별로 각자 재발급을 트리거하면 refresh_token이 회전하는 서버라면
- * 경쟁이 생길 수 있음 — 07_AUTH_SECURITY.md 참고).
+ * 경쟁이 생길 수 있음 — 09_AUTH_SECURITY.md 참고).
  */
 async function refreshAccessToken(): Promise<string> {
   const { refreshToken } = useAuthStore.getState();

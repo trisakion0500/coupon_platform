@@ -2,9 +2,9 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsInt, IsString, MaxLength, Min } from 'class-validator';
 
 /**
- * POST /campaigns/{coupon_campaign_id}/reject 요청 바디. 17_CAMPAIGN_API.md 2.7 Validation.
+ * POST /campaigns/{coupon_campaign_id}/reject 요청 바디. 19_CAMPAIGN_API.md 2.7 Validation.
  *
- * `edit_count`는 필수다 — 낙관적 동시성 제어 토큰(17_CAMPAIGN_API.md 2.7 Concurrency,
+ * `edit_count`는 필수다 — 낙관적 동시성 제어 토큰(19_CAMPAIGN_API.md 2.7 Concurrency,
  * SP_CAMPAIGN_UPDATE와 동일한 원칙).
  *
  * @author trisakion

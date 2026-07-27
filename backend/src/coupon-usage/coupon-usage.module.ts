@@ -10,7 +10,7 @@ import { CouponUsageRateLimitMiddleware } from './coupon-usage.rate-limit.middle
 import { CouponUsageService } from './coupon-usage.service';
 
 /**
- * 18_COUPON_USAGE_API.md 2~3장 도메인 모듈 — reserve/confirm + 미컨슘 조회 3개 S2S 엔드포인트.
+ * 20_COUPON_USAGE_API.md 2~3장 도메인 모듈 — reserve/confirm + 미컨슘 조회 3개 S2S 엔드포인트.
  *
  * @author trisakion
  */

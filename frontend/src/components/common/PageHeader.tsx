@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Space, Typography } from 'antd';
 
-/** 16_LAYOUT.md 10장 — 페이지 제목 + 우측 액션 버튼 영역. */
+/** 18_LAYOUT.md 10장 — 페이지 제목 + 우측 액션 버튼 영역. */
 export function PageHeader({
   title,
   actions,

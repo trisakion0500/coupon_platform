@@ -27,7 +27,7 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { UserService } from './user.service';
 
 /**
- * 12_USER_API.md 1장(User) 7개 엔드포인트. 1.1~1.3(목록/상세)은 SUPER_ADMIN+DEVELOPER(DEVELOPER는
+ * 14_USER_API.md 1장(User) 7개 엔드포인트. 1.1~1.3(목록/상세)은 SUPER_ADMIN+DEVELOPER(DEVELOPER는
  * 서비스 레이어에서 회사 단위로 스코핑), 나머지(승인/반려/수정/비번초기화)는 SUPER_ADMIN 전용이다.
  *
  * @author trisakion

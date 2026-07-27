@@ -13,17 +13,17 @@ CREATE PROCEDURE `SP_CAMPAIGN_APPROVE` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 승인할 캠페인 ID
     IN i_edit_count         INT UNSIGNED,     -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 edit_count 그대로)
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 승인 - edit_count 낙관적 락 + OPERATOR 승인불가(20001) + approval_status 2->3 조건부 UPDATE (17_CAMPAIGN_API.md 2.6)'
+) COMMENT '캠페인 승인 - edit_count 낙관적 락 + OPERATOR 승인불가(20001) + approval_status 2->3 조건부 UPDATE (19_CAMPAIGN_API.md 2.6)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_APPROVE
     -- 작성 : 2026.07.20 trisakion
     -- 내용 : 존재 확인(31004) -> 프로젝트 스코핑 + 승인권한 재검증 -> 조건부 UPDATE 순으로
     --        처리한다. 승인은 SUPER_ADMIN/DEVELOPER/MANAGER만 가능하고 OPERATOR는 불가하다
-    --        (17_CAMPAIGN_API.md 2.6 Permission) - FN_GET_PROJECT_ROLE_CODE로 얻은 role_code가
+    --        (19_CAMPAIGN_API.md 2.6 Permission) - FN_GET_PROJECT_ROLE_CODE로 얻은 role_code가
     --        40(OPERATOR)이면 "배정은 있으나 승인 권한이 없는" 경우이므로 이것도 20001로 응답한다
     --        (배정 자체가 없는 경우와 동일한 코드를 쓴다 - 이 도메인은 "권한 부족"과 "배정 없음"을
-    --        세분화하지 않는다, 02_DEV_CONVENTIONS.md 3.2 원칙과 동일하게 SP가 최종 방어선).
+    --        세분화하지 않는다, 04_DEV_CONVENTIONS.md 3.2 원칙과 동일하게 SP가 최종 방어선).
     --        log_coupon_campaign(action=40 APPROVE) 기록은 SP_CAMPAIGN_CREATE와 동일한 이유로
     --        이 SP가 직접 하지 않는다 - 반환 행 전체를 TS 서비스가
     --        SP_LOG_COUPON_CAMPAIGN_CREATE(로그 DB)에 그대로 전달한다.
@@ -35,9 +35,9 @@ BEGIN
     --        것과 다른 버전을 승인하게 된다(사용자 지적 - 캠페인을 바꾸는 액션은 승인/거부/상태
     --        변경/수정 순서로 다양하게 섞여 들어올 수 있어 SP_CAMPAIGN_UPDATE 하나만 검증해서는
     --        부족하다). ROW_COUNT()=0이면 edit_count 불일치(30005)인지 승인 대상 상태 자체가
-    --        아닌지(30004, 17_CAMPAIGN_API.md 2.6 State Transition/1.3 종료 잠금)를 재조회로
+    --        아닌지(30004, 19_CAMPAIGN_API.md 2.6 State Transition/1.3 종료 잠금)를 재조회로
     --        구분한다 - SP_CAMPAIGN_UPDATE와 동일한 패턴.
-    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(19_CAMPAIGN_API.md 4.2
     --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다
     --        (SP_CAMPAIGN_CREATE와 동일한 이유/패턴).
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -126,15 +126,15 @@ CREATE PROCEDURE `SP_CAMPAIGN_CHANGE_STATUS` (
     IN i_edit_count         INT UNSIGNED,     -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 edit_count 그대로)
     IN i_status             TINYINT UNSIGNED, -- 전환할 목표 상태
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 상태변경 - edit_count 낙관적 락 + 전이표 전체를 하나의 조건부 UPDATE로 원자 처리 (17_CAMPAIGN_API.md 2.5)'
+) COMMENT '캠페인 상태변경 - edit_count 낙관적 락 + 전이표 전체를 하나의 조건부 UPDATE로 원자 처리 (19_CAMPAIGN_API.md 2.5)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CHANGE_STATUS
     -- 작성 : 2026.07.20 trisakion
     -- 내용 : 존재 확인(31004) -> 프로젝트 스코핑 재검증(FN_CHECK_PROJECT_ACCESS, 20001, role_code
     --        값 자체는 필요 없어 FN_GET_PROJECT_ROLE_CODE 대신 boolean 버전을 쓴다) -> 허용된
-    --        전이표(17_CAMPAIGN_API.md 2.5) + edit_count 일치를 WHERE절 하나에 담아 조건부
-    --        UPDATE로 원자 처리한다(02_DEV_CONVENTIONS.md 4장 "동시성이 필요한 UPDATE는 조건부
+    --        전이표(19_CAMPAIGN_API.md 2.5) + edit_count 일치를 WHERE절 하나에 담아 조건부
+    --        UPDATE로 원자 처리한다(04_DEV_CONVENTIONS.md 4장 "동시성이 필요한 UPDATE는 조건부
     --        갱신 우선"). ROW_COUNT()=0이면(존재/권한은 이미 통과했으므로) edit_count 불일치인지
     --        전이표 위반인지 재조회로 진단해 30005/30004로 구분한다 - SP_CAMPAIGN_UPDATE와 동일한
     --        패턴(coupon_campaign.sql 헤더 주석 참고). i_status가 전이표에 아예 없는 값이어도
@@ -148,7 +148,7 @@ BEGIN
     --        쓰기 액션 전부가 "내가 마지막으로 본 버전이 맞는지"를 동일하게 검증해야 한다 —
     --        예를 들어 운영자가 화면에서 본 캠페인 내용과 실제로 상태를 바꾸는 시점의 내용이
     --        다르면(그 사이 누가 캠페인 필드를 수정했다면) 그것도 감지해야 하기 때문이다.
-    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(19_CAMPAIGN_API.md 4.2
     --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다
     --        (SP_CAMPAIGN_CREATE와 동일한 이유/패턴).
     -- 수정2: 2026.07.25 trisakion — 활성화(1→2)/재활성화(3→2) 전이에 `campaign_end > NOW()`
@@ -240,7 +240,7 @@ CREATE PROCEDURE `SP_CAMPAIGN_CODE_ABORT` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 대상 캠페인 ID
     IN i_stale_seconds      INT UNSIGNED,     -- "이만큼 updated_at이 안 움직였으면 멈춘 것으로 본다" 임계값(초)
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT 'generation_status=2(진행중) 정체 캠페인 수동 복구 - RANDOM은 실패(4)로, FIXED는 대기(1)로 (17_CAMPAIGN_API.md 3.4)'
+) COMMENT 'generation_status=2(진행중) 정체 캠페인 수동 복구 - RANDOM은 실패(4)로, FIXED는 대기(1)로 (19_CAMPAIGN_API.md 3.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_ABORT
@@ -255,7 +255,7 @@ BEGIN
     --        ON UPDATE CURRENT_TIMESTAMP 컬럼, SP_CAMPAIGN_CODE_GENERATE_ONE이 코드를 하나
     --        만들 때마다 자동 갱신됨)이 `i_stale_seconds` 이상 안 움직였을 때만 허용한다 -
     --        호출자의 판단을 그대로 믿지 않고 SP가 최소한의 근거(실제로 최근에 진행된 흔적이
-    --        없음)를 재확인한다는 원칙(02_DEV_CONVENTIONS.md 3.2와 같은 정신).
+    --        없음)를 재확인한다는 원칙(04_DEV_CONVENTIONS.md 3.2와 같은 정신).
     --        `i_stale_seconds`는 앱(CampaignService.computeAbortStaleThresholdSec)이
     --        CODE_GENERATION_MAX_DB_RETRIES/RETRY_BASE_DELAY_MS/ABORT_STALE_SAFETY_MULTIPLIER로
     --        계산해서 넘긴다 - 정상적으로 살아있는 루프가 DB 일시 오류 재시도로 만들 수 있는
@@ -357,7 +357,7 @@ CREATE PROCEDURE `SP_CAMPAIGN_CODE_GENERATE_ONE` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 대상 캠페인 ID
     IN i_project_id         BIGINT UNSIGNED,  -- 비정규화 project_id(coupon_code.project_id)
     IN i_code_value         VARCHAR(50)       -- 앱 레이어(nanoid)가 생성한 코드값 1건
-) COMMENT 'RANDOM 코드 1건 생성(내부용) - requested_qty 상한 + generation_status=2/status<>4 가드, INSERT/generated_qty 증가를 트랜잭션으로 원자 처리 (05_COUPON_ISSUANCE_SCENARIO.md 2.2)'
+) COMMENT 'RANDOM 코드 1건 생성(내부용) - requested_qty 상한 + generation_status=2/status<>4 가드, INSERT/generated_qty 증가를 트랜잭션으로 원자 처리 (07_COUPON_ISSUANCE_SCENARIO.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_GENERATE_ONE
@@ -396,11 +396,11 @@ BEGIN
     --        종료는 generation_status를 건드리지 않는 별개 축이라(coupon_campaign.sql 헤더 주석),
     --        "이미 목표 도달"/"job을 빼앗김(abort)"과 구분하려면 no-op 응답에 `status`도 함께
     --        반환해야 한다 - TS 루프는 `generation_status<>2 OR status=4`면 멈춘다. 종료된
-    --        캠페인의 generation_status는 억지로 전이시키지 않는다 - 17_CAMPAIGN_API.md 1.3이
+    --        캠페인의 generation_status는 억지로 전이시키지 않는다 - 19_CAMPAIGN_API.md 1.3이
     --        종료된 캠페인의 모든 쓰기 API를 이미 차단하므로 더 손댈 필요가 없는 무해한 상태다.
     -- 내용 : SP_CAMPAIGN_CODE_ISSUE/RETRY로 이미 권한 검증 + generation_status=2(진행중) 선점을
     --        마친 뒤, TS 서비스의 백그라운드 루프가 requested_qty만큼 이 SP를 반복 호출한다
-    --        (05_COUPON_ISSUANCE_SCENARIO.md 2.1 R2~R7 루프). 그래서 이 SP 자체는 요청자
+    --        (07_COUPON_ISSUANCE_SCENARIO.md 2.1 R2~R7 루프). 그래서 이 SP 자체는 요청자
     --        재검증을 하지 않는다 - 공개 API에서 직접 호출되는 대상이 아니라 이미 검증된
     --        백그라운드 작업 내부에서만 쓰인다(SP_SESSION_CLEANUP 등 기존 내부 배치 SP와 동일한
     --        원칙). nanoid로 코드값을 만드는 것은 앱 레이어 책임이다 - SQL에는 nanoid가 없고,
@@ -408,7 +408,7 @@ BEGIN
     --        오히려 복잡해진다.
     --        처리 순서: (1) "generated_qty+1, WHERE generated_qty<requested_qty AND
     --        generation_status=2 AND status<>4" 조건부 UPDATE로 슬롯을 먼저 예약한다
-    --        (02_DEV_CONVENTIONS.md 4장 "조건부 갱신 우선"). ROW_COUNT()=0이면 이미 목표
+    --        (04_DEV_CONVENTIONS.md 4장 "조건부 갱신 우선"). ROW_COUNT()=0이면 이미 목표
     --        수량에 도달했거나(정상 종료 경로), 누군가 이 job을 이미 종료시켰거나(abort),
     --        캠페인 자체가 종료됐다는 뜻이므로 코드를 만들지 않고 현재 generated_qty/
     --        generation_status/status를 그대로 반환한다(RESULT=0, no-op 성공). (2) 슬롯 예약에
@@ -418,7 +418,7 @@ BEGIN
     --        ROLLBACK으로 방금 예약한 슬롯(generated_qty 증가분)까지 함께 되돌리고(같은
     --        트랜잭션이라 한 번의 ROLLBACK으로 둘 다 취소됨) 32001을 반환해 앱이 지연 없이 새
     --        랜덤값으로 재시도하게 한다(코드값 재추첨은 backoff 대상이 아님,
-    --        05_COUPON_ISSUANCE_SCENARIO.md 2.2 표 참고). 그 외 SQLEXCEPTION(예: DB 커넥션
+    --        07_COUPON_ISSUANCE_SCENARIO.md 2.2 표 참고). 그 외 SQLEXCEPTION(예: DB 커넥션
     --        단절, 락 대기 타임아웃)은 50001로 던져지고, 앱이 이를 잡아 exponential
     --        backoff+jitter 재시도 여부를 판단한다(재시도 자체는 앱 책임 - SP는 한 번의 시도만
     --        담당).
@@ -502,7 +502,7 @@ DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_CODE_GENERATION_COMPLETE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_CODE_GENERATION_COMPLETE` (
     IN i_coupon_campaign_id BIGINT UNSIGNED  -- 대상 캠페인 ID
-) COMMENT 'RANDOM 코드 생성 완료 처리(내부용) - generation_status 2->3 조건부 UPDATE (05_COUPON_ISSUANCE_SCENARIO.md 2.1)'
+) COMMENT 'RANDOM 코드 생성 완료 처리(내부용) - generation_status 2->3 조건부 UPDATE (07_COUPON_ISSUANCE_SCENARIO.md 2.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_GENERATION_COMPLETE
@@ -546,7 +546,7 @@ DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_CODE_GENERATION_FAIL` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 대상 캠페인 ID
     IN i_generation_error   VARCHAR(500)      -- 최종 실패 사유(마지막 재시도의 오류 메시지)
-) COMMENT 'RANDOM 코드 생성 최종 실패 처리(내부용) - generation_status 2->4 조건부 UPDATE (05_COUPON_ISSUANCE_SCENARIO.md 2.2)'
+) COMMENT 'RANDOM 코드 생성 최종 실패 처리(내부용) - generation_status 2->4 조건부 UPDATE (07_COUPON_ISSUANCE_SCENARIO.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_GENERATION_FAIL
@@ -554,7 +554,7 @@ BEGIN
     -- 내용 : TS 백그라운드 루프가 exponential backoff+jitter 재시도를 모두 소진했을 때 호출한다
     --        (SP_CAMPAIGN_CODE_GENERATE_ONE과 동일하게 요청자 재검증 없음 - 내부 배치 전용).
     --        개별 재시도 시도 자체는 이 테이블에 남기지 않고 애플리케이션 로그로만 남긴다
-    --        (05_COUPON_ISSUANCE_SCENARIO.md 2.2 표 - "재시도 소진" 행). WHERE절에
+    --        (07_COUPON_ISSUANCE_SCENARIO.md 2.2 표 - "재시도 소진" 행). WHERE절에
     --        generation_status=2를 걸어 이미 완료 처리된 캠페인을 뒤늦게 실패로 덮어쓰지 않는다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
@@ -589,7 +589,7 @@ DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_CODE_GENERATION_STALE_LIST`;
 DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_CODE_GENERATION_STALE_LIST` (
     IN i_stale_seconds INT UNSIGNED  -- "정체 판정" 임계값(초) — SP_CAMPAIGN_CODE_ABORT와 동일 기준
-) COMMENT '정체된(generation_status=2) 코드생성 job 감지 전용 - 상태 변경 없음, 모니터링 크론용 (05_COUPON_ISSUANCE_SCENARIO.md 2.4)'
+) COMMENT '정체된(generation_status=2) 코드생성 job 감지 전용 - 상태 변경 없음, 모니터링 크론용 (07_COUPON_ISSUANCE_SCENARIO.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_GENERATION_STALE_LIST
@@ -636,7 +636,7 @@ CREATE PROCEDURE `SP_CAMPAIGN_CODE_ISSUE` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 대상 캠페인 ID
     IN i_code_value         VARCHAR(50),      -- FIXED 전용 코드값(RANDOM이면 NULL)
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '코드 발급 요청 - RANDOM은 진행중 전환만(202), FIXED는 코드 1건 동기 등록(200) (17_CAMPAIGN_API.md 3.1)'
+) COMMENT '코드 발급 요청 - RANDOM은 진행중 전환만(202), FIXED는 코드 1건 동기 등록(200) (19_CAMPAIGN_API.md 3.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_ISSUE
@@ -645,9 +645,9 @@ BEGIN
     --        `generated_qty=requested_qty`로 교체(SP_CAMPAIGN_CREATE 수정1과 짝). FIXED는
     --        여전히 coupon_code 물리 행 1건만 만들지만, 캠페인 레벨의 requested_qty/
     --        generated_qty는 이제 "코드 개수"가 아니라 "그 1건이 지원할 총 사용가능 횟수"를
-    --        의미한다 - 이전엔 강제로 1이라 usable_qty<=generated_qty 제약(17_CAMPAIGN_API.md
+    --        의미한다 - 이전엔 강제로 1이라 usable_qty<=generated_qty 제약(19_CAMPAIGN_API.md
     --        2.4) 때문에 FIXED 캠페인이 사실상 전체 통틀어 딱 1번만 소모 가능했다(S2S reserve
-    --        스모크 테스트에서 발견, 06_COUPON_USAGE_SCENARIO.md 4.2가 명시한 "서로 다른 유저가
+    --        스모크 테스트에서 발견, 08_COUPON_USAGE_SCENARIO.md 4.2가 명시한 "서로 다른 유저가
     --        각자 독립적으로 reserve 가능"과 모순).
     -- 수정1: 2026.07.21 trisakion — 리뷰에서 FIXED 동기 완료 UPDATE(구 코드: `SET generated_qty=1,
     --        generation_status=3 WHERE coupon_campaign_id=...`)에 `status<>4` 가드가 빠져있다는 걸
@@ -658,26 +658,26 @@ BEGIN
     --        같은 SP의 FIXED 분기만 비대칭적으로 뚫려있던 것). 완료 UPDATE의 WHERE절에도
     --        `status<>4`를 추가하고, ROW_COUNT()=0이면(=그 사이 종료됨) 방금 성공한 INSERT까지
     --        같은 트랜잭션 ROLLBACK으로 함께 되돌린 뒤 30004를 반환한다 — generation_status는
-    --        선점 당시 값(2)에 그대로 남지만, 05_COUPON_ISSUANCE_SCENARIO.md 2.5가 이미 정한
+    --        선점 당시 값(2)에 그대로 남지만, 07_COUPON_ISSUANCE_SCENARIO.md 2.5가 이미 정한
     --        원칙(종료된 캠페인의 generation_status는 억지로 전이시키지 않는다 — 1.3이 모든 쓰기를
     --        차단하므로 무해함)과 동일하게 취급해 별도로 되돌리지 않는다.
     -- 내용 : 존재 확인(31004) -> 프로젝트 스코핑 재검증(FN_CHECK_PROJECT_ACCESS, 20001 — 이 SP는
     --        role_code 값 자체가 필요 없어 FN_GET_PROJECT_ROLE_CODE 대신 boolean 버전을 쓴다.
-    --        05_COUPON_ISSUANCE_SCENARIO.md 1장: 코드 발급은 approval_status와 무관하게 호출
+    --        07_COUPON_ISSUANCE_SCENARIO.md 1장: 코드 발급은 approval_status와 무관하게 호출
     --        가능하므로 승인상태는 아예 확인하지 않는다) -> FIXED인데 code_value가 없으면
     --        30001(필수값 누락, DTO가 code_type을 몰라 걸러줄 수 없어 여기서 재검증) 순으로 처리한다.
     --        그 다음 "generation_status 1(대기)->2(진행중)" 조건부 UPDATE로 이 job을 원자적으로
     --        선점한다(status<>4도 같은 WHERE절에 포함 — 1.3 종료 캠페인 잠금). 캠페인당 코드 발급
-    --        job은 1회뿐이라(05_COUPON_ISSUANCE_SCENARIO.md 1장) 이 조건부 UPDATE 자체가 동시에
+    --        job은 1회뿐이라(07_COUPON_ISSUANCE_SCENARIO.md 1장) 이 조건부 UPDATE 자체가 동시에
     --        들어온 두 번째 발급 요청을 막는 락 역할을 겸한다 - ROW_COUNT()=0이면 이미 발급
     --        요청됐거나(생성/진행중/완료/실패 중 대기가 아님) 캠페인이 종료됐다는 뜻이라 둘 다
-    --        30004로 답한다(17_CAMPAIGN_API.md 3.1 Precondition, 상세 사유 구분은 API 스펙에도
+    --        30004로 답한다(19_CAMPAIGN_API.md 3.1 Precondition, 상세 사유 구분은 API 스펙에도
     --        없어 필요 없음).
     --        선점 이후 code_type으로 분기한다:
     --        - RANDOM(1): 여기서 할 일이 끝난다 - 실제 대량생성은 TS 서비스가 이 SP가 반환하는
     --          project_id/use_hyphen/requested_qty를 가지고 백그라운드로 수행한다(SP는 생성 루프를
     --          모른다 - nanoid는 앱 레이어 라이브러리라 SQL에서 호출할 수 없다,
-    --          04_DATABASE_SCHEMA.md 6장 코드 생성 규칙 참고).
+    --          06_DATABASE_SCHEMA.md 6장 코드 생성 규칙 참고).
     --        - FIXED(2): 코드 1건을 즉시 INSERT한다. UNIQUE(project_id, code_value) 충돌은 이
     --          INSERT 문 범위로 좁힌 CONTINUE HANDLER FOR 1062로만 잡는다(더 일반적인 바깥
     --          EXIT HANDLER FOR SQLEXCEPTION보다 특정 조건 핸들러가 우선한다는 MySQL 규칙을
@@ -686,7 +686,7 @@ BEGIN
     --          이 SP 안에서 동기로 확정한다 - 단 이 완료 UPDATE도 `status<>4`를 조건으로 걸어,
     --          INSERT 이후 COMMIT 전 그 사이 캠페인이 종료됐으면 INSERT까지 함께 되돌리고
     --          30004를 반환한다(수정1 참고).
-    --        edit_count는 건드리지 않는다 - 17_CAMPAIGN_API.md 2.4가 edit_count 대상 SP로 나열한
+    --        edit_count는 건드리지 않는다 - 19_CAMPAIGN_API.md 2.4가 edit_count 대상 SP로 나열한
     --        것은 Update/ChangeStatus/Approve/Reject(2.4~2.7)뿐이고 코드 발급(3.1/3.2)은 별개
     --        축이다(coupon_campaign.sql edit_count 헤더 주석, PATCH의 WHERE절도 generation_status를
     --        보지 않으므로 상호 간섭이 없다).
@@ -755,7 +755,7 @@ BEGIN
             IF v_duplicate THEN
                 ROLLBACK;
                 -- 방금 선점한 job을 되돌려 관리자가 다른 code_value로 재요청할 수 있게 한다
-                -- (05_COUPON_ISSUANCE_SCENARIO.md 2.2 - FIXED는 실패해도 generation_status=1 유지).
+                -- (07_COUPON_ISSUANCE_SCENARIO.md 2.2 - FIXED는 실패해도 generation_status=1 유지).
                 UPDATE `coupon_campaign` SET `generation_status` = 1
                 WHERE `coupon_campaign_id` = i_coupon_campaign_id;
                 SELECT 32001 AS RESULT;
@@ -771,7 +771,7 @@ BEGIN
                 -- INSERT까지는 성공했으나 그 사이 캠페인이 종료(status=4)됨 - 완료 처리를 포기하고
                 -- INSERT까지 함께 되돌린다. generation_status는 선점 당시 값(2)에 그대로 남지만
                 -- 1.3이 종료된 캠페인의 모든 쓰기 API를 이미 차단하므로 무해하다
-                -- (05_COUPON_ISSUANCE_SCENARIO.md 2.5와 동일한 원칙 - 억지로 되돌리지 않는다).
+                -- (07_COUPON_ISSUANCE_SCENARIO.md 2.5와 동일한 원칙 - 억지로 되돌리지 않는다).
                 ROLLBACK;
                 SELECT 30004 AS RESULT;
                 LEAVE proc_block;
@@ -805,7 +805,7 @@ CREATE PROCEDURE `SP_CAMPAIGN_CODE_LIST` (
     IN i_page_size          INT,              -- 페이지당 행 수
     IN i_offset             INT,              -- 시작 오프셋
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인별 쿠폰 코드 목록 조회 - 페이지네이션 (17_CAMPAIGN_API.md 3.3)'
+) COMMENT '캠페인별 쿠폰 코드 목록 조회 - 페이지네이션 (19_CAMPAIGN_API.md 3.3)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_LIST
@@ -814,7 +814,7 @@ BEGIN
     --        처리한다. 조회 전용이라 approval_status/generation_status와 무관하게 캠페인 접근
     --        권한만 있으면 볼 수 있다(SP_CAMPAIGN_GET_BY_ID와 동일한 권한 범위). total_count는
     --        SP_CAMPAIGN_LIST와 동일하게 COUNT(*) OVER()가 아니라 별도 서브쿼리 + LEFT JOIN ...
-    --        ON TRUE 패턴(02_DEV_CONVENTIONS.md 3.6). FIXED는 항상 최대 1건이라 정렬 기준이 중요치
+    --        ON TRUE 패턴(04_DEV_CONVENTIONS.md 3.6). FIXED는 항상 최대 1건이라 정렬 기준이 중요치
     --        않지만, RANDOM 대량조회 편의를 위해 coupon_code_id 오름차순(생성순)으로 고정한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
@@ -878,17 +878,17 @@ DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_CODE_RETRY` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 대상 캠페인 ID
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '코드 생성 재시도 - generation_status 4(실패)->2(진행중) 조건부 UPDATE (17_CAMPAIGN_API.md 3.2)'
+) COMMENT '코드 생성 재시도 - generation_status 4(실패)->2(진행중) 조건부 UPDATE (19_CAMPAIGN_API.md 3.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_RETRY
     -- 작성 : 2026.07.21 trisakion
     -- 내용 : 존재 확인(31004) -> 프로젝트 스코핑 재검증(FN_CHECK_PROJECT_ACCESS, 20001) ->
     --        "generation_status=4(실패) AND status<>4(1.3)" 조건부 UPDATE로 원자 처리한다
-    --        (05_COUPON_ISSUANCE_SCENARIO.md 2.3). ROW_COUNT()=0이면 실패 상태가 아니거나(이미
+    --        (07_COUPON_ISSUANCE_SCENARIO.md 2.3). ROW_COUNT()=0이면 실패 상태가 아니거나(이미
     --        완료/진행중/대기) 캠페인이 종료됐다는 뜻 - 둘 다 30004(API 스펙도 사유를 구분하지
     --        않음). FIXED는 애초에 generation_status=4에 도달하지 않으므로(동기 즉시실패 처리,
-    --        05_COUPON_ISSUANCE_SCENARIO.md 2.2) 이 SP가 실질적으로 호출될 대상은 RANDOM뿐이다.
+    --        07_COUPON_ISSUANCE_SCENARIO.md 2.2) 이 SP가 실질적으로 호출될 대상은 RANDOM뿐이다.
     --        이미 생성된 generated_qty는 그대로 두고 TS 서비스가 남은 수량(requested_qty -
     --        generated_qty)만 이어서 생성하므로, 그 재개에 필요한 project_id/use_hyphen/
     --        requested_qty/generated_qty를 함께 반환한다. edit_count는 SP_CAMPAIGN_CODE_ISSUE와
@@ -962,49 +962,49 @@ CREATE PROCEDURE `SP_CAMPAIGN_CREATE` (
     IN i_use_limit_per_user INT UNSIGNED,     -- 동일 유저 재사용 허용 횟수
     IN i_reward_data        JSON,             -- 보상 내용(자유 스키마, pass-through)
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 생성 - 프로젝트 스코핑 재검증, role_code 기반 approval_status 자동결정 (17_CAMPAIGN_API.md 2.1)'
+) COMMENT '캠페인 생성 - 프로젝트 스코핑 재검증, role_code 기반 approval_status 자동결정 (19_CAMPAIGN_API.md 2.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CREATE
     -- 작성 : 2026.07.20 trisakion
     -- 수정1: 2026.07.22 trisakion — code_type=2(FIXED)면 requested_qty를 서버가 항상 1로
     --        강제하던 로직을 제거했다. S2S reserve 스모크 테스트에서 FIXED 코드를 서로 다른
-    --        유저가 각자 독립적으로 쓸 수 있어야 한다는 06_COUPON_USAGE_SCENARIO.md 4.2 예시가
+    --        유저가 각자 독립적으로 쓸 수 있어야 한다는 08_COUPON_USAGE_SCENARIO.md 4.2 예시가
     --        실제로는 SP_CAMPAIGN_UPDATE의 `usable_qty<=generated_qty` 검증 때문에 막히는 걸
     --        발견함 — FIXED는 generated_qty가 강제로 1이라 usable_qty도 최대 1까지만 열 수
     --        있어, 첫 유저가 쓰는 순간 캠페인 전체가 소진돼버렸다. 코드 물리적 행은 여전히
-    --        FIXED당 1건뿐이지만(05_COUPON_ISSUANCE_SCENARIO.md 2장 - "코드 문자열을 여러 개
+    --        FIXED당 1건뿐이지만(07_COUPON_ISSUANCE_SCENARIO.md 2장 - "코드 문자열을 여러 개
     --        둘 이유가 없다"는 이유 자체는 변하지 않음), requested_qty/generated_qty를 "코드
     --        개수"가 아니라 "그 1건이 지원할 총 사용가능 횟수"로 재정의해 RANDOM과 동일하게
     --        관리자가 직접 지정하도록 바꿨다 - SP_CAMPAIGN_CODE_ISSUE의 FIXED 완료 처리도
     --        `generated_qty=requested_qty`로 맞춰 함께 수정.
     -- 내용 : 쿠폰 도메인 최초 SP. 캠페인/코드 컨트롤은 회사 단위가 아니라 항상 **프로젝트 단위**로
-    --        스코핑한다(17_CAMPAIGN_API.md 1.2) — company/project/user 도메인의 "DEVELOPER는
+    --        스코핑한다(19_CAMPAIGN_API.md 1.2) — company/project/user 도메인의 "DEVELOPER는
     --        회사 전체 조회" 예외가 이 도메인에는 적용되지 않는다. SUPER_ADMIN은 FN_IS_SUPER_ADMIN
     --        으로 우회하고, 그 외 role은 FN_GET_PROJECT_ROLE_CODE(i_requester_user_id,
     --        i_project_id)로 해당 프로젝트에 실제 활성 배정된 role_code를 얻는다(NULL이면 배정
     --        자체가 없다는 뜻 -> 20001). 이렇게 얻은 role_code로 approval_status를 자동 결정한다
     --        (role_code<=30 즉 SUPER_ADMIN/DEVELOPER/MANAGER면 1:승인불요, OPERATOR(40)면
-    --        2:승인대기 — 17_CAMPAIGN_API.md 2.1 Business Rules). project_id 자체의 존재 확인은
+    --        2:승인대기 — 19_CAMPAIGN_API.md 2.1 Business Rules). project_id 자체의 존재 확인은
     --        FN_GET_PROJECT_ROLE_CODE가 이미 project FK를 통해 암묵적으로 검증하지만(존재하지
     --        않는 project_id는 배정도 있을 수 없음), SUPER_ADMIN 우회 경로는 이 검증을 건너뛰므로
     --        별도로 존재 확인(31002)을 먼저 한다.
     --        requested_qty는 RANDOM/FIXED 모두 호출자가 지정한 값을 그대로 저장한다(수정1 참고,
-    --        05_COUPON_ISSUANCE_SCENARIO.md 2장 — FIXED에서도 "generated_qty == requested_qty
+    --        07_COUPON_ISSUANCE_SCENARIO.md 2장 — FIXED에서도 "generated_qty == requested_qty
     --        -> 완료" 판정 로직을 RANDOM과 동일하게 재사용하되, 그 값 자체는 코드 개수가 아니라
     --        총 사용가능 횟수를 의미).
     --        usable_qty/generated_qty/used_qty/generation_status/generation_error는 테이블
     --        DEFAULT(0/0/0/1/NULL)를 그대로 따르므로 이 SP는 건드리지 않는다 — 코드는 아직 하나도
     --        발급되지 않았으므로 usable_qty를 0보다 크게 열어둘 이유가 없다.
     --        log_coupon_campaign(action=10 CREATE) 기록은 이 SP가 직접 하지 않는다 — 로그 DB가
-    --        물리적으로 분리돼 있어(02_DEV_CONVENTIONS.md 1장) 메인 SP가 호출할 수 없으므로, 이
+    --        물리적으로 분리돼 있어(04_DEV_CONVENTIONS.md 1장) 메인 SP가 호출할 수 없으므로, 이
     --        SP가 반환하는 생성된 행 전체를 TS 서비스가 그대로 SP_LOG_COUPON_CAMPAIGN_CREATE(로그
     --        DB)에 전달한다. log_audit(before/after JSON)와 달리 log_coupon_campaign은 컬럼을
-    --        그대로 복제하는 구조라(04_DATABASE_SCHEMA.md 10장) 이 SP가 별도 JSON 캡처를 할 필요가
+    --        그대로 복제하는 구조라(06_DATABASE_SCHEMA.md 10장) 이 SP가 별도 JSON 캡처를 할 필요가
     --        없다 — 반환 행 자체가 곧 로그에 필요한 전부다.
-    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(19_CAMPAIGN_API.md 4.2
     --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다.
-    --        JWT 페이로드엔 user_name이 없어(02_DEV_CONVENTIONS.md 1장 - 로그 DB는 user 테이블
+    --        JWT 페이로드엔 user_name이 없어(04_DEV_CONVENTIONS.md 1장 - 로그 DB는 user 테이블
     --        조인 불가) SP_COMPANY_UPDATE 등 log_audit 계열 SP와 동일하게 이 SP(메인 DB, user
     --        테이블 접근 가능)가 직접 서브쿼리로 조회해 채운다.
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -1073,7 +1073,7 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_EXPIRE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_EXPIRE` (
-) COMMENT '사용기간이 지난 활성 캠페인 자동 종료 - 배치 전용, 호출자 컨텍스트 없음 (17_CAMPAIGN_API.md 5장, CAMPAIGN_EXPIRY_CRON)'
+) COMMENT '사용기간이 지난 활성 캠페인 자동 종료 - 배치 전용, 호출자 컨텍스트 없음 (19_CAMPAIGN_API.md 5장, CAMPAIGN_EXPIRY_CRON)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_EXPIRE
@@ -1101,10 +1101,10 @@ BEGIN
     --        특정 user_id를 넣을 이유가 없다). 반면 log_coupon_campaign.created_by는 NOT NULL
     --        이라 호출부(CampaignExpiryService)가 created_by=0(실제 user_id는 1부터 시작하므로
     --        안전한 sentinel)/created_by_name='SYSTEM'을 채워 로그를 남긴다 — 이 프로젝트
-    --        최초의 "시스템이 수행한 액션" 로그 컨벤션이다(02_DEV_CONVENTIONS.md 4.2).
+    --        최초의 "시스템이 수행한 액션" 로그 컨벤션이다(04_DEV_CONVENTIONS.md 4.2).
     --
     --        RANDOM 백그라운드 코드생성이 마침 진행중이었다면 SP_CAMPAIGN_CODE_GENERATE_ONE의
-    --        기존 status<>4 가드가 다음 시도에서 자연히 멈춘다(05_COUPON_ISSUANCE_SCENARIO.md
+    --        기존 status<>4 가드가 다음 시도에서 자연히 멈춘다(07_COUPON_ISSUANCE_SCENARIO.md
     --        2.5와 동일한 메커니즘 — 이 SP가 새로 신경 쓸 부분이 없다).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
@@ -1163,13 +1163,13 @@ DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_GET_BY_ID` (
     IN i_coupon_campaign_id BIGINT UNSIGNED,  -- 조회할 캠페인 ID
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 단건 조회 - 미존재 31004, 스코핑 범위 밖 20001 (17_CAMPAIGN_API.md 2.3)'
+) COMMENT '캠페인 단건 조회 - 미존재 31004, 스코핑 범위 밖 20001 (19_CAMPAIGN_API.md 2.3)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_GET_BY_ID
     -- 작성 : 2026.07.20 trisakion
     -- 내용 : 존재 확인(31004) -> project_id 조회 -> 프로젝트 스코핑 재검증(20001) 순으로 처리한다.
-    --        17_CAMPAIGN_API.md 1.2/2.3 — "존재하지 않음"과 "스코핑 범위 밖"을 분리해서 각각
+    --        19_CAMPAIGN_API.md 1.2/2.3 — "존재하지 않음"과 "스코핑 범위 밖"을 분리해서 각각
     --        31004/20001로 응답한다(2026-07-20 문서 정정 — 이전에 2.3/4.1에 남아있던 "둘 다
     --        31004" 서술은 1.2 일반 원칙과 어긋난 오기였고, 사용자 확인 후 20001로 통일함 —
     --        company/project/user 도메인의 "스코핑 밖=20001" 선례와도 일치).
@@ -1224,7 +1224,7 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_LIST`;
 DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_LIST` (
-    IN i_project_id        BIGINT UNSIGNED,   -- 필수 - 스코핑 기준(17_CAMPAIGN_API.md 2.2, 회사 단위 아님)
+    IN i_project_id        BIGINT UNSIGNED,   -- 필수 - 스코핑 기준(19_CAMPAIGN_API.md 2.2, 회사 단위 아님)
     IN i_status            TINYINT UNSIGNED,  -- 상태 필터 (NULL이면 전체)
     IN i_approval_status   TINYINT UNSIGNED,  -- 승인상태 필터 (NULL이면 전체)
     IN i_generation_status TINYINT UNSIGNED,  -- 코드 생성 진행상태 필터 (NULL이면 전체)
@@ -1232,20 +1232,20 @@ CREATE PROCEDURE `SP_CAMPAIGN_LIST` (
     IN i_page_size         INT,               -- 페이지당 행 수
     IN i_offset            INT,               -- 시작 오프셋
     IN i_requester_user_id BIGINT UNSIGNED    -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 목록 조회 - project_id 필수 스코핑, 페이지네이션 (17_CAMPAIGN_API.md 2.2)'
+) COMMENT '캠페인 목록 조회 - project_id 필수 스코핑, 페이지네이션 (19_CAMPAIGN_API.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_LIST
     -- 작성 : 2026.07.20 trisakion
     -- 내용 : company/project 도메인의 목록 조회와 달리, 이 도메인은 "회사 전체 조회" 예외가 없고
-    --        DEVELOPER/MANAGER/OPERATOR 전부 project_id 단위로만 스코핑한다(17_CAMPAIGN_API.md
+    --        DEVELOPER/MANAGER/OPERATOR 전부 project_id 단위로만 스코핑한다(19_CAMPAIGN_API.md
     --        1.2). 그래서 i_project_id는 필수이며(company_id처럼 NULL 허용 아님), SUPER_ADMIN
     --        우회 후에는 FN_CHECK_PROJECT_ACCESS로 호출자가 그 프로젝트에 실제 활성 배정이
     --        있는지만 확인하면 된다(role_code 값 자체는 이 SP의 분기에 필요 없음 —
     --        FN_GET_PROJECT_ROLE_CODE가 아니라 FN_CHECK_PROJECT_ACCESS를 쓰는 이유).
     --        total_count는 SP_PROJECT_LIST와 동일하게 COUNT(*) OVER()가 아니라 별도 서브쿼리 +
-    --        LEFT JOIN ... ON TRUE 패턴으로 반환한다(02_DEV_CONVENTIONS.md 3.6).
-    --        정렬은 status DESC, created_at DESC(17_CAMPAIGN_API.md 2.2 Sorting).
+    --        LEFT JOIN ... ON TRUE 패턴으로 반환한다(04_DEV_CONVENTIONS.md 3.6).
+    --        정렬은 status DESC, created_at DESC(19_CAMPAIGN_API.md 2.2 Sorting).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -1307,15 +1307,15 @@ CREATE PROCEDURE `SP_CAMPAIGN_REJECT` (
     IN i_edit_count         INT UNSIGNED,     -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 edit_count 그대로)
     IN i_reject_reason      VARCHAR(500),     -- 반려 사유
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 반려 - edit_count 낙관적 락 + OPERATOR 반려불가(20001) + approval_status 2->4 조건부 UPDATE (17_CAMPAIGN_API.md 2.7)'
+) COMMENT '캠페인 반려 - edit_count 낙관적 락 + OPERATOR 반려불가(20001) + approval_status 2->4 조건부 UPDATE (19_CAMPAIGN_API.md 2.7)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_REJECT
     -- 작성 : 2026.07.20 trisakion
     -- 내용 : SP_CAMPAIGN_APPROVE와 동일한 존재확인/스코핑+승인권한 재검증 패턴이며, 승인 대신
-    --        반려(approval_status=4) + reject_reason 기록만 다르다(17_CAMPAIGN_API.md 2.7).
+    --        반려(approval_status=4) + reject_reason 기록만 다르다(19_CAMPAIGN_API.md 2.7).
     --        반려 후 재상신은 별도 API 없이 SP_CAMPAIGN_UPDATE 호출 시 그 SP의 OPERATOR 재승인
-    --        규칙에 의해 approval_status가 2(승인대기)로 자동 재전환된다(17_CAMPAIGN_API.md 2.7
+    --        규칙에 의해 approval_status가 2(승인대기)로 자동 재전환된다(19_CAMPAIGN_API.md 2.7
     --        Business Rules).
     --        log_coupon_campaign(action=50 REJECT) 기록은 SP_CAMPAIGN_CREATE와 동일한 이유로
     --        이 SP가 직접 하지 않는다 - 반환 행 전체를 TS 서비스가
@@ -1324,7 +1324,7 @@ BEGIN
     --        적용한다(반려자가 검토한 시점의 캠페인 내용과 실제 반려 시점의 내용이 다를 수 있는
     --        문제, SP_CAMPAIGN_APPROVE 주석 참고). ROW_COUNT()=0이면 edit_count 불일치(30005)인지
     --        반려 대상 상태 자체가 아닌지(30004)를 재조회로 구분한다.
-    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(19_CAMPAIGN_API.md 4.2
     --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다
     --        (SP_CAMPAIGN_CREATE와 동일한 이유/패턴).
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -1419,7 +1419,7 @@ CREATE PROCEDURE `SP_CAMPAIGN_UPDATE` (
     IN i_usable_qty         INT UNSIGNED,     -- 새 실제 사용가능 수량 (NULL이면 미변경)
     IN i_reward_data        JSON,             -- 새 보상 내용 (NULL이면 미변경)
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 수정 - edit_count 낙관적 락 + status/수량/날짜 검증을 UPDATE 하나로 원자 처리 (17_CAMPAIGN_API.md 2.4)'
+) COMMENT '캠페인 수정 - edit_count 낙관적 락 + status/수량/날짜 검증을 UPDATE 하나로 원자 처리 (19_CAMPAIGN_API.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_UPDATE
@@ -1438,7 +1438,7 @@ BEGIN
     --        무관하게 "그 사이 이 행을 건드린 SP가 있었는지"를 정확히 감지한다.
     -- 내용 : coupon_campaign_id/project_id/code_type/use_hyphen/requested_qty/generated_qty/
     --        generation_status/generation_error/used_qty/status/approval_status류는 이 SP의
-    --        파라미터에 아예 없다 - 수정 불가 필드라 애초에 받지 않는다(17_CAMPAIGN_API.md 2.4
+    --        파라미터에 아예 없다 - 수정 불가 필드라 애초에 받지 않는다(19_CAMPAIGN_API.md 2.4
     --        Non-Updatable Fields, status는 2.5 전용, approval_status는 2.6/2.7 전용). 단
     --        approval_status/status는 아래 OPERATOR 재승인 규칙에 의해 부수효과로 바뀔 수 있다.
     --        존재 확인(31004) -> 프로젝트 스코핑 재검증(FN_GET_PROJECT_ROLE_CODE, 20001)까지는
@@ -1464,7 +1464,7 @@ BEGIN
     --        role_code<=30(승인권한 role)의 수정은 이 규칙이 발동하지 않고 즉시 그대로 반영된다.
     --        log_coupon_campaign(action=20 UPDATE) 기록은 이 SP가 직접 하지 않는다 - 반환 행
     --        전체를 TS 서비스가 SP_LOG_COUPON_CAMPAIGN_CREATE(로그 DB)에 그대로 전달한다.
-    -- 수정3: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    -- 수정3: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(19_CAMPAIGN_API.md 4.2
     --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다
     --        (SP_CAMPAIGN_CREATE 수정1과 동일한 이유/패턴).
     -- ------------------------------------------------------------------------------------------------------------ --
@@ -1565,7 +1565,7 @@ CREATE PROCEDURE `SP_CAMPAIGN_USAGE_LIST` (
     IN i_page_size          INT,              -- 페이지당 행 수
     IN i_offset             INT,              -- 시작 오프셋
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인별 쿠폰 사용 이력 조회 - 페이지네이션 (17_CAMPAIGN_API.md 4.1)'
+) COMMENT '캠페인별 쿠폰 사용 이력 조회 - 페이지네이션 (19_CAMPAIGN_API.md 4.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_USAGE_LIST
@@ -1575,7 +1575,7 @@ BEGIN
     --        있다(SP_CAMPAIGN_CODE_LIST와 동일한 권한 범위, 1.3에 따라 status=4 종료 캠페인도
     --        차단 안 됨 - 이 SP는 status를 아예 조건에 넣지 않는다). total_count는 SP_CAMPAIGN_LIST/
     --        SP_CAMPAIGN_CODE_LIST와 동일하게 COUNT(*) OVER()가 아니라 별도 서브쿼리 + LEFT JOIN
-    --        ... ON TRUE 패턴(02_DEV_CONVENTIONS.md 3.6). code_value는 coupon_code_usage에
+    --        ... ON TRUE 패턴(04_DEV_CONVENTIONS.md 3.6). code_value는 coupon_code_usage에
     --        비정규화돼 있지 않아(project_id만 비정규화됨, coupon_code_usage.sql 참고)
     --        coupon_code를 조인해서 가져온다. 정렬은 최근 이력이 먼저 보이도록 created_at DESC로
     --        고정한다(SP_LOG_AUDIT_LIST와 동일한 원칙 - 로그성 조회는 최신순).
@@ -1660,7 +1660,7 @@ CREATE PROCEDURE `SP_COMPANY_CREATE` (
     IN i_company_name      VARCHAR(100),     -- 회사명
     IN i_description       VARCHAR(1000),    -- 설명 (선택)
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '회사 생성 - SUPER_ADMIN 재검증, company_code 중복 확인 후 INSERT (10_COMPANY_API.md 2.1)'
+) COMMENT '회사 생성 - SUPER_ADMIN 재검증, company_code 중복 확인 후 INSERT (12_COMPANY_API.md 2.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COMPANY_CREATE
@@ -1670,7 +1670,7 @@ BEGIN
     --        둘 다 통과할 수 있음), INSERT의 UNIQUE 제약 위반(1062) 전용 핸들러를 백스톱으로 둔다.
     --        회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 호출자가 실제 DB상 SUPER_ADMIN인지 재확인한다(방어적 이중
-    --        체크, 02_DEV_CONVENTIONS.md 3.2) - 다른 검증보다 가장 먼저 확인한다.
+    --        체크, 04_DEV_CONVENTIONS.md 3.2) - 다른 검증보다 가장 먼저 확인한다.
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 결과 SELECT에 after_json/requester_name을
     --        추가했다 - 로그 DB는 물리적으로 분리돼 있어 이 SP가 직접 기록할 수 없으므로, TS
     --        서비스가 이 값을 그대로 SP_LOG_AUDIT_CREATE(로그 DB)에 전달한다(before_json은 CREATE라
@@ -1715,7 +1715,7 @@ BEGIN
         SELECT
             `company_id`, `company_code`, `company_name`, `description`,
             `status`, `created_at`, `updated_at`,
-            JSON_OBJECT(                    -- after_json: log_audit 스냅샷(13_LOG_AUDIT_API.md)
+            JSON_OBJECT(                    -- after_json: log_audit 스냅샷(15_LOG_AUDIT_API.md)
                 'company_id', `company_id`, 'company_code', `company_code`,
                 'company_name', `company_name`, 'description', `description`,
                 'status', `status`, 'created_at', `created_at`, 'updated_at', `updated_at`
@@ -1737,7 +1737,7 @@ CREATE PROCEDURE `SP_COMPANY_GET_ACTIVE_HEADER_DATA` (
     IN i_user_id    BIGINT UNSIGNED,  -- 요청자 user_id (JWT 페이로드 값 그대로 신뢰)
     IN i_role_code  TINYINT UNSIGNED, -- 요청자 role_code (JWT 페이로드 값 그대로 신뢰)
     IN i_company_id BIGINT UNSIGNED   -- 요청자 소속 company_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '헤더 콤보박스용 활성 회사/프로젝트 조회 (10_COMPANY_API.md 3.1)'
+) COMMENT '헤더 콤보박스용 활성 회사/프로젝트 조회 (12_COMPANY_API.md 3.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COMPANY_GET_ACTIVE_HEADER_DATA
@@ -1745,10 +1745,10 @@ BEGIN
     -- 내용 : 로그인 직후 헤더 콤보박스가 1회 로드하는 활성 회사·프로젝트 목록.
     --        role_code=10(SUPER_ADMIN)이면 전체 활성 회사+프로젝트, 그 외에는 본인 소속 회사 1건과
     --        user_role에 활성 배정(status=1)된 프로젝트만 반환한다 — 같은 회사 소속이어도 role
-    --        미배정 프로젝트는 제외한다(10_COMPANY_API.md 3.1 Business Rules).
+    --        미배정 프로젝트는 제외한다(12_COMPANY_API.md 3.1 Business Rules).
     --        role_code/company_id는 JwtAuthGuard가 검증한 JWT 페이로드 값을 그대로 신뢰하고 DB를
     --        재조회하지 않는다(jwt-auth.guard.ts와 같은 원칙, 로그인/재발급 시점에만 재계산됨).
-    --        02_DEV_CONVENTIONS.md 3.4의 RESULT SELECT 규약은 RESULT + data 정확히 2개 result set만
+    --        04_DEV_CONVENTIONS.md 3.4의 RESULT SELECT 규약은 RESULT + data 정확히 2개 result set만
     --        허용하므로, company/project를 각각 별도 result set으로 반환하는 대신 row_type
     --        판별 컬럼('COMPANY'/'PROJECT')으로 하나의 result set에 함께 담는다 — 서비스 레이어
     --        (company.service.ts)에서 row_type으로 다시 분리해 {companies, projects} 형태로 조립한다.
@@ -1794,7 +1794,7 @@ DROP PROCEDURE IF EXISTS `SP_COMPANY_GET_BY_CODE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_COMPANY_GET_BY_CODE` (
     IN i_company_code VARCHAR(20)  -- 조회할 회사 코드
-) COMMENT '회사 코드로 조회 - 회원가입 화면 전용 공개 API (10_COMPANY_API.md 2.5)'
+) COMMENT '회사 코드로 조회 - 회원가입 화면 전용 공개 API (12_COMPANY_API.md 2.5)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COMPANY_GET_BY_CODE
@@ -1838,14 +1838,14 @@ DELIMITER $$
 CREATE PROCEDURE `SP_COMPANY_GET_BY_ID` (
     IN i_company_id        BIGINT UNSIGNED,  -- 조회할 회사 ID
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '회사 상세 조회 - SUPER_ADMIN 재검증 (10_COMPANY_API.md 2.3)'
+) COMMENT '회사 상세 조회 - SUPER_ADMIN 재검증 (12_COMPANY_API.md 2.3)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COMPANY_GET_BY_ID
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : company_id로 회사 상세를 조회한다. 없으면 31001. 회사 관리메뉴는 SUPER_ADMIN
     --        전용이라 RolesGuard가 이미 막고 있지만, 이 SP도 FN_IS_SUPER_ADMIN으로 재확인한다
-    --        (방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
+    --        (방어적 이중 체크, 04_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -1889,13 +1889,13 @@ CREATE PROCEDURE `SP_COMPANY_LIST` (
     IN i_page_size         INT,               -- 페이지당 행 수
     IN i_offset            INT,               -- 시작 오프셋
     IN i_requester_user_id BIGINT UNSIGNED    -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '회사 목록 조회 - SUPER_ADMIN 재검증, 페이지네이션 (10_COMPANY_API.md 2.2)'
+) COMMENT '회사 목록 조회 - SUPER_ADMIN 재검증, 페이지네이션 (12_COMPANY_API.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COMPANY_LIST
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 회사 목록을 status DESC, company_name ASC로 정렬해 페이지 단위로 반환한다.
-    --        02_DEV_CONVENTIONS.md 3.4의 RESULT SELECT 규약은 RESULT + data 정확히 2개 result set만
+    --        04_DEV_CONVENTIONS.md 3.4의 RESULT SELECT 규약은 RESULT + data 정확히 2개 result set만
     --        허용하므로, 별도의 COUNT(*) 쿼리를 셋째 result set으로 추가할 수 없다. 다만 total_count를
     --        페이지네이션 대상 SELECT에 COUNT(*) OVER()로 얹으면, 요청한 offset이 실제 데이터
     --        범위를 벗어나 0행이 반환되는 경우 total_count도 함께 사라져 0으로 잘못 응답되는
@@ -1905,7 +1905,7 @@ BEGIN
     --        NULL인 행을 데이터 없음으로 취급하고 total_count만 읽는다). 페이지네이션이 필요한 다른
     --        목록 SP(project/user 등)도 이 패턴을 그대로 재사용한다.
     --        회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
-    --        FN_IS_SUPER_ADMIN으로 재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
+    --        FN_IS_SUPER_ADMIN으로 재확인한다(방어적 이중 체크, 04_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -1957,13 +1957,13 @@ CREATE PROCEDURE `SP_COMPANY_UPDATE` (
     IN i_description       VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
     IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '회사 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE (10_COMPANY_API.md 2.4)'
+) COMMENT '회사 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE (12_COMPANY_API.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COMPANY_UPDATE
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 회사 정보 수정. 존재 확인(31001) -> company_code 변경 시 중복 확인(자기 자신 제외, 32001)
-    --        -> COALESCE 기반 조건부 UPDATE(02_DEV_CONVENTIONS.md 4장)로 NULL로 넘어온 필드는 기존
+    --        -> COALESCE 기반 조건부 UPDATE(04_DEV_CONVENTIONS.md 4장)로 NULL로 넘어온 필드는 기존
     --        값을 유지한다. 관리자 폼이 매번 전체 필드를 채워 보내는 단순 CRUD라 "필드를 명시적으로
     --        NULL로 비우는" 시나리오까지는 다루지 않는다(description을 지우고 싶으면 빈 문자열을
     --        보내는 것으로 충분 — 실제 NULL 저장이 필요해지면 그때 별도 플래그를 추가한다).
@@ -1972,7 +1972,7 @@ BEGIN
     --        핸들러를 둔다(2026-07-19 리뷰에서 CREATE에만 있고 UPDATE에는 없던 것을 발견).
     --        회사 관리메뉴는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
-    --        02_DEV_CONVENTIONS.md 3.2).
+    --        04_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다.
     --        2026-07-22: before_json 캡처가 락 없는 별도 SELECT로 UPDATE보다 먼저 실행돼, 그 사이
@@ -2071,7 +2071,7 @@ BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COUPON_CODE_GET_BY_VALUE
     -- 작성 : 2026.07.22 trisakion
-    -- 내용 : SP_COUPON_RESERVE/SP_COUPON_CONFIRM은 02_DEV_CONVENTIONS.md 3.4 규약상 실패 시
+    -- 내용 : SP_COUPON_RESERVE/SP_COUPON_CONFIRM은 04_DEV_CONVENTIONS.md 3.4 규약상 실패 시
     --        RESULT 단일 컬럼만 반환하므로, 코드는 존재하지만 다른 사유로 실패한 경우(RESERVE의
     --        33001/33002/33003, CONFIRM의 31006)에도 coupon_campaign_id를 알 수 없다. 하지만
     --        log_coupon_use.coupon_campaign_id는 "코드 자체가 없는 시도만 NULL"이 설계 의도라
@@ -2119,12 +2119,12 @@ CREATE PROCEDURE `SP_COUPON_CONFIRM` (
     IN i_project_id   BIGINT UNSIGNED,  -- S2S 인증으로 스코핑된 project_id
     IN i_code_value   VARCHAR(50),      -- coupon_code.code_value
     IN i_game_user_id VARCHAR(100)      -- 게임서버 유저 식별자
-) COMMENT '쿠폰 사용 지급결과 기록 - confirm (18_COUPON_USAGE_API.md 2.2)'
+) COMMENT '쿠폰 사용 지급결과 기록 - confirm (20_COUPON_USAGE_API.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COUPON_CONFIRM
     -- 작성 : 2026.07.22 trisakion
-    -- 내용 : 06_COUPON_USAGE_SCENARIO.md 2.1(confirm 흐름도)/2.2(중복 호출 무해)를 그대로
+    -- 내용 : 08_COUPON_USAGE_SCENARIO.md 2.1(confirm 흐름도)/2.2(중복 호출 무해)를 그대로
     --        구현한다. confirm은 coupon_code/coupon_campaign 어떤 상태도 바꾸지 않으므로(소모
     --        확정은 이미 reserve에서 끝남) 별도 락이 필요 없다 - 재시도로 두 번 호출돼도
     --        confirmed_at을 같은 값으로 다시 쓰는 것뿐이라 무해하다.
@@ -2135,7 +2135,7 @@ BEGIN
     --           confirmed_at IS NULL`)로 기록 후 재조회해 반환 - 조건부 UPDATE로 감싼 것은
     --           동시 confirm 호출 시 ROW_COUNT()=0이 나더라도(=경쟁에서 짐) 에러로 취급하지
     --           않고 그냥 결과를 다시 읽어 그대로 반환하기 위함(둘 다 성공 응답을 받는 것이
-    --           의도된 동작, 02_DEV_CONVENTIONS.md 4장의 "조건부 UPDATE 우선" 원칙을 따르되
+    --           의도된 동작, 04_DEV_CONVENTIONS.md 4장의 "조건부 UPDATE 우선" 원칙을 따르되
     --           실패를 별도 분기로 두지 않는 경우).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
@@ -2196,12 +2196,12 @@ CREATE PROCEDURE `SP_COUPON_RESERVE` (
     IN i_project_id  BIGINT UNSIGNED,  -- S2S 인증으로 스코핑된 project_id
     IN i_code_value  VARCHAR(50),      -- coupon_code.code_value
     IN i_game_user_id VARCHAR(100)     -- 게임서버 유저 식별자
-) COMMENT '쿠폰 코드 예약(=즉시 소모 확정) - reserve (18_COUPON_USAGE_API.md 2.1)'
+) COMMENT '쿠폰 코드 예약(=즉시 소모 확정) - reserve (20_COUPON_USAGE_API.md 2.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COUPON_RESERVE
     -- 작성 : 2026.07.22 trisakion
-    -- 내용 : 06_COUPON_USAGE_SCENARIO.md 2.1/2.2/2.3을 그대로 구현한다.
+    -- 내용 : 08_COUPON_USAGE_SCENARIO.md 2.1/2.2/2.3을 그대로 구현한다.
     --        1) 코드 조회(project_id+code_value, uk_project_code_value 활용) - 없으면 31005
     --        2) 멱등 체크(use_limit_per_user=1일 때만): (coupon_code_id, game_user_id) 매칭 기존
     --           coupon_code_usage 행이 있으면 새로 만들지 않고 그 행 그대로 RESULT=0 재반환
@@ -2234,7 +2234,7 @@ BEGIN
     --        없지만 같은 트랜잭션 안에서 4/5/6이 처리되어도 무해하다(단순 SELECT 체크 후 그대로
     --        진행).
     --        반환 컬럼(coupon_code_usage_id/coupon_campaign_id/code_value/game_user_id/
-    --        reward_data/created_at)은 18_COUPON_USAGE_API.md 2.1 Response를 그대로 따른다 -
+    --        reward_data/created_at)은 20_COUPON_USAGE_API.md 2.1 Response를 그대로 따른다 -
     --        TS 서비스가 이 값을 그대로 HTTP 응답으로 내보낸다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
@@ -2272,7 +2272,7 @@ BEGIN
             LEAVE proc_block;
         END IF;
 
-        -- 멱등 체크(use_limit_per_user=1일 때만, 06_COUPON_USAGE_SCENARIO.md 1.2)
+        -- 멱등 체크(use_limit_per_user=1일 때만, 08_COUPON_USAGE_SCENARIO.md 1.2)
         IF v_use_limit = 1 THEN
             SELECT `coupon_code_usage_id` INTO v_existing_usage_id
             FROM `coupon_code_usage`
@@ -2364,12 +2364,12 @@ CREATE PROCEDURE `SP_COUPON_UNCONFIRMED_LIST` (
     IN i_campaign_id BIGINT UNSIGNED,  -- 두 모드 공통 선택 필터 (NULL이면 전체)
     IN i_page_size   INT,              -- 전체유저 조회 모드에서만 사용(특정유저 모드면 NULL)
     IN i_offset      INT               -- 전체유저 조회 모드에서만 사용(특정유저 모드면 NULL)
-) COMMENT '미컨슘(confirm 안 된) 쿠폰 사용 조회 - 특정유저 전체반환/전체유저 페이지네이션 (18_COUPON_USAGE_API.md 3.1)'
+) COMMENT '미컨슘(confirm 안 된) 쿠폰 사용 조회 - 특정유저 전체반환/전체유저 페이지네이션 (20_COUPON_USAGE_API.md 3.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COUPON_UNCONFIRMED_LIST
     -- 작성 : 2026.07.22 trisakion
-    -- 내용 : 06_COUPON_USAGE_SCENARIO.md 3장 - 두 모드(특정유저/전체유저) 모두 실제 쿼리는
+    -- 내용 : 08_COUPON_USAGE_SCENARIO.md 3장 - 두 모드(특정유저/전체유저) 모두 실제 쿼리는
     --        coupon_code_usage.project_id(비정규화 컬럼) 기준으로 스코핑하고 confirmed_at IS
     --        NULL 조건은 공통이다. game_user_id만으로 조회하는 특정유저 모드도 project_id로
     --        함께 스코핑해 다른 프로젝트의 동일 game_user_id 데이터가 섞이지 않는다(3.2 참고).
@@ -2437,14 +2437,14 @@ DROP PROCEDURE IF EXISTS `SP_LOCK_ACQUIRE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_LOCK_ACQUIRE` (
     IN i_lock_name VARCHAR(64)  -- 획득할 advisory lock 이름(레플리카 간 공유되는 배치 식별 키)
-) COMMENT '레플리카 간 배치 중복실행 방지용 MySQL advisory lock 획득 (GET_LOCK, non-blocking) - 02_DEV_CONVENTIONS.md 4.1'
+) COMMENT '레플리카 간 배치 중복실행 방지용 MySQL advisory lock 획득 (GET_LOCK, non-blocking) - 04_DEV_CONVENTIONS.md 4.1'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_LOCK_ACQUIRE
     -- 작성 : 2026.07.26 trisakion
     -- 내용 : SpExecutorService.runExclusive가 쓰는 세션 수준 advisory lock 획득 전용 SP. GET_LOCK을
     --        raw SQL(SELECT GET_LOCK(...))로 직접 호출하던 걸 SP로 감쌌다 — 이 프로젝트의
-    --        "ORM/Native SQL 직접 작성 금지, SP 전용" 정책(01_TECH_STACK.md)의 유일한 예외였고,
+    --        "ORM/Native SQL 직접 작성 금지, SP 전용" 정책(02_TECH_STACK.md)의 유일한 예외였고,
     --        운영 DB 계정을 SP 실행(EXECUTE) 권한만 허용하는 모델로 굳힐 계획이라 SP로 감싸지
     --        않은 순수 SELECT 문은 그 계정으로 아예 실행이 안 될 수 있다.
     --        timeout=0(non-blocking)으로 시도해 이미 다른 레플리카가 점유 중이면 즉시 포기한다 —
@@ -2479,7 +2479,7 @@ DROP PROCEDURE IF EXISTS `SP_LOCK_RELEASE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_LOCK_RELEASE` (
     IN i_lock_name VARCHAR(64)  -- 해제할 advisory lock 이름(SP_LOCK_ACQUIRE와 동일 값)
-) COMMENT '레플리카 간 배치 중복실행 방지용 MySQL advisory lock 해제 (RELEASE_LOCK) - 02_DEV_CONVENTIONS.md 4.1'
+) COMMENT '레플리카 간 배치 중복실행 방지용 MySQL advisory lock 해제 (RELEASE_LOCK) - 04_DEV_CONVENTIONS.md 4.1'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_LOCK_RELEASE
@@ -2489,7 +2489,7 @@ BEGIN
     --        호출하면 아무 효과가 없다(RELEASE_LOCK이 0을 반환할 뿐, 에러는 아니다). 반환값
     --        (해제 성공 여부)은 호출부(SpExecutorService.runExclusive의 finally 블록)가 실제로
     --        읽어 판단하지 않지만(락 해제는 실패해도 커넥션이 pool로 반환되며 세션이 끝나는
-    --        시점에 MySQL이 결국 정리한다), RESULT SELECT 규약(02_DEV_CONVENTIONS.md 3.4)을
+    --        시점에 MySQL이 결국 정리한다), RESULT SELECT 규약(04_DEV_CONVENTIONS.md 3.4)을
     --        일관되게 지키기 위해 반환한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
@@ -2521,7 +2521,7 @@ BEGIN
     -- 명칭 : SP_NONCE_CLEANUP
     -- 작성 : 2026.07.23 trisakion
     -- 내용 : X-API-Timestamp 허용범위(S2S_TIMESTAMP_TOLERANCE_SEC)를 벗어난 요청은 서명 검증
-    --        단계에서 이미 거부되므로(07_AUTH_SECURITY.md 2장), created_at이 그 범위보다 과거인
+    --        단계에서 이미 거부되므로(09_AUTH_SECURITY.md 2장), created_at이 그 범위보다 과거인
     --        nonce는 재사용(재전송)될 위협이 없어 물리 삭제해도 안전하다(project_api_nonce.sql
     --        헤더 주석 참고). SP_SESSION_CLEANUP/SP_PROJECT_API_SECRET_CLEANUP과 동일하게
     --        서버 크론(NonceCleanupService)만 호출하는 내부 배치 전용 SP라 호출자 권한 검증이
@@ -2553,17 +2553,17 @@ DELIMITER $$
 CREATE PROCEDURE `SP_NONCE_INSERT` (
     IN i_project_id BIGINT UNSIGNED,  -- 인증된 project_id (project.project_id)
     IN i_nonce      VARCHAR(64)       -- X-API-Nonce 헤더 원문
-) COMMENT 'S2S nonce 원자적 등록 — UNIQUE 위반이면 재전송으로 판단해 10015 반환(docs/07_AUTH_SECURITY.md 2.4 6번)'
+) COMMENT 'S2S nonce 원자적 등록 — UNIQUE 위반이면 재전송으로 판단해 10015 반환(docs/09_AUTH_SECURITY.md 2.4 6번)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_NONCE_INSERT
     -- 작성 : 2026.07.19 trisakion
-    -- 내용 : S2S 인증 가드(docs/07_AUTH_SECURITY.md 2.4 6번)의 재전송 방지 nonce 등록.
+    -- 내용 : S2S 인증 가드(docs/09_AUTH_SECURITY.md 2.4 6번)의 재전송 방지 nonce 등록.
     --        (project_id, nonce) UNIQUE 제약 위반을 "이미 사용된 nonce(재전송 의심)"으로 판단해 10015를
-    --        반환한다. 02_DEV_CONVENTIONS.md 3.4는 "예측 가능한 실패는 예외로 던지지 않는다"는 원칙이지만
+    --        반환한다. 04_DEV_CONVENTIONS.md 3.4는 "예측 가능한 실패는 예외로 던지지 않는다"는 원칙이지만
     --        이 SP는 의도적 예외다 — INSERT 자체의 원자적 유니크 제약 위반을 이용해야만 동시에 같은 nonce가
     --        들어와도 정확히 하나만 성공시킬 수 있다(체크 후 INSERT는 두 요청이 동시에 통과하는 경쟁 상태를
-    --        막지 못함, docs/07_AUTH_SECURITY.md 2.5 참고).
+    --        막지 못함, docs/09_AUTH_SECURITY.md 2.5 참고).
     --        MySQL은 여러 핸들러가 매치될 때 선언 순서와 무관하게 더 구체적인 조건(mysql_errno)을
     --        SQLEXCEPTION 같은 범용 조건보다 우선 적용하므로, 1062 전용 핸들러가 항상 먼저 걸린다 —
     --        아래에서 먼저 선언한 것은 가독성을 위한 것일 뿐, 동작상 필수는 아니다.
@@ -2601,12 +2601,12 @@ DROP PROCEDURE IF EXISTS `SP_PROJECT_API_SECRET_CLEANUP`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_API_SECRET_CLEANUP` (
     IN i_grace_period_days INT UNSIGNED  -- 유예기간(일) — API_SECRET_GRACE_PERIOD_DAYS
-) COMMENT '유예기간 지난 api_secret_prev 정리 배치 (07_AUTH_SECURITY.md 2.6)'
+) COMMENT '유예기간 지난 api_secret_prev 정리 배치 (09_AUTH_SECURITY.md 2.6)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_API_SECRET_CLEANUP
     -- 작성 : 2026.07.19 trisakion
-    -- 내용 : Secret Rotation Grace Period 방식(07_AUTH_SECURITY.md 2.6)의 정리 배치.
+    -- 내용 : Secret Rotation Grace Period 방식(09_AUTH_SECURITY.md 2.6)의 정리 배치.
     --        secret_rotated_at + i_grace_period_days가 지난 행의 api_secret_prev를 NULL
     --        처리한다 — 그 이후에는 이전 Secret으로 서명해도 더 이상 통과시키지 않는다
     --        (S2sAuthGuard.verifySignature가 api_secret_prev가 NULL이면 아예 후보에서 제외).
@@ -2643,7 +2643,7 @@ CREATE PROCEDURE `SP_PROJECT_API_SECRET_ROTATE` (
     IN i_edit_count      INT UNSIGNED,     -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 edit_count 그대로)
     IN i_user_id         BIGINT UNSIGNED,  -- 요청자 user_id (JWT 페이로드 값 그대로 신뢰)
     IN i_new_api_secret_enc VARCHAR(255)   -- 새 API Secret AES-256-CBC 암호화값 (앱 레이어에서 암호화 완료)
-) COMMENT 'API Secret 재발급 - Grace Period 방식 + edit_count 낙관적 락 (11_PROJECT_API.md 2.5)'
+) COMMENT 'API Secret 재발급 - Grace Period 방식 + edit_count 낙관적 락 (13_PROJECT_API.md 2.5)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_API_SECRET_ROTATE
@@ -2660,20 +2660,20 @@ BEGIN
     --        같은(오래된) edit_count를 들고 오므로 두 번째 요청이 정확히 충돌(30005)로 걸러진다.
     --        내용 : 존재 확인(31002) 후, FN_IS_SUPER_ADMIN(i_user_id)이 아니면 FN_GET_PROJECT_ROLE_CODE로
     --        해당 project_id에서의 실제 role_code를 확인해 DEVELOPER(20) 이상인지 재검증한다
-    --        (11_PROJECT_API.md 2.5 Business Rules — JWT의 role_code는 여러 프로젝트 중 최고
+    --        (13_PROJECT_API.md 2.5 Business Rules — JWT의 role_code는 여러 프로젝트 중 최고
     --        권한 하나뿐이라 이 project_id 기준으로는 다시 확인해야 함). 원래는 앱이 전달한
-    --        i_role_code로 SUPER_ADMIN 우회를 판단했으나, 02_DEV_CONVENTIONS.md 3.2 정책(SP는
+    --        i_role_code로 SUPER_ADMIN 우회를 판단했으나, 04_DEV_CONVENTIONS.md 3.2 정책(SP는
     --        호출자의 role_code 값을 앱으로부터 전달받아 신뢰하지 않는다) 전면 적용 때 이 SP만
     --        누락돼 있던 것을 2026-07-19 감사에서 발견해 FN_IS_SUPER_ADMIN 재확인으로 교체했다
     --        (API Secret 재발급은 보안 민감 기능이라 다른 SP보다 오히려 더 엄격해야 함). 통과하면
     --        기존 api_secret을 api_secret_prev로 옮기고 신규 값을 api_secret에 저장,
-    --        secret_rotated_at을 갱신한다(07_AUTH_SECURITY.md 2.6 Grace Period 방식). api_key는
+    --        secret_rotated_at을 갱신한다(09_AUTH_SECURITY.md 2.6 Grace Period 방식). api_key는
     --        변경하지 않는다. 반환 컬럼에 api_secret(암호문)은 포함하지 않는다 — 평문은 앱
     --        레이어가 자신이 생성한 값을 응답에 직접 얹는다.
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고, 결과 SELECT에 company_id/project_name(스코핑/표시명용)과
     --        before_json/after_json/requester_name을 추가했다. api_secret/api_secret_prev는
-    --        '***'로 마스킹한다(13_LOG_AUDIT_API.md 2.4).
+    --        '***'로 마스킹한다(15_LOG_AUDIT_API.md 2.4).
     --        2026-07-24: 처음엔 FN_CHECK_PROJECT_ACCESS(배정 "존재 여부"만 boolean)를 썼는데,
     --        이 프로젝트에서 OPERATOR(40)로만 배정된 사용자가 다른 프로젝트에서 DEVELOPER(20)라
     --        JWT의 MIN role_code가 20이면 이 프로젝트의 Secret까지 재발급할 수 있는 결함이
@@ -2761,19 +2761,19 @@ DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_CHECK_ACCESS` (
     IN i_project_id        BIGINT UNSIGNED,  -- 확인할 프로젝트 ID
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '프로젝트 접근권한만 확인 (17_CAMPAIGN_API.md 4.3, 로그 DB 조회 API의 메인 DB 사전 체크 전용)'
+) COMMENT '프로젝트 접근권한만 확인 (19_CAMPAIGN_API.md 4.3, 로그 DB 조회 API의 메인 DB 사전 체크 전용)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_CHECK_ACCESS
     -- 작성 : 2026.07.22 trisakion
     -- 내용 : SUPER_ADMIN 우회 또는 FN_CHECK_PROJECT_ACCESS(캠페인 도메인과 동일한 "user_role에
-    --        실제 활성 배정된 project_id인가" 스코핑 규칙, 17_CAMPAIGN_API.md 1.2)만 확인하는
+    --        실제 활성 배정된 project_id인가" 스코핑 규칙, 19_CAMPAIGN_API.md 1.2)만 확인하는
     --        가장 작은 단위의 SP다 - 데이터를 반환하지 않고 RESULT(0/20001)만 응답한다.
     --        SP_CAMPAIGN_LIST 등 캠페인 도메인 SP는 coupon_campaign이 메인 DB에 있어 이 체크를
     --        SP 안에 바로 인라인할 수 있지만, GET /coupon-use-logs(4.3)가 조회하는 log_coupon_use
-    --        는 로그 DB에 있어 메인 DB의 user_role을 참조할 방법이 없다(02_DEV_CONVENTIONS.md
+    --        는 로그 DB에 있어 메인 DB의 user_role을 참조할 방법이 없다(04_DEV_CONVENTIONS.md
     --        1장/3.2) - 그래서 "메인 DB에서 접근권한만 먼저 확인 → 통과하면 로그 DB에서 목록
-    --        조회"하는 2단계 패턴(02_DEV_CONVENTIONS.md 3.2)이 필요했고, 이 SP가 그 1단계를
+    --        조회"하는 2단계 패턴(04_DEV_CONVENTIONS.md 3.2)이 필요했고, 이 SP가 그 1단계를
     --        전담한다. 프로젝트 존재 여부는 별도로 확인하지 않는다 - SP_CAMPAIGN_LIST와 동일하게
     --        SUPER_ADMIN은 존재하지 않는 project_id에도 이 체크를 그냥 통과하며(그 뒤 로그 DB
     --        조회에서 자연히 0건), 그 외 role은 존재하지 않는 project_id에 애초에 배정이 있을 수
@@ -2812,7 +2812,7 @@ CREATE PROCEDURE `SP_PROJECT_CREATE` (
     IN i_api_key           VARCHAR(64),      -- 서버간 호출용 API Key (앱 레이어에서 생성)
     IN i_api_secret_enc    VARCHAR(255),     -- API Secret AES-256-CBC 암호화값 (앱 레이어에서 암호화 완료)
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '프로젝트 생성 - SUPER_ADMIN 재검증, api_key/api_secret 발급 후 INSERT (11_PROJECT_API.md 2.1)'
+) COMMENT '프로젝트 생성 - SUPER_ADMIN 재검증, api_key/api_secret 발급 후 INSERT (13_PROJECT_API.md 2.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_CREATE
@@ -2828,11 +2828,11 @@ BEGIN
     --        평문은 서비스 레이어가 자신이 생성한 값을 응답에 직접 얹는다.
     --        프로젝트 생성은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
-    --        02_DEV_CONVENTIONS.md 3.2).
+    --        04_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 결과 SELECT에 after_json/requester_name을
     --        추가했다(before_json은 CREATE라 NULL). after_json 안의 api_secret/api_secret_prev는
     --        암호문이라도 ENCRYPTION_KEY 유출 시 복호화가 가능해 password_hash와 동일 수준으로
-    --        '***' 마스킹한다(13_LOG_AUDIT_API.md 2.4).
+    --        '***' 마스킹한다(15_LOG_AUDIT_API.md 2.4).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -2907,7 +2907,7 @@ DROP PROCEDURE IF EXISTS `SP_PROJECT_GET_BY_API_KEY`;
 DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_GET_BY_API_KEY` (
     IN i_api_key VARCHAR(64)  -- 조회할 API Key (project.api_key)
-) COMMENT 'API Key로 project 조회 (S2S 인증 가드 전용, docs/07_AUTH_SECURITY.md 2.4 3~4번)'
+) COMMENT 'API Key로 project 조회 (S2S 인증 가드 전용, docs/09_AUTH_SECURITY.md 2.4 3~4번)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_GET_BY_API_KEY
@@ -2916,8 +2916,8 @@ BEGIN
     --        (S2sFailureLogger, coupon-usage.service.ts)가 "[company_code][project_code] ..."
     --        형식으로 남기려면 이 값들이 필요한데, S2sAuthGuard가 매 요청마다 이미 이 SP를
     --        호출하고 있어 별도 추가 조회 없이 이 SP 결과에 얹어서 공짜로 얻는다.
-    -- 내용 : S2S 인증 가드(docs/07_AUTH_SECURITY.md 2.4 3~4번)가 X-API-Key로 project를 조회할 때 사용.
-    --        RESULT SELECT 규약(docs/02_DEV_CONVENTIONS.md 3.4)을 따른다 — 첫 SELECT는 RESULT 단일 행,
+    -- 내용 : S2S 인증 가드(docs/09_AUTH_SECURITY.md 2.4 3~4번)가 X-API-Key로 project를 조회할 때 사용.
+    --        RESULT SELECT 규약(docs/04_DEV_CONVENTIONS.md 3.4)을 따른다 — 첫 SELECT는 RESULT 단일 행,
     --        성공(0)일 때만 두 번째 SELECT로 project 행(암호화된 api_secret/api_secret_prev 포함)을 반환한다.
     --        프로젝트 상태(status=0 중지)는 이 SP에서 판단하지 않는다 — "코드 없음(31002)"과
     --        "상태 불가(10014)"는 서로 다른 result 코드라, 조회 자체는 그대로 성공시키고 상태 확인은
@@ -2965,7 +2965,7 @@ DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_GET_BY_CODE` (
     IN i_company_id   BIGINT UNSIGNED,  -- 조회할 회사 ID
     IN i_project_code VARCHAR(20)       -- 조회할 프로젝트 코드
-) COMMENT '회사 범위 내 프로젝트 코드로 조회 - 회원가입 화면 전용 공개 API (11_PROJECT_API.md 2.6)'
+) COMMENT '회사 범위 내 프로젝트 코드로 조회 - 회원가입 화면 전용 공개 API (13_PROJECT_API.md 2.6)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_GET_BY_CODE
@@ -3010,7 +3010,7 @@ DELIMITER $$
 CREATE PROCEDURE `SP_PROJECT_GET_BY_ID` (
     IN i_project_id        BIGINT UNSIGNED,  -- 조회할 프로젝트 ID
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '프로젝트 상세 조회 - company 조인, user_role 배정 재검증 (11_PROJECT_API.md 2.3)'
+) COMMENT '프로젝트 상세 조회 - company 조인, user_role 배정 재검증 (13_PROJECT_API.md 2.3)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_GET_BY_ID
@@ -3025,14 +3025,14 @@ BEGIN
     --        답해 role_code 수준을 구분하지 못했다(예: 이 프로젝트에서 OPERATOR(40)로만 배정된
     --        사용자가 다른 프로젝트에서 DEVELOPER(20)라 JWT의 MIN role_code가 20이면, 관리메뉴
     --        진입 자체는 허용되니 이 프로젝트 상세까지 조회·재발급 가능해지는 결함). 프로젝트
-    --        관리메뉴는 DEVELOPER(20) 이상만 접근 가능하다는 원칙(10_COMPANY_API.md 1.2)을
+    --        관리메뉴는 DEVELOPER(20) 이상만 접근 가능하다는 원칙(12_COMPANY_API.md 1.2)을
     --        프로젝트 단위로 정확히 적용하기 위해 FN_GET_PROJECT_ROLE_CODE로 실제 role_code
     --        값을 가져와 20 이하인지까지 확인하도록 교체했다.
     -- 내용 : project_id로 프로젝트 상세를 조회한다. company_code/company_name을 함께 반환하기
     --        위해 company를 조인한다. 없으면 31002. DEVELOPER 미만 배정/미배정 프로젝트 접근
     --        차단(20001)은 앱 레이어(ProjectService)가 아니라 이 SP가 유일한 방어선이다(회사
     --        매칭과 달리 user_role 배정 여부/role_code 값은 앱이 JWT만으로 판단할 수 없는
-    --        정보라, 02_DEV_CONVENTIONS.md 3.2의 "호출자가 이미 알고 있는 값은 앱이 먼저 걸러도
+    --        정보라, 04_DEV_CONVENTIONS.md 3.2의 "호출자가 이미 알고 있는 값은 앱이 먼저 걸러도
     --        된다"는 예외에 해당하지 않음 — campaign 도메인의 getById와 동일한 패턴). 존재
     --        확인이 먼저이고(31002), 그 다음 접근 재검증(20001) 순서다 - 없는 리소스는 권한
     --        여부와 무관하게 항상 404가 맞다. SUPER_ADMIN 우회는 FN_IS_SUPER_ADMIN
@@ -3091,7 +3091,7 @@ CREATE PROCEDURE `SP_PROJECT_LIST` (
     IN i_page_size         INT,               -- 페이지당 행 수
     IN i_offset            INT,               -- 시작 오프셋
     IN i_requester_user_id BIGINT UNSIGNED    -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '프로젝트 목록 조회 - 페이지네이션, company 조인, user_role 기반 행단위 스코핑 (11_PROJECT_API.md 2.2)'
+) COMMENT '프로젝트 목록 조회 - 페이지네이션, company 조인, user_role 기반 행단위 스코핑 (13_PROJECT_API.md 2.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_LIST
@@ -3099,7 +3099,7 @@ BEGIN
     -- 수정 : 2026.07.24 trisakion — 스코핑 기준을 회사(company_id) 단위에서 실제 user_role 배정
     --        단위로 전환. API Key/Secret처럼 민감한 자격증명을 다루는 화면이라, 같은 회사
     --        소속이라는 사실만으로 담당이 아닌 프로젝트까지 보이는 게 문제로 지적됨(캠페인 등
-    --        쿠폰 도메인이 이미 쓰는 user_role 프로젝트 단위 스코핑과 통일, 17_CAMPAIGN_API.md
+    --        쿠폰 도메인이 이미 쓰는 user_role 프로젝트 단위 스코핑과 통일, 19_CAMPAIGN_API.md
     --        1.2 참고). i_company_id는 더 이상 "앱이 강제로 채우는 스코핑 값"이 아니라 누구나
     --        선택적으로 쓸 수 있는 순수 필터로 의미가 바뀌었다 — SUPER_ADMIN이 아닌 호출자에게는
     --        이 필터와 별개로 `user_role` 행단위 조건이 항상 함께 걸린다. 이 방식은
@@ -3111,7 +3111,7 @@ BEGIN
     --        role_code 수준을 구분하지 않는 결함이었다(예: 프로젝트 A에서 DEVELOPER(20), 프로젝트
     --        B에서 OPERATOR(40)로 배정된 사용자는 JWT의 MIN role_code가 20이라 관리메뉴 진입
     --        자체는 허용되는데, 존재 여부만 보면 프로젝트 B까지 노출·수정됐다). 프로젝트 관리메뉴는
-    --        DEVELOPER(20) 이상만 접근 가능하다는 원칙(10_COMPANY_API.md 1.2)을 프로젝트 단위로
+    --        DEVELOPER(20) 이상만 접근 가능하다는 원칙(12_COMPANY_API.md 1.2)을 프로젝트 단위로
     --        정확히 적용하기 위해 `role_code <= 20` 조건을 추가했다.
     -- 내용 : 프로젝트 목록을 status DESC, project_name ASC로 정렬해 페이지 단위로 반환한다.
     --        company_code/company_name을 함께 보여줘야 해서 company를 조인한다.
@@ -3192,7 +3192,7 @@ CREATE PROCEDURE `SP_PROJECT_UPDATE` (
     IN i_description       VARCHAR(1000),    -- 새 설명 (NULL이면 미변경)
     IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '프로젝트 수정 - SUPER_ADMIN 재검증, edit_count 낙관적 락 + 조건부 UPDATE (11_PROJECT_API.md 2.4)'
+) COMMENT '프로젝트 수정 - SUPER_ADMIN 재검증, edit_count 낙관적 락 + 조건부 UPDATE (13_PROJECT_API.md 2.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_UPDATE
@@ -3203,16 +3203,16 @@ BEGIN
     --        도입 — WHERE절에 `edit_count = i_edit_count`를 추가하고 성공 시 +1, 불일치하면
     --        ROW_COUNT()=0으로 감지해 30005(동시 수정 충돌)를 반환한다(project.sql 헤더 주석 참고).
     -- 내용 : 프로젝트 정보 수정. company_id/project_code/api_key/api_secret은 이 SP의 파라미터에
-    --        아예 없다 — 생성 후 변경 불가 필드라 애초에 받지 않는다(11_PROJECT_API.md 2.4
+    --        아예 없다 — 생성 후 변경 불가 필드라 애초에 받지 않는다(13_PROJECT_API.md 2.4
     --        Non-Updatable Fields). 존재 확인(31002) -> COALESCE 기반 조건부 UPDATE
-    --        (02_DEV_CONVENTIONS.md 4장)로 NULL로 넘어온 필드는 기존 값을 유지한다.
+    --        (04_DEV_CONVENTIONS.md 4장)로 NULL로 넘어온 필드는 기존 값을 유지한다.
     --        프로젝트 수정은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
-    --        02_DEV_CONVENTIONS.md 3.2).
+    --        04_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다.
     --        api_secret/api_secret_prev는 이 SP가 건드리지 않는 필드지만 "전체 Row" 스냅샷
-    --        원칙(13_LOG_AUDIT_API.md 2.3)상 JSON에 포함하고 '***'로 마스킹한다.
+    --        원칙(15_LOG_AUDIT_API.md 2.3)상 JSON에 포함하고 '***'로 마스킹한다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -3290,7 +3290,7 @@ DELIMITER ;
 -- ============================================================================================================ --
 DROP PROCEDURE IF EXISTS `SP_SESSION_CLEANUP`;
 DELIMITER $$
-CREATE PROCEDURE `SP_SESSION_CLEANUP` () COMMENT '만료 세션 물리 삭제 배치 (08_API_COMMON.md 5.4, SESSION_CLEANUP_CRON)'
+CREATE PROCEDURE `SP_SESSION_CLEANUP` () COMMENT '만료 세션 물리 삭제 배치 (10_API_COMMON.md 5.4, SESSION_CLEANUP_CRON)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_SESSION_CLEANUP
@@ -3325,24 +3325,24 @@ DELIMITER $$
 CREATE PROCEDURE `SP_USER_APPROVE` (
     IN i_user_id           BIGINT UNSIGNED,  -- 승인할 사용자 ID
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '가입승인 - SUPER_ADMIN 재검증, status 0(대기) -> 1(승인) 조건부 UPDATE (12_USER_API.md 1.4)'
+) COMMENT '가입승인 - SUPER_ADMIN 재검증, status 0(대기) -> 1(승인) 조건부 UPDATE (14_USER_API.md 1.4)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_APPROVE
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 조건부 UPDATE(WHERE status=0)를 먼저 시도해 체크 후 갱신(check-then-act) 대신
-    --        원자적으로 처리한다(02_DEV_CONVENTIONS.md 4장). 영향받은 행이 0건일 때만 그 이유를
+    --        원자적으로 처리한다(04_DEV_CONVENTIONS.md 4장). 영향받은 행이 0건일 때만 그 이유를
     --        진단한다 - 사용자 자체가 없으면 31003, 있는데 이미 status=0이 아니면(이미 처리됨)
     --        30004(상태 전이 불가)로 구분한다. 이렇게 하면 성공 경로(가장 흔한 경우)는 존재
     --        여부를 별도로 조회하지 않고 UPDATE 한 번으로 끝난다.
     --        가입승인은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
-    --        02_DEV_CONVENTIONS.md 3.2).
+    --        04_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고(대상이 없으면 SELECT...INTO가 조용히 NULL을 남길 뿐이라 안전 — 이후
     --        ROW_COUNT()=0 분기에서 어차피 LEAVE한다), 결과 SELECT에
     --        before_json/after_json/requester_name을 추가했다. password_hash는 '***'로 마스킹한다
-    --        (13_LOG_AUDIT_API.md 2.4).
+    --        (15_LOG_AUDIT_API.md 2.4).
     --        2026-07-22: before_json 캡처가 락 없는 별도 SELECT로 UPDATE보다 먼저 실행되던 문제를
     --        전수감사에서 발견 - 캡처를 `SELECT ... FOR UPDATE`로 바꾸고 UPDATE와 같은 명시적
     --        트랜잭션으로 묶는다. ROW_COUNT()=0(실패) 분기에서도 트랜잭션을 열어둔 채 반환하면
@@ -3432,15 +3432,15 @@ BEGIN
     -- 명칭 : SP_USER_GET_BY_ID
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : GET /auth/me, PATCH /auth/password(현재 비밀번호 검증용 해시 조회), 관리자용
-    --        GET /users/{user_id}(12_USER_API.md 1.3) 세 곳에서 공용으로 쓰는 조회 SP.
+    --        GET /users/{user_id}(14_USER_API.md 1.3) 세 곳에서 공용으로 쓰는 조회 SP.
     --        password_hash를 포함해 전체 컬럼을 그대로 반환하며, API 응답에 어떤 필드를 노출할지
     --        (예: password_hash 제외, phone_number 복호화)는 서비스 레이어가 결정한다.
     --        i_requester_user_id는 자기 정보 조회(auth.service.ts)에서는 항상 i_user_id와 동일한
     --        값이 들어와 FN_CHECK_COMPANY_ACCESS가 자기 자신의 company_id와 비교하게 되므로
     --        결과적으로 항상 통과한다 - 자기 정보는 role과 무관하게 항상 볼 수 있어야 하므로 이는
     --        의도된 동작이다. 관리자 조회(user.service.ts)에서는 실제 호출자와 다른 대상 user_id가
-    --        들어와, DEVELOPER가 타사 사용자를 조회하면 20001로 차단한다(12_USER_API.md 1.3,
-    --        앱 레이어의 1차 체크를 SP가 2차로 재검증 - 02_DEV_CONVENTIONS.md 3.2). 존재 확인
+    --        들어와, DEVELOPER가 타사 사용자를 조회하면 20001로 차단한다(14_USER_API.md 1.3,
+    --        앱 레이어의 1차 체크를 SP가 2차로 재검증 - 04_DEV_CONVENTIONS.md 3.2). 존재 확인
     --        (31003)이 접근 재검증보다 먼저다 - 없는 리소스는 권한 여부와 무관하게 항상 404가
     --        맞다. SUPER_ADMIN 우회는 FN_IS_SUPER_ADMIN(i_requester_user_id)로 SP가 직접 DB에서
     --        재확인한다 - 앱이 role_code 값을 별도로 넘겨 그 값을 믿는 방식은 쓰지 않는다.
@@ -3498,7 +3498,7 @@ BEGIN
     -- 내용 : 로그인(POST /auth/login) 처리용 사용자 조회. password_hash를 포함해 반환하므로
     --        앱 레이어가 bcrypt로 비교한다(SP는 비밀번호 검증 로직을 모른다).
     --        role_code는 user_session에 저장하지 않고 이 시점에 user_role을 조인해 계산한다
-    --        (09_AUTH_API.md 7장 — 로그인/재발급 시점마다 동일한 방식으로 매번 재계산).
+    --        (11_AUTH_API.md 7장 — 로그인/재발급 시점마다 동일한 방식으로 매번 재계산).
     --        login_id 자체가 없으면 10001(로그인 실패) — 비밀번호 불일치(10002)와는 앱 레이어에서 구분.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
@@ -3549,7 +3549,7 @@ CREATE PROCEDURE `SP_USER_LIST` (
     IN i_limit             INT,              -- 페이지당 행 수
     IN i_offset            INT,              -- 시작 오프셋
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '사용자 목록 조회 - status ASC 정렬, 회사 접근 재검증 (12_USER_API.md 1.1/1.2)'
+) COMMENT '사용자 목록 조회 - status ASC 정렬, 회사 접근 재검증 (14_USER_API.md 1.1/1.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_LIST
@@ -3559,13 +3559,13 @@ BEGIN
     --        2-result-set 규약을 유지한다(COUNT(*) OVER()는 offset이 범위를 벗어나 0행이 반환되면
     --        total_count도 0으로 사라지는 버그가 있어 2026-07-19 이 패턴으로 교체).
     --        다른 테이블은 status DESC가 기본이지만 user는 "가입승인대기(0)"가 가장 먼저 보여야
-    --        하는 화면 요구사항이 있어 status ASC로 정렬한다(12_USER_API.md 1.1 Sorting, 다른
+    --        하는 화면 요구사항이 있어 status ASC로 정렬한다(14_USER_API.md 1.1 Sorting, 다른
     --        도메인과 다른 정렬 방향이라는 점을 주석으로 명시).
     --        password_hash는 반환 컬럼에서 제외한다 — 목록/상세 어디서도 앱으로 내보낼 이유가 없다.
     --        DEVELOPER의 회사 단위 스코핑은 앱 레이어(UserService)가 i_company_id에 항상 자기
     --        companyId를 채워 호출하는 방식으로 1차 강제하고, 이 SP도 FN_CHECK_COMPANY_ACCESS로
     --        호출자가 실제 그 회사 소속인지 2차로 재검증한다(방어적 이중 체크,
-    --        02_DEV_CONVENTIONS.md 3.2). SUPER_ADMIN 우회는 FN_IS_SUPER_ADMIN(i_requester_user_id)로
+    --        04_DEV_CONVENTIONS.md 3.2). SUPER_ADMIN 우회는 FN_IS_SUPER_ADMIN(i_requester_user_id)로
     --        SP가 직접 DB에서 재확인한다 - 앱이 넘긴 role_code 값을 그대로 믿지 않는다.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
@@ -3622,17 +3622,17 @@ DELIMITER $$
 CREATE PROCEDURE `SP_USER_PASSWORD_CHANGE` (
     IN i_user_id           BIGINT UNSIGNED,  -- 대상 사용자 ID
     IN i_new_password_hash VARCHAR(255)       -- 새 비밀번호 bcrypt 해시(앱 레이어에서 해시 완료)
-) COMMENT '비밀번호 변경 + 전체 활성 세션 강제 로그아웃 (09_AUTH_API.md 9장)'
+) COMMENT '비밀번호 변경 + 전체 활성 세션 강제 로그아웃 (11_AUTH_API.md 9장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_PASSWORD_CHANGE
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 현재 비밀번호 검증(bcrypt.compare)은 앱 레이어에서 이미 끝난 상태로 호출된다.
-    --        password_hash 갱신과 "모든 활성 세션 종료"(07_AUTH_SECURITY.md 1.3)를 하나의
+    --        password_hash 갱신과 "모든 활성 세션 종료"(09_AUTH_SECURITY.md 1.3)를 하나의
     --        트랜잭션으로 처리해, 비밀번호는 바뀌었는데 기존 세션이 살아있는 상태가 생기지 않게 한다.
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고, 데이터 result set(before_json/after_json/requester_name)을 신규로 추가했다
-    --        (13_LOG_AUDIT_API.md 2.4 — 본인 비밀번호 변경도 user UPDATE 감사 로그 대상). 본인
+    --        (15_LOG_AUDIT_API.md 2.4 — 본인 비밀번호 변경도 user UPDATE 감사 로그 대상). 본인
     --        조회라 requester_name도 i_user_id 자신의 user_name이다. password_hash는 '***'로
     --        마스킹한다.
     --        2026-07-22: before_json 캡처가 START TRANSACTION보다 먼저(락 없이) 실행되던 문제를
@@ -3702,22 +3702,22 @@ CREATE PROCEDURE `SP_USER_PASSWORD_RESET` (
     IN i_user_id           BIGINT UNSIGNED,  -- 대상 사용자 ID
     IN i_new_password_hash VARCHAR(255),     -- 새 비밀번호 bcrypt 해시(앱 레이어에서 해시 완료)
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '관리자 비밀번호 강제 초기화 - SUPER_ADMIN 재검증, 전체 활성 세션 종료 (12_USER_API.md 1.7)'
+) COMMENT '관리자 비밀번호 강제 초기화 - SUPER_ADMIN 재검증, 전체 활성 세션 종료 (14_USER_API.md 1.7)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_PASSWORD_RESET
     -- 작성 : 2026.07.19 trisakion
-    -- 내용 : SP_USER_PASSWORD_CHANGE(09_AUTH_API.md 9장, 본인 비밀번호 변경)와 로직은 거의
+    -- 내용 : SP_USER_PASSWORD_CHANGE(11_AUTH_API.md 9장, 본인 비밀번호 변경)와 로직은 거의
     --        동일하지만, 이쪽은 대상 user_id가 URL 파라미터로 임의 지정되므로(호출자 본인이
     --        아님) 존재 확인(31003)이 먼저 필요하다는 점이 다르다 - 그래서 SP를 공유하지 않고
-    --        별도로 둔다. 현재 비밀번호 검증 없이 즉시 변경하며(12_USER_API.md 1.7 Description),
+    --        별도로 둔다. 현재 비밀번호 검증 없이 즉시 변경하며(14_USER_API.md 1.7 Description),
     --        password_hash 갱신과 "모든 활성 세션 종료"를 하나의 트랜잭션으로 묶는다.
     --        비밀번호 강제 초기화는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
-    --        02_DEV_CONVENTIONS.md 3.2).
+    --        04_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다
-    --        (password_hash는 변경 전/후 모두 '***'로 마스킹 — 13_LOG_AUDIT_API.md 2.4).
+    --        (password_hash는 변경 전/후 모두 '***'로 마스킹 — 15_LOG_AUDIT_API.md 2.4).
     --        2026-07-22: before_json 캡처가 START TRANSACTION보다 먼저(락 없이) 실행되던 문제를
     --        전수감사에서 발견 - 캡처를 트랜잭션 내부로 옮기고 `FOR UPDATE`로 바꿔 캡처 시점부터
     --        UPDATE까지 원자적으로 처리한다(SP_USER_UPDATE와 동일 수정).
@@ -3799,13 +3799,13 @@ DELIMITER $$
 CREATE PROCEDURE `SP_USER_REJECT` (
     IN i_user_id           BIGINT UNSIGNED,  -- 반려할 사용자 ID
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '가입반려 - SUPER_ADMIN 재검증, status 0(대기) -> 2(반려) 조건부 UPDATE (12_USER_API.md 1.5)'
+) COMMENT '가입반려 - SUPER_ADMIN 재검증, status 0(대기) -> 2(반려) 조건부 UPDATE (14_USER_API.md 1.5)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_REJECT
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : SP_USER_APPROVE와 동일한 조건부 UPDATE + 실패 사유 진단 패턴(31003 vs 30004),
-    --        그리고 동일한 FN_IS_SUPER_ADMIN 재검증(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
+    --        그리고 동일한 FN_IS_SUPER_ADMIN 재검증(방어적 이중 체크, 04_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 SP_USER_APPROVE와 동일하게 UPDATE 직전
     --        v_before_json 캡처 + 결과 SELECT에 before_json/after_json/requester_name 추가
     --        (password_hash '***' 마스킹).
@@ -3893,20 +3893,20 @@ CREATE PROCEDURE `SP_USER_ROLE_CREATE` (
     IN i_project_id        BIGINT UNSIGNED,  -- 배정할 프로젝트 ID
     IN i_role_code         TINYINT UNSIGNED, -- 권한 코드 (20/30/40 - 10은 앱 레이어 DTO 검증에서 이미 차단)
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT 'user_role 배정 생성 - SUPER_ADMIN 재검증, 회사 일치 검증 + 중복 배정 차단 (12_USER_API.md 3.1)'
+) COMMENT 'user_role 배정 생성 - SUPER_ADMIN 재검증, 회사 일치 검증 + 중복 배정 차단 (14_USER_API.md 3.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_ROLE_CREATE
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : user 존재(31003) -> project 존재(31002) -> user.company_id와 project.company_id
-    --        일치 여부(다른 회사 소속 프로젝트에는 등록 불가, 12_USER_API.md 3.1 Validation) ->
+    --        일치 여부(다른 회사 소속 프로젝트에는 등록 불가, 14_USER_API.md 3.1 Validation) ->
     --        (user_id, project_id) 중복 배정(32001) 순으로 검증한다. 회사 불일치는 인가 실패가
     --        아니라 "이 project_id 값 자체가 이 요청에서는 허용되지 않는다"는 입력값 검증으로
     --        보아 30003(허용되지 않는 값)을 쓴다 - PERMISSION_DENIED(20001)는 호출자 본인의
     --        권한 부족에, 30003은 요청 바디 조합 자체의 유효성 문제에 쓴다는 구분을 유지한다.
     --        복합 PK(user_id, project_id) 유니크 위반(경쟁 상태 백스톱) - mysql_errno 1062.
     --        이 SP는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, FN_IS_SUPER_ADMIN으로
-    --        가장 먼저 재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
+    --        가장 먼저 재확인한다(방어적 이중 체크, 04_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 결과 SELECT에 after_json/requester_name과
     --        스코핑/표시명용 company_id(project 조인)/user_name/project_name을 추가했다
     --        (before_json은 CREATE라 NULL). user_role은 company_id 컬럼이 없어 project 테이블을
@@ -3992,13 +3992,13 @@ DELIMITER $$
 CREATE PROCEDURE `SP_USER_ROLE_GET_BY_PROJECT` (
     IN i_user_id    BIGINT UNSIGNED,  -- 조회할 사용자 ID
     IN i_project_id BIGINT UNSIGNED   -- 조회할 프로젝트 ID
-) COMMENT '특정 프로젝트에 대한 사용자의 실제 role_code 조회 (11_PROJECT_API.md 3.1)'
+) COMMENT '특정 프로젝트에 대한 사용자의 실제 role_code 조회 (13_PROJECT_API.md 3.1)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_ROLE_GET_BY_PROJECT
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 헤더에서 선택된 project_id에 대한 호출자의 실제 role_code를 조회한다
-    --        (11_PROJECT_API.md 3.1 — JWT의 role_code는 여러 프로젝트 중 최고 권한 하나뿐이라
+    --        (13_PROJECT_API.md 3.1 — JWT의 role_code는 여러 프로젝트 중 최고 권한 하나뿐이라
     --        특정 project_id 기준 실제 권한은 이 SP로 별도 조회해야 함). 활성 배정(status=1)이
     --        없는 것은 오류가 아니라 정상적인 "미배정" 상태라 RESULT는 항상 0이고, 데이터가
     --        없으면 앱 레이어(UserRoleService)가 role_code:null로 매핑한다. SUPER_ADMIN은
@@ -4035,7 +4035,7 @@ CREATE PROCEDURE `SP_USER_ROLE_LIST` (
     IN i_limit             INT,              -- 페이지당 행 수
     IN i_offset            INT,              -- 시작 오프셋
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT 'user_role 목록 조회 - SUPER_ADMIN 재검증 (12_USER_API.md 3.2)'
+) COMMENT 'user_role 목록 조회 - SUPER_ADMIN 재검증 (14_USER_API.md 3.2)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_ROLE_LIST
@@ -4044,9 +4044,9 @@ BEGIN
     --        동일하게 별도 COUNT 서브쿼리 + LEFT JOIN ... ON TRUE로 total_count를 반환한다
     --        (COUNT(*) OVER()는 offset이 범위를 벗어나 0행이 반환되면 total_count도 0으로
     --        사라지는 버그가 있어 2026-07-19 이 패턴으로 교체). 정렬은
-    --        12_USER_API.md 3.2 Sorting 그대로(status DESC, role_code ASC, user_id ASC).
+    --        14_USER_API.md 3.2 Sorting 그대로(status DESC, role_code ASC, user_id ASC).
     --        이 SP는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, FN_IS_SUPER_ADMIN으로
-    --        재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
+    --        재확인한다(방어적 이중 체크, 04_DEV_CONVENTIONS.md 3.2).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -4099,19 +4099,19 @@ DROP PROCEDURE IF EXISTS `SP_USER_ROLE_LIST_DEVELOPER_PROJECT_IDS`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_ROLE_LIST_DEVELOPER_PROJECT_IDS` (
     IN i_user_id BIGINT UNSIGNED  -- 조회할 사용자 ID(호출측이 항상 자기 자신의 ID만 넘김)
-) COMMENT '호출자가 DEVELOPER 이상으로 배정된 프로젝트 ID 목록(콤마 구분) 조회 (13_LOG_AUDIT_API.md 3장)'
+) COMMENT '호출자가 DEVELOPER 이상으로 배정된 프로젝트 ID 목록(콤마 구분) 조회 (15_LOG_AUDIT_API.md 3장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_ROLE_LIST_DEVELOPER_PROJECT_IDS
     -- 작성 : 2026.07.24 trisakion
     -- 내용 : 감사 로그(log_audit) 조회 API가 DEVELOPER의 project/user_role 테이블 로그 조회
     --        범위를 "본인 소속 회사 전체"에서 "실제 role_code<=20(DEVELOPER 이상)으로 배정된
-    --        프로젝트"로 좁히기 위해 만들었다(13_LOG_AUDIT_API.md 3장, 2026-07-24 — 프로젝트
+    --        프로젝트"로 좁히기 위해 만들었다(15_LOG_AUDIT_API.md 3장, 2026-07-24 — 프로젝트
     --        관리메뉴 스코핑을 회사 단위에서 배정 프로젝트 단위로 좁힌 것과 동일한 방향).
     --        log_audit는 로그 DB(coupon_platform_log)에 있어 메인 DB의 user_role을 직접 조인할
-    --        수 없으므로(02_DEV_CONVENTIONS.md 1장/3.2 물리분리 예외), 앱 레이어(LogAuditService)가
+    --        수 없으므로(04_DEV_CONVENTIONS.md 1장/3.2 물리분리 예외), 앱 레이어(LogAuditService)가
     --        이 SP로 먼저 허용 project_id 목록을 콤마 문자열로 받아, 로그 DB SP(SP_LOG_AUDIT_LIST)
-    --        호출 시 필터 파라미터로 그대로 전달하는 2단계 패턴을 쓴다(02_DEV_CONVENTIONS.md 3.2
+    --        호출 시 필터 파라미터로 그대로 전달하는 2단계 패턴을 쓴다(04_DEV_CONVENTIONS.md 3.2
     --        "메인 DB 접근권한 확인 → 로그 DB 조회" 패턴의 변형 — boolean 결과 대신 목록 자체를
     --        넘긴다는 점만 다르다).
     --        FN_GET_PROJECT_ROLE_CODE(단건 조회 전용)와 달리 이건 목록이 필요해 별도 SP로 뺐다.
@@ -4151,18 +4151,18 @@ CREATE PROCEDURE `SP_USER_ROLE_UPDATE` (
     IN i_role_code         TINYINT UNSIGNED, -- 새 권한 코드 (NULL이면 미변경, 10은 불가)
     IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT 'user_role 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE, role_code=10 전환 차단 (12_USER_API.md 3.3)'
+) COMMENT 'user_role 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE, role_code=10 전환 차단 (14_USER_API.md 3.3)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_ROLE_UPDATE
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : user_id/project_id는 복합 PK라 이 SP에서 변경 대상이 아니다(Non-Updatable Fields,
-    --        12_USER_API.md 3.3). role_code=10(SUPER_ADMIN)으로의 변경은 명시적으로 30003을
+    --        14_USER_API.md 3.3). role_code=10(SUPER_ADMIN)으로의 변경은 명시적으로 30003을
     --        반환한다(3.3 Business Rules) - DTO 레이어에서 20/30/40으로 막지 않고 여기서 막는
     --        이유는 문서가 이 케이스를 SP/서비스 레벨의 명시적 오류 코드로 지정했기 때문이다.
     --        물리 삭제 없음 원칙에 따라 권한 중지는 status=0 조건부 UPDATE로만 처리한다.
     --        이 SP는 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, FN_IS_SUPER_ADMIN으로
-    --        가장 먼저 재확인한다(방어적 이중 체크, 02_DEV_CONVENTIONS.md 3.2).
+    --        가장 먼저 재확인한다(방어적 이중 체크, 04_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name과 스코핑/표시명용
     --        company_id(project 조인)/user_name/project_name을 추가했다(SP_USER_ROLE_CREATE와
@@ -4250,7 +4250,7 @@ CREATE PROCEDURE `SP_USER_SESSION_CREATE` (
     IN i_access_token_jti    VARCHAR(100),      -- 발급한 Access Token의 JTI
     IN i_refresh_token_hash  VARCHAR(255),      -- Refresh Token(UUID v4) SHA-256 해시값
     IN i_expired_at          DATETIME          -- 세션 만료일시(JWT_REFRESH_EXPIRES_IN만큼 더한 절대시각)
-) COMMENT '로그인 세션 생성 - last_login_at 갱신 + user_session INSERT (09_AUTH_API.md 5장)'
+) COMMENT '로그인 세션 생성 - last_login_at 갱신 + user_session INSERT (11_AUTH_API.md 5장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_SESSION_CREATE
@@ -4300,7 +4300,7 @@ DROP PROCEDURE IF EXISTS `SP_USER_SESSION_GET_BY_REFRESH_HASH`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_SESSION_GET_BY_REFRESH_HASH` (
     IN i_refresh_token_hash VARCHAR(255)  -- Refresh Token SHA-256 해시값
-) COMMENT 'Refresh Token 해시로 활성 세션 조회, role_code 재계산 (09_AUTH_API.md 7장)'
+) COMMENT 'Refresh Token 해시로 활성 세션 조회, role_code 재계산 (11_AUTH_API.md 7장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_SESSION_GET_BY_REFRESH_HASH
@@ -4308,7 +4308,7 @@ BEGIN
     -- 내용 : POST /auth/refresh 처리용 세션 조회. status=1이고 만료되지 않은 세션만 대상으로 하며,
     --        세션이 없거나 만료된 경우를 구분하지 않고 10008(Refresh Token 만료)로 통일한다.
     --        role_code는 SP_USER_GET_BY_LOGIN_ID와 동일하게 이 시점에 다시 계산한다(저장값을
-    --        그대로 반환하지 않음 — 09_AUTH_API.md 7장 참고).
+    --        그대로 반환하지 않음 — 11_AUTH_API.md 7장 참고).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -4351,7 +4351,7 @@ DROP PROCEDURE IF EXISTS `SP_USER_SESSION_LOGOUT`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_SESSION_LOGOUT` (
     IN i_access_token_jti VARCHAR(100)  -- 로그아웃할 현재 Access Token의 JTI
-) COMMENT '현재 세션 로그아웃 - status=0 (09_AUTH_API.md 6장)'
+) COMMENT '현재 세션 로그아웃 - status=0 (11_AUTH_API.md 6장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_SESSION_LOGOUT
@@ -4388,7 +4388,7 @@ DELIMITER $$
 CREATE PROCEDURE `SP_USER_SESSION_UPDATE_JTI` (
     IN i_session_id       BIGINT UNSIGNED,  -- 세션 ID
     IN i_access_token_jti VARCHAR(100)       -- 새로 발급한 Access Token JTI
-) COMMENT 'Access Token 재발급 시 세션의 JTI/last_access_at 갱신 (09_AUTH_API.md 7장)'
+) COMMENT 'Access Token 재발급 시 세션의 JTI/last_access_at 갱신 (11_AUTH_API.md 7장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_SESSION_UPDATE_JTI
@@ -4424,16 +4424,16 @@ DROP PROCEDURE IF EXISTS `SP_USER_SESSION_VALIDATE_BY_JTI`;
 DELIMITER $$
 CREATE PROCEDURE `SP_USER_SESSION_VALIDATE_BY_JTI` (
     IN i_access_token_jti VARCHAR(100)  -- 검증할 Access Token의 JTI
-) COMMENT 'JwtAuthGuard 전용 - 세션/사용자 상태 검증 (07_AUTH_SECURITY.md 1.5 3~4번)'
+) COMMENT 'JwtAuthGuard 전용 - 세션/사용자 상태 검증 (09_AUTH_SECURITY.md 1.5 3~4번)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_SESSION_VALIDATE_BY_JTI
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : 보호된 API 요청마다 JwtAuthGuard가 호출하는 세션/사용자 상태 검증
-    --        (07_AUTH_SECURITY.md 1.5 "3. Session 확인 / 4. User 상태 확인").
+    --        (09_AUTH_SECURITY.md 1.5 "3. Session 확인 / 4. User 상태 확인").
     --        role_code는 여기서 다시 조회하지 않는다 — Access Token(JWT) 자체가 이미 서명으로
     --        보증된 role_code를 담고 있어, 매 요청마다 user_role을 다시 조인하는 건 불필요한 비용이다
-    --        (role_code는 로그인/재발급 시점에만 재계산, 09_AUTH_API.md 7장 참고).
+    --        (role_code는 로그인/재발급 시점에만 재계산, 11_AUTH_API.md 7장 참고).
     --        세션이 없거나 로그아웃(status!=1)되었거나 만료(expired_at<=NOW())된 경우
     --        10009(유효하지 않은 Session)를 반환한다 — expired_at 체크가 없으면 세션 만료 이후에도
     --        그 직전에 발급된 Access Token이 자기 수명(15분)이 남아있는 동안 계속 통과해버리는
@@ -4485,7 +4485,7 @@ CREATE PROCEDURE `SP_USER_SIGNUP` (
     IN i_phone_number_enc      VARCHAR(255),      -- 휴대폰번호 AES-256-CBC 암호화값(앱 레이어에서 암호화 완료 후 전달)
     IN i_department            VARCHAR(100),      -- 부서 (선택)
     IN i_position              VARCHAR(100)       -- 직급 (선택)
-) COMMENT '회원가입 - status=0(가입승인대기)으로 user INSERT (09_AUTH_API.md 4장)'
+) COMMENT '회원가입 - status=0(가입승인대기)으로 user INSERT (11_AUTH_API.md 4장)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_SIGNUP
@@ -4574,24 +4574,24 @@ CREATE PROCEDURE `SP_USER_UPDATE` (
     IN i_position          VARCHAR(100),     -- 새 직급 (NULL이면 미변경)
     IN i_status            TINYINT UNSIGNED, -- 새 상태 (NULL이면 미변경)
     IN i_requester_user_id BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '사용자 정보 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE + status=3 전환 시 전체 세션 종료 (12_USER_API.md 1.6)'
+) COMMENT '사용자 정보 수정 - SUPER_ADMIN 재검증, 조건부 UPDATE + status=3 전환 시 전체 세션 종료 (14_USER_API.md 1.6)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_USER_UPDATE
     -- 작성 : 2026.07.19 trisakion
     -- 내용 : company_id/requested_project_id/login_id는 이 SP의 파라미터에 아예 없다 - 수정 불가
-    --        필드라 애초에 받지 않는다(12_USER_API.md 1.6 Non-Updatable Fields). 존재 확인(31003)
+    --        필드라 애초에 받지 않는다(14_USER_API.md 1.6 Non-Updatable Fields). 존재 확인(31003)
     --        -> email 변경 시 중복 확인(자기 자신 제외, 32001) -> COALESCE 기반 조건부 UPDATE
-    --        (02_DEV_CONVENTIONS.md 4장). email 유니크 제약 위반(1062) 백스톱도 CREATE/UPDATE류
+    --        (04_DEV_CONVENTIONS.md 4장). email 유니크 제약 위반(1062) 백스톱도 CREATE/UPDATE류
     --        SP와 동일한 이유로 둔다.
     --        i_status=3(사용중지)으로 전환하는 경우에만 해당 사용자의 활성 세션을 전부 종료한다
-    --        (12_USER_API.md 1.6 Business Rules, 07_AUTH_SECURITY.md 1.3) - 이미 3이었거나 다른
+    --        (14_USER_API.md 1.6 Business Rules, 09_AUTH_SECURITY.md 1.3) - 이미 3이었거나 다른
     --        값으로 바뀌는 경우는 세션에 영향을 주지 않는다. UPDATE 규약(3.4)은 status 값 전이
     --        자체를 검증하지 않는다고 명시하므로(화면 버튼 기준일 뿐) 여기서도 임의의 status 값
     --        전달을 그대로 허용한다.
     --        사용자 수정은 SUPER_ADMIN 전용이라 RolesGuard가 이미 막고 있지만, 이 SP도
     --        FN_IS_SUPER_ADMIN으로 가장 먼저 재확인한다(방어적 이중 체크,
-    --        02_DEV_CONVENTIONS.md 3.2).
+    --        04_DEV_CONVENTIONS.md 3.2).
     --        2026-07-20: 감사로그(log_audit) 적재를 위해 UPDATE 직전 현재 행을 v_before_json에
     --        캡처하고, 결과 SELECT에 before_json/after_json/requester_name을 추가했다
     --        (password_hash '***' 마스킹).

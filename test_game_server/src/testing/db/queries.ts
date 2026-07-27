@@ -3,7 +3,7 @@ import { dbPool } from './pool';
 
 /**
  * `CALL SPTG_*(...)`의 첫 번째 결과셋을 그대로 읽는다. 이 SP들은 RESULT 단일 컬럼 규약을 따르지
- * 않는 순수 조회다(docs/20_TEST_GAME_SERVER.md 10.1).
+ * 않는 순수 조회다(docs/21_TEST_GAME_SERVER.md 10.1).
  */
 async function callProcedure<T extends RowDataPacket>(
   sql: string,

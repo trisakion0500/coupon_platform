@@ -5,15 +5,15 @@ CREATE PROCEDURE `SP_CAMPAIGN_REJECT` (
     IN i_edit_count         INT UNSIGNED,     -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 edit_count 그대로)
     IN i_reject_reason      VARCHAR(500),     -- 반려 사유
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 반려 - edit_count 낙관적 락 + OPERATOR 반려불가(20001) + approval_status 2->4 조건부 UPDATE (17_CAMPAIGN_API.md 2.7)'
+) COMMENT '캠페인 반려 - edit_count 낙관적 락 + OPERATOR 반려불가(20001) + approval_status 2->4 조건부 UPDATE (19_CAMPAIGN_API.md 2.7)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_REJECT
     -- 작성 : 2026.07.20 trisakion
     -- 내용 : SP_CAMPAIGN_APPROVE와 동일한 존재확인/스코핑+승인권한 재검증 패턴이며, 승인 대신
-    --        반려(approval_status=4) + reject_reason 기록만 다르다(17_CAMPAIGN_API.md 2.7).
+    --        반려(approval_status=4) + reject_reason 기록만 다르다(19_CAMPAIGN_API.md 2.7).
     --        반려 후 재상신은 별도 API 없이 SP_CAMPAIGN_UPDATE 호출 시 그 SP의 OPERATOR 재승인
-    --        규칙에 의해 approval_status가 2(승인대기)로 자동 재전환된다(17_CAMPAIGN_API.md 2.7
+    --        규칙에 의해 approval_status가 2(승인대기)로 자동 재전환된다(19_CAMPAIGN_API.md 2.7
     --        Business Rules).
     --        log_coupon_campaign(action=50 REJECT) 기록은 SP_CAMPAIGN_CREATE와 동일한 이유로
     --        이 SP가 직접 하지 않는다 - 반환 행 전체를 TS 서비스가
@@ -22,7 +22,7 @@ BEGIN
     --        적용한다(반려자가 검토한 시점의 캠페인 내용과 실제 반려 시점의 내용이 다를 수 있는
     --        문제, SP_CAMPAIGN_APPROVE 주석 참고). ROW_COUNT()=0이면 edit_count 불일치(30005)인지
     --        반려 대상 상태 자체가 아닌지(30004)를 재조회로 구분한다.
-    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(19_CAMPAIGN_API.md 4.2
     --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다
     --        (SP_CAMPAIGN_CREATE와 동일한 이유/패턴).
     -- ------------------------------------------------------------------------------------------------------------ --

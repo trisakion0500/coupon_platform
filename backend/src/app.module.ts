@@ -56,7 +56,7 @@ import { UserRoleModule } from './user-role/user-role.module';
   ],
 })
 export class AppModule implements NestModule {
-  /** 모든 라우트에 요청/응답 상세 로깅을 적용한다(02_DEV_CONVENTIONS.md 1.1). */
+  /** 모든 라우트에 요청/응답 상세 로깅을 적용한다(04_DEV_CONVENTIONS.md 1.1). */
   configure(consumer: MiddlewareConsumer): void {
     consumer.apply(RequestResponseLoggingMiddleware).forRoutes('*');
   }

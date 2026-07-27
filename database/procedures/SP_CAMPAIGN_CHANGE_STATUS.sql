@@ -5,15 +5,15 @@ CREATE PROCEDURE `SP_CAMPAIGN_CHANGE_STATUS` (
     IN i_edit_count         INT UNSIGNED,     -- 낙관적 동시성 제어 토큰(2.3 조회 시 받은 edit_count 그대로)
     IN i_status             TINYINT UNSIGNED, -- 전환할 목표 상태
     IN i_requester_user_id  BIGINT UNSIGNED   -- 호출자 user_id (JWT 페이로드 값 그대로 신뢰)
-) COMMENT '캠페인 상태변경 - edit_count 낙관적 락 + 전이표 전체를 하나의 조건부 UPDATE로 원자 처리 (17_CAMPAIGN_API.md 2.5)'
+) COMMENT '캠페인 상태변경 - edit_count 낙관적 락 + 전이표 전체를 하나의 조건부 UPDATE로 원자 처리 (19_CAMPAIGN_API.md 2.5)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CHANGE_STATUS
     -- 작성 : 2026.07.20 trisakion
     -- 내용 : 존재 확인(31004) -> 프로젝트 스코핑 재검증(FN_CHECK_PROJECT_ACCESS, 20001, role_code
     --        값 자체는 필요 없어 FN_GET_PROJECT_ROLE_CODE 대신 boolean 버전을 쓴다) -> 허용된
-    --        전이표(17_CAMPAIGN_API.md 2.5) + edit_count 일치를 WHERE절 하나에 담아 조건부
-    --        UPDATE로 원자 처리한다(02_DEV_CONVENTIONS.md 4장 "동시성이 필요한 UPDATE는 조건부
+    --        전이표(19_CAMPAIGN_API.md 2.5) + edit_count 일치를 WHERE절 하나에 담아 조건부
+    --        UPDATE로 원자 처리한다(04_DEV_CONVENTIONS.md 4장 "동시성이 필요한 UPDATE는 조건부
     --        갱신 우선"). ROW_COUNT()=0이면(존재/권한은 이미 통과했으므로) edit_count 불일치인지
     --        전이표 위반인지 재조회로 진단해 30005/30004로 구분한다 - SP_CAMPAIGN_UPDATE와 동일한
     --        패턴(coupon_campaign.sql 헤더 주석 참고). i_status가 전이표에 아예 없는 값이어도
@@ -27,7 +27,7 @@ BEGIN
     --        쓰기 액션 전부가 "내가 마지막으로 본 버전이 맞는지"를 동일하게 검증해야 한다 —
     --        예를 들어 운영자가 화면에서 본 캠페인 내용과 실제로 상태를 바꾸는 시점의 내용이
     --        다르면(그 사이 누가 캠페인 필드를 수정했다면) 그것도 감지해야 하기 때문이다.
-    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(17_CAMPAIGN_API.md 4.2
+    -- 수정1: 2026.07.22 trisakion — log_coupon_campaign.created_by_name(19_CAMPAIGN_API.md 4.2
     --        조회 API 설계 중 소급 추가) 채우기 위해 requester_name을 결과에 함께 반환한다
     --        (SP_CAMPAIGN_CREATE와 동일한 이유/패턴).
     -- 수정2: 2026.07.25 trisakion — 활성화(1→2)/재활성화(3→2) 전이에 `campaign_end > NOW()`

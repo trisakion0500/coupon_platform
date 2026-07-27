@@ -1,8 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
- * 사용자 응답 공통 셰이프 — `AuthService.toUserResponse`(09_AUTH_API.md 회원가입/내정보)와
- * `UserService.toUserResponse`(12_USER_API.md 1장)가 필드 구성이 완전히 동일해 이 클래스
+ * 사용자 응답 공통 셰이프 — `AuthService.toUserResponse`(11_AUTH_API.md 회원가입/내정보)와
+ * `UserService.toUserResponse`(14_USER_API.md 1장)가 필드 구성이 완전히 동일해 이 클래스
  * 하나를 공유한다. `password_hash`는 항상 제외, `phone_number`는 복호화된 평문.
  *
  * @author trisakion

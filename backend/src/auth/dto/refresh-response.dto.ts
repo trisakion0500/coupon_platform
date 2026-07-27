@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
- * POST /auth/refresh 응답. 09_AUTH_API.md 7장 — Access Token만 재발급하고
+ * POST /auth/refresh 응답. 11_AUTH_API.md 7장 — Access Token만 재발급하고
  * Refresh Token은 그대로 유지된다(응답에 포함되지 않음).
  *
  * @author trisakion

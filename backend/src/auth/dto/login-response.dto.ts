@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
- * POST /auth/login 응답. 09_AUTH_API.md 5장 — 세션 생성 시 Access/Refresh Token을 함께 발급한다.
+ * POST /auth/login 응답. 11_AUTH_API.md 5장 — 세션 생성 시 Access/Refresh Token을 함께 발급한다.
  *
  * @author trisakion
  */

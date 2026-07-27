@@ -1,7 +1,7 @@
 DROP PROCEDURE IF EXISTS `SP_CAMPAIGN_EXPIRE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_CAMPAIGN_EXPIRE` (
-) COMMENT '사용기간이 지난 활성 캠페인 자동 종료 - 배치 전용, 호출자 컨텍스트 없음 (17_CAMPAIGN_API.md 5장, CAMPAIGN_EXPIRY_CRON)'
+) COMMENT '사용기간이 지난 활성 캠페인 자동 종료 - 배치 전용, 호출자 컨텍스트 없음 (19_CAMPAIGN_API.md 5장, CAMPAIGN_EXPIRY_CRON)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_EXPIRE
@@ -29,10 +29,10 @@ BEGIN
     --        특정 user_id를 넣을 이유가 없다). 반면 log_coupon_campaign.created_by는 NOT NULL
     --        이라 호출부(CampaignExpiryService)가 created_by=0(실제 user_id는 1부터 시작하므로
     --        안전한 sentinel)/created_by_name='SYSTEM'을 채워 로그를 남긴다 — 이 프로젝트
-    --        최초의 "시스템이 수행한 액션" 로그 컨벤션이다(02_DEV_CONVENTIONS.md 4.2).
+    --        최초의 "시스템이 수행한 액션" 로그 컨벤션이다(04_DEV_CONVENTIONS.md 4.2).
     --
     --        RANDOM 백그라운드 코드생성이 마침 진행중이었다면 SP_CAMPAIGN_CODE_GENERATE_ONE의
-    --        기존 status<>4 가드가 다음 시도에서 자연히 멈춘다(05_COUPON_ISSUANCE_SCENARIO.md
+    --        기존 status<>4 가드가 다음 시도에서 자연히 멈춘다(07_COUPON_ISSUANCE_SCENARIO.md
     --        2.5와 동일한 메커니즘 — 이 SP가 새로 신경 쓸 부분이 없다).
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';

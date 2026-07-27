@@ -12,7 +12,7 @@ class IssuedCouponCodeDto {
 }
 
 /**
- * POST /campaigns/{id}/codes 응답. 17_CAMPAIGN_API.md 3.1 — FIXED(동기, 200)만
+ * POST /campaigns/{id}/codes 응답. 19_CAMPAIGN_API.md 3.1 — FIXED(동기, 200)만
  * `coupon_code`가 채워지고, RANDOM(비동기 시작, 202)은 `coupon_code`가 없다.
  *
  * @author trisakion
@@ -37,7 +37,7 @@ export class IssueCodesResultDto {
   coupon_code?: IssuedCouponCodeDto;
 }
 
-/** POST /campaigns/{id}/codes/retry 응답. 17_CAMPAIGN_API.md 3.2. */
+/** POST /campaigns/{id}/codes/retry 응답. 19_CAMPAIGN_API.md 3.2. */
 export class RetryCodesResultDto {
   @ApiProperty({ description: '캠페인 ID', example: 100 })
   coupon_campaign_id!: number;
@@ -67,7 +67,7 @@ export class CodeListItemDto {
   created_at!: string;
 }
 
-/** POST /campaigns/{id}/codes/abort 응답. 17_CAMPAIGN_API.md 3.4. */
+/** POST /campaigns/{id}/codes/abort 응답. 19_CAMPAIGN_API.md 3.4. */
 export class AbortCodeGenerationResultDto {
   @ApiProperty({ description: '캠페인 ID', example: 100 })
   coupon_campaign_id!: number;

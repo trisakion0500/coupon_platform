@@ -2,7 +2,7 @@ DROP PROCEDURE IF EXISTS `SP_COMPANY_GET_BY_CODE`;
 DELIMITER $$
 CREATE PROCEDURE `SP_COMPANY_GET_BY_CODE` (
     IN i_company_code VARCHAR(20)  -- 조회할 회사 코드
-) COMMENT '회사 코드로 조회 - 회원가입 화면 전용 공개 API (10_COMPANY_API.md 2.5)'
+) COMMENT '회사 코드로 조회 - 회원가입 화면 전용 공개 API (12_COMPANY_API.md 2.5)'
 BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_COMPANY_GET_BY_CODE
