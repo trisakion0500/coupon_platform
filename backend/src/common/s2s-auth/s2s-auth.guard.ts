@@ -14,13 +14,19 @@ interface S2sHeaders {
   signature: string;
 }
 
-/** `SP_PROJECT_GET_BY_API_KEY`가 반환하는 project 행(서명 검증에 필요한 컬럼만). */
+/**
+ * `SP_PROJECT_GET_BY_API_KEY`가 반환하는 project 행(서명 검증에 필요한 컬럼 + company_code/
+ * project_code — 이 SP가 매 요청마다 이미 호출되므로 S2S 실패 운영 로그(coupon-usage.service.ts의
+ * S2sFailureLogger)가 별도 조회 없이 이 값을 재사용한다, 2026-07-27).
+ */
 interface ProjectRow {
   project_id: number;
   status: number;
   api_secret: string;
   api_secret_prev: string | null;
   secret_rotated_at: string | null;
+  project_code: string;
+  company_code: string;
 }
 
 /**
@@ -30,7 +36,7 @@ interface ProjectRow {
  */
 export interface S2sRequest extends Request {
   rawBody?: Buffer;
-  s2sProject?: { projectId: number };
+  s2sProject?: { projectId: number; companyCode: string; projectCode: string };
 }
 
 /**
@@ -74,8 +80,12 @@ export class S2sAuthGuard implements CanActivate {
     // 6. Nonce 등록 (원자적 UNIQUE 제약으로 재전송 차단)
     await this.consumeNonce(project.project_id, headers.nonce);
 
-    // 7. 통과 — 이후 처리에서 사용할 project_id를 request에 부착
-    request.s2sProject = { projectId: project.project_id };
+    // 7. 통과 — 이후 처리에서 사용할 project 식별 정보를 request에 부착
+    request.s2sProject = {
+      projectId: project.project_id,
+      companyCode: project.company_code,
+      projectCode: project.project_code,
+    };
     return true;
   }
 

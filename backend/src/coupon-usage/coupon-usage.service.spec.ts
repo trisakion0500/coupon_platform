@@ -47,6 +47,8 @@ describe('CouponUsageService', () => {
 
       const result = await service.reserve(
         10,
+        'CO1',
+        'PJ1',
         '23A4-B7C9-DEF2',
         'player_1001',
         '203.0.113.10',
@@ -63,7 +65,14 @@ describe('CouponUsageService', () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31005 });
 
       await expect(
-        service.reserve(10, 'NOPE', 'player_1001', '203.0.113.10'),
+        service.reserve(
+          10,
+          'CO1',
+          'PJ1',
+          'NOPE',
+          'player_1001',
+          '203.0.113.10',
+        ),
       ).rejects.toMatchObject({ resultCode: ResultCode.COUPON_CODE_NOT_FOUND });
 
       expect(spExecutor.callProcedure).toHaveBeenCalledTimes(1);
@@ -81,7 +90,14 @@ describe('CouponUsageService', () => {
       });
 
       await expect(
-        service.reserve(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10'),
+        service.reserve(
+          10,
+          'CO1',
+          'PJ1',
+          '23A4-B7C9-DEF2',
+          'player_1001',
+          '203.0.113.10',
+        ),
       ).rejects.toMatchObject({
         resultCode: ResultCode.COUPON_CODE_ALREADY_USED_OR_STOPPED,
       });
@@ -105,7 +121,14 @@ describe('CouponUsageService', () => {
       });
 
       await expect(
-        service.reserve(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10'),
+        service.reserve(
+          10,
+          'CO1',
+          'PJ1',
+          '23A4-B7C9-DEF2',
+          'player_1001',
+          '203.0.113.10',
+        ),
       ).rejects.toMatchObject({ resultCode: ResultCode.CAMPAIGN_NOT_USABLE });
     });
 
@@ -117,7 +140,14 @@ describe('CouponUsageService', () => {
       });
 
       await expect(
-        service.reserve(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10'),
+        service.reserve(
+          10,
+          'CO1',
+          'PJ1',
+          '23A4-B7C9-DEF2',
+          'player_1001',
+          '203.0.113.10',
+        ),
       ).rejects.toMatchObject({
         resultCode: ResultCode.USER_USE_LIMIT_EXCEEDED,
       });
@@ -130,7 +160,14 @@ describe('CouponUsageService', () => {
       );
 
       await expect(
-        service.reserve(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10'),
+        service.reserve(
+          10,
+          'CO1',
+          'PJ1',
+          '23A4-B7C9-DEF2',
+          'player_1001',
+          '203.0.113.10',
+        ),
       ).rejects.toMatchObject({
         resultCode: ResultCode.COUPON_CODE_ALREADY_USED_OR_STOPPED,
       });
@@ -139,6 +176,22 @@ describe('CouponUsageService', () => {
         'SP_LOG_COUPON_USE_CREATE',
         [10, 10, null, '23A4-B7C9-DEF2', 'player_1001', 20, '203.0.113.10'],
       );
+    });
+
+    it('throws REQUIRED_FIELD_MISSING when game_user_id is absent (not INVALID_FIELD_FORMAT)', async () => {
+      await expect(
+        service.reserve(
+          10,
+          'CO1',
+          'PJ1',
+          '23A4-B7C9-DEF2',
+          undefined,
+          '203.0.113.10',
+        ),
+      ).rejects.toMatchObject({
+        resultCode: ResultCode.REQUIRED_FIELD_MISSING,
+      });
+      expect(spExecutor.callProcedure).not.toHaveBeenCalled();
     });
   });
 
@@ -151,6 +204,8 @@ describe('CouponUsageService', () => {
 
       const result = await service.confirm(
         10,
+        'CO1',
+        'PJ1',
         '23A4-B7C9-DEF2',
         'player_1001',
         '203.0.113.10',
@@ -170,7 +225,14 @@ describe('CouponUsageService', () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 31005 });
 
       await expect(
-        service.confirm(10, 'NOPE', 'player_1001', '203.0.113.10'),
+        service.confirm(
+          10,
+          'CO1',
+          'PJ1',
+          'NOPE',
+          'player_1001',
+          '203.0.113.10',
+        ),
       ).rejects.toMatchObject({ resultCode: ResultCode.COUPON_CODE_NOT_FOUND });
     });
 
@@ -182,13 +244,36 @@ describe('CouponUsageService', () => {
       });
 
       await expect(
-        service.confirm(10, '23A4-B7C9-DEF2', 'player_1001', '203.0.113.10'),
+        service.confirm(
+          10,
+          'CO1',
+          'PJ1',
+          '23A4-B7C9-DEF2',
+          'player_1001',
+          '203.0.113.10',
+        ),
       ).rejects.toMatchObject({ resultCode: ResultCode.USAGE_NOT_FOUND });
 
       expect(logSpExecutor.logCall).toHaveBeenCalledWith(
         'SP_LOG_COUPON_USE_CREATE',
         [20, 10, 100, '23A4-B7C9-DEF2', 'player_1001', 50, '203.0.113.10'],
       );
+    });
+
+    it('throws REQUIRED_FIELD_MISSING when game_user_id is absent (not INVALID_FIELD_FORMAT)', async () => {
+      await expect(
+        service.confirm(
+          10,
+          'CO1',
+          'PJ1',
+          '23A4-B7C9-DEF2',
+          undefined,
+          '203.0.113.10',
+        ),
+      ).rejects.toMatchObject({
+        resultCode: ResultCode.REQUIRED_FIELD_MISSING,
+      });
+      expect(spExecutor.callProcedure).not.toHaveBeenCalled();
     });
   });
 

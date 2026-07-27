@@ -49,6 +49,8 @@ export class CouponUsageController {
   ) {
     return this.couponUsageService.reserve(
       req.s2sProject!.projectId,
+      req.s2sProject!.companyCode,
+      req.s2sProject!.projectCode,
       code,
       dto.game_user_id,
       req.ip ?? null,
@@ -66,6 +68,8 @@ export class CouponUsageController {
   ) {
     return this.couponUsageService.confirm(
       req.s2sProject!.projectId,
+      req.s2sProject!.companyCode,
+      req.s2sProject!.projectCode,
       code,
       dto.game_user_id,
       req.ip ?? null,

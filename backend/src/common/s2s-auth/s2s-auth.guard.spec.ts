@@ -159,7 +159,7 @@ describe('S2sAuthGuard', () => {
     });
   });
 
-  it('passes and attaches project_id to the request on success', async () => {
+  it('passes and attaches project identity to the request on success', async () => {
     spExecutor.callProcedure
       .mockResolvedValueOnce({
         result: 0,
@@ -169,6 +169,8 @@ describe('S2sAuthGuard', () => {
             status: 1,
             api_secret: 'enc',
             api_secret_prev: null,
+            project_code: 'DEV_PROJECT',
+            company_code: 'DEV_CO',
           },
         ],
       })
@@ -178,6 +180,10 @@ describe('S2sAuthGuard', () => {
     const context = buildContext(request);
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
-    expect(request.s2sProject).toEqual({ projectId: 42 });
+    expect(request.s2sProject).toEqual({
+      projectId: 42,
+      companyCode: 'DEV_CO',
+      projectCode: 'DEV_PROJECT',
+    });
   });
 });

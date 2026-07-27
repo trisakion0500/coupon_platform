@@ -41,6 +41,15 @@ log4js.configure({
       pattern: 'yyyy-MM-dd',
       keepFileExt: true,
     },
+    // S2S(게임서버->쿠폰서버) 사용 API가 실패(result!==0)할 때마다 남기는 운영 전용 로그
+    // (2026-07-27) - 일반 app.log에 성공 로그와 섞이면 실패만 훑어보기 어려워 code-generation-stale과
+    // 동일한 이유로 분리한다. CouponUsageService에서만 쓴다.
+    s2sFailureFile: {
+      type: 'dateFile',
+      filename: 'logs/s2s-failure.log',
+      pattern: 'yyyy-MM-dd',
+      keepFileExt: true,
+    },
   },
   categories: {
     default: { appenders: ['console', 'file', 'errorOnly'], level: 'info' },
@@ -48,6 +57,7 @@ log4js.configure({
       appenders: ['console', 'codeGenerationStaleFile'],
       level: 'warn',
     },
+    's2s-failure': { appenders: ['console', 's2sFailureFile'], level: 'warn' },
   },
 });
 
@@ -95,4 +105,14 @@ export class Log4jsLogger implements LoggerService {
  */
 export function getCodeGenerationStaleLogger(): log4js.Logger {
   return log4js.getLogger('code-generation-stale');
+}
+
+/**
+ * `s2s-failure` 카테고리(`logs/s2s-failure.log` 전용 파일)의 log4js 로거를 반환한다 —
+ * `getCodeGenerationStaleLogger`와 동일한 이유/패턴. `CouponUsageService`가 reserve/confirm
+ * 실패(result!==0)마다 `[company_code][project_code] [campaign_id]-요청파라미터-실패사유`
+ * 형식으로 남길 때 쓴다(2026-07-27).
+ */
+export function getS2sFailureLogger(): log4js.Logger {
+  return log4js.getLogger('s2s-failure');
 }

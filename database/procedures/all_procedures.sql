@@ -2912,6 +2912,10 @@ BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_PROJECT_GET_BY_API_KEY
     -- 작성 : 2026.07.19 trisakion
+    -- 수정1: 2026.07.27 trisakion — company_code/project_code 추가 반환. S2S 실패 운영 로그
+    --        (S2sFailureLogger, coupon-usage.service.ts)가 "[company_code][project_code] ..."
+    --        형식으로 남기려면 이 값들이 필요한데, S2sAuthGuard가 매 요청마다 이미 이 SP를
+    --        호출하고 있어 별도 추가 조회 없이 이 SP 결과에 얹어서 공짜로 얻는다.
     -- 내용 : S2S 인증 가드(docs/07_AUTH_SECURITY.md 2.4 3~4번)가 X-API-Key로 project를 조회할 때 사용.
     --        RESULT SELECT 규약(docs/02_DEV_CONVENTIONS.md 3.4)을 따른다 — 첫 SELECT는 RESULT 단일 행,
     --        성공(0)일 때만 두 번째 SELECT로 project 행(암호화된 api_secret/api_secret_prev 포함)을 반환한다.
@@ -2938,13 +2942,16 @@ BEGIN
 
         SELECT 0 AS RESULT;
         SELECT
-            `project_id`,
-            `status`,
-            `api_secret`,
-            `api_secret_prev`,
-            `secret_rotated_at`
-        FROM `project`
-        WHERE `api_key` = i_api_key;
+            p.`project_id`,
+            p.`status`,
+            p.`api_secret`,
+            p.`api_secret_prev`,
+            p.`secret_rotated_at`,
+            p.`project_code`,
+            c.`company_code`
+        FROM `project` p
+        JOIN `company` c ON c.`company_id` = p.`company_id`
+        WHERE p.`api_key` = i_api_key;
     END proc_block;
 END$$
 

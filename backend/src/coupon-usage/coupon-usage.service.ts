@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { LogSpExecutorService } from '../common/database/log-sp-executor.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
+import { getS2sFailureLogger } from '../common/logging/log4js-logger.service';
 import { BusinessException } from '../common/response/business.exception';
 import {
   buildPaginatedResult,
@@ -108,13 +109,31 @@ export class CouponUsageService {
    * 쿠폰 코드 예약(=즉시 소모 확정, 18_COUPON_USAGE_API.md 2.1). 성공/실패 여부와 무관하게
    * 매 호출마다 log_coupon_use에 기록한다(1.5) - 실패 시 코드가 존재했던 경우(33001/33002/
    * 33003)는 {@link resolveCampaignIdForLog}로 campaign_id를 보강한다.
+   *
+   * `gameUserId`가 `ReserveCouponDto`에서 `@IsOptional()`로 넘어오므로(30001 정확한 반환을
+   * 위한 이유는 그 파일 주석 참고) 여기서 누락 여부를 가장 먼저 명시적으로 체크한다 —
+   * `listUnconfirmed`와 동일한 패턴. 실패(result!==0)는 전부 {@link logS2sFailure}로 운영
+   * 로그(`logs/s2s-failure.log`)에도 남긴다.
    */
   async reserve(
     projectId: number,
+    companyCode: string,
+    projectCode: string,
     codeValue: string,
-    gameUserId: string,
+    gameUserId: string | undefined,
     callerIp: string | null,
   ): Promise<ReserveResult> {
+    if (gameUserId === undefined) {
+      this.logS2sFailure(
+        companyCode,
+        projectCode,
+        null,
+        { code: codeValue },
+        ResultCode.REQUIRED_FIELD_MISSING,
+      );
+      throw new BusinessException(ResultCode.REQUIRED_FIELD_MISSING);
+    }
+
     const { result, data } = await this.spExecutor.callProcedure<
       ReserveResult[]
     >('SP_COUPON_RESERVE', [projectId, codeValue, gameUserId]);
@@ -147,6 +166,13 @@ export class CouponUsageService {
       RESERVE_LOG_TYPE_MAP[result] ?? 0,
       callerIp,
     );
+    this.logS2sFailure(
+      companyCode,
+      projectCode,
+      campaignId,
+      { code: codeValue, game_user_id: gameUserId },
+      result,
+    );
 
     // SpCallResult.result는 여러 도메인이 공유하는 SP 호출 유틸의 반환 타입이라 plain number다
     // (02_DEV_CONVENTIONS.md 3.4) — ResultCode(숫자 enum)와 직접 비교하면
@@ -174,14 +200,28 @@ export class CouponUsageService {
    * 매 호출마다 log_coupon_use에 기록한다. 컨트롤러/클라이언트에는 공개 응답 필드
    * (coupon_code_usage_id/confirmed_at)만 명시적으로 재구성해 반환한다 - SP가 로깅용으로
    * 함께 내려주는 coupon_campaign_id는 여기서 걸러진다(13_LOG_AUDIT_API.md 구현 때 확립한
-   * "응답 객체는 항상 명시적으로 재구성" 원칙과 동일).
+   * "응답 객체는 항상 명시적으로 재구성" 원칙과 동일). `gameUserId` 누락 체크는 `reserve`와
+   * 동일한 이유로 가장 먼저 수행하고, 실패는 동일하게 {@link logS2sFailure}로도 남긴다.
    */
   async confirm(
     projectId: number,
+    companyCode: string,
+    projectCode: string,
     codeValue: string,
-    gameUserId: string,
+    gameUserId: string | undefined,
     callerIp: string | null,
   ): Promise<ConfirmResult> {
+    if (gameUserId === undefined) {
+      this.logS2sFailure(
+        companyCode,
+        projectCode,
+        null,
+        { code: codeValue },
+        ResultCode.REQUIRED_FIELD_MISSING,
+      );
+      throw new BusinessException(ResultCode.REQUIRED_FIELD_MISSING);
+    }
+
     const { result, data } = await this.spExecutor.callProcedure<ConfirmRow[]>(
       'SP_COUPON_CONFIRM',
       [projectId, codeValue, gameUserId],
@@ -217,6 +257,13 @@ export class CouponUsageService {
       gameUserId,
       CONFIRM_LOG_TYPE_MAP[result] ?? 0,
       callerIp,
+    );
+    this.logS2sFailure(
+      companyCode,
+      projectCode,
+      campaignId,
+      { code: codeValue, game_user_id: gameUserId },
+      result,
     );
 
     // reserve()와 동일한 이유(no-unsafe-enum-comparison) — 여기서만 지역적으로 단언한다.
@@ -355,5 +402,31 @@ export class CouponUsageService {
       resultType,
       callerIp,
     ]);
+  }
+
+  /**
+   * S2S 사용 API(reserve/confirm)가 실패(result!==0)했을 때 운영자가 빠르게 훑어볼 수 있는
+   * 한 줄 로그를 `logs/s2s-failure.log`에 남긴다(2026-07-27) — `log_coupon_use` DB 기록과는
+   * 별개로, DB 조회 없이 파일만 tail해도 바로 볼 수 있게 하기 위함이다.
+   *
+   * 포맷: `[company_code][project_code] [campaign_id]-요청파라미터전부-실패사유`
+   * `campaignId`는 코드 자체가 존재하지 않았던 실패(31005)나 `game_user_id` 누락(30001)처럼
+   * 캠페인을 특정할 수 없는 경우 `-`로 남는다.
+   */
+  private logS2sFailure(
+    companyCode: string,
+    projectCode: string,
+    campaignId: number | null,
+    params: Record<string, string>,
+    resultCode: number,
+  ): void {
+    const paramsStr = Object.entries(params)
+      .map(([key, value]) => `${key}=${value}`)
+      .join(',');
+    const reason = `${resultCode}(${ResultCode[resultCode] ?? 'UNKNOWN'})`;
+
+    getS2sFailureLogger().warn(
+      `[${companyCode}][${projectCode}] [${campaignId ?? '-'}]-${paramsStr}-${reason}`,
+    );
   }
 }

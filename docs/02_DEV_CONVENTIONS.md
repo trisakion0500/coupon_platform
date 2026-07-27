@@ -30,6 +30,23 @@
 - **타임아웃은 "클라이언트에게 실패를 알림"일 뿐 "DB 작업 취소"가 아니다** — RxJS `timeout()`은 구독을 취소할 뿐, 이미 던져진 SP 호출(mysql2 쿼리)을 서버 사이드에서 강제 종료하지 못한다. 즉 408 응답이 나간 뒤에도 해당 SP는 계속 실행되다 커밋될 수 있다. `POST /v1/coupons/reserve`처럼 상태를 바꾸는 API가 이미 멱등하게 설계된 것(`06_COUPON_USAGE_SCENARIO.md` 1.2)이 이 한계에 대한 실질적 방어선이다 — 새 쓰기 API를 추가할 때도 "타임아웃 이후 커밋될 수 있다"는 전제 하에 재시도 안전성을 갖추도록 한다.
 - RANDOM 코드 대량생성(`CampaignCodeService.generateRandomCodes`)처럼 컨트롤러 응답과 분리된 fire-and-forget 백그라운드 작업은 이 인터셉터가 감싸는 Observable 범위 밖이라 타임아웃 대상이 아니다.
 
+## 1.3 S2S 실패 운영 로그
+
+`POST /v1/coupons/{code}/reserve`/`confirm`이 실패(result≠0)할 때마다 `CouponUsageService.logS2sFailure`가
+`logs/s2s-failure.log`(log4js `s2s-failure` 카테고리, `code-generation-stale`와 동일한 전용 파일
+분리 패턴)에 한 줄을 남긴다(2026-07-27) — `log_coupon_use` DB 기록과는 별개로, DB 조회 없이
+파일만 tail해도 실패만 바로 훑어볼 수 있게 하기 위함이다.
+
+```
+[company_code][project_code] [campaign_id]-요청파라미터전부-실패사유
+```
+
+`company_code`/`project_code`는 `S2sAuthGuard`가 `SP_PROJECT_GET_BY_API_KEY`로 매 요청마다 이미
+조회해 `request.s2sProject`에 붙여두는 값을 그대로 재사용한다(별도 DB 조회 없음). `campaign_id`는
+코드 자체가 존재하지 않았던 실패(31005)나 `game_user_id` 누락(30001)처럼 캠페인을 특정할 수 없는
+경우 `-`로 남는다. `unconfirmed`(3.1)는 특정 캠페인 하나를 대상으로 하는 액션이 아니라 이 로그
+대상이 아니다.
+
 ---
 
 # 2. 코드 모듈화 원칙
