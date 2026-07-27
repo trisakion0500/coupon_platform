@@ -1,11 +1,9 @@
 import {
   Body,
   Controller,
-  Get,
   HttpCode,
   Param,
   Post,
-  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -75,7 +73,8 @@ export class CouponUsageController {
   }
 
   @UseGuards(S2sAuthGuard)
-  @Get('unconfirmed')
+  @Post('unconfirmed')
+  @HttpCode(200)
   @ApiExtraModels(
     ApiResponseEnvelopeDto,
     PaginatedEnvelopeMetaDto,
@@ -120,7 +119,7 @@ export class CouponUsageController {
       ],
     },
   })
-  listUnconfirmed(@Query() query: UnconfirmedQueryDto, @Req() req: S2sRequest) {
+  listUnconfirmed(@Body() query: UnconfirmedQueryDto, @Req() req: S2sRequest) {
     return this.couponUsageService.listUnconfirmed(
       req.s2sProject!.projectId,
       query,

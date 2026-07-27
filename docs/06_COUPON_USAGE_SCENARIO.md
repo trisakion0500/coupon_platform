@@ -159,8 +159,12 @@ reserve 하나가 (RANDOM인 경우) 코드 행 락, 캠페인 행 락, 사용�
 ## 3.1 특정 유저 미컨슘 조회
 
 ```text
-GET /coupons/unconfirmed?game_user_id={game_user_id}&campaign_id={campaign_id?}
+POST /coupons/unconfirmed
+{ "game_user_id": "{game_user_id}", "campaign_id": "{campaign_id?}" }
 ```
+
+조회 전용 API지만 GET이 아니라 POST다(2026-07-27 변경, 파라미터가 URL 쿼리스트링에 남는 걸 피하기
+위함 — 실제 요청/응답 상세는 [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md) 3.1이 최신 기준).
 
 - 용도: 특정 유저 로그인 시점 등에 "이 유저가 놓친 지급이 있는지" 확인
 - `game_user_id` 필수, `campaign_id` 선택 필터
@@ -169,7 +173,8 @@ GET /coupons/unconfirmed?game_user_id={game_user_id}&campaign_id={campaign_id?}
 ## 3.2 전체 유저 미컨슘 조회
 
 ```text
-GET /coupons/unconfirmed?campaign_id={campaign_id?}&page={page}&page_size={page_size}
+POST /coupons/unconfirmed
+{ "campaign_id": "{campaign_id?}", "page": "{page}", "page_size": "{page_size}" }
 ```
 
 - 용도: 게임서버가 주기적으로 훑어 놓친 지급을 일괄 재처리(리컨실리에이션 배치)

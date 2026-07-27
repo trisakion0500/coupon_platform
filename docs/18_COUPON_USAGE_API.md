@@ -178,14 +178,20 @@ confirm이 안 온 소모 건을 게임서버가 스스로 조회해 재처리�
 ### Endpoint
 
 ```http
-GET /v1/coupons/unconfirmed
+POST /v1/coupons/unconfirmed
 ```
+
+조회 전용 API지만 GET이 아니라 POST다(2026-07-27 변경) — GET은 파라미터가 URL 쿼리스트링에 그대로
+실려 웹서버/리버스프록시/CDN 접근 로그에 평문으로 남기 쉽다. `game_user_id`가 여기 해당하는데,
+민감정보는 아니지만 이 프로젝트가 지켜온 "URL에 식별값을 남기지 않는다"는 보수적인 태도(HMAC
+서명·AES 암호화 등 다른 보안 결정들과 같은 기준)에 맞춰 나머지 두 엔드포인트와 동일하게 요청
+바디로 받는다. `HttpCode(200)`은 유지한다(생성 API가 아니므로 POST의 기본 201을 따르지 않음).
 
 ### Permission
 
 S2S (1.2 참고)
 
-### Query Parameters
+### Request Body
 
 | Name          | Required | Description |
 |---------------|----------|--------------|
@@ -193,6 +199,15 @@ S2S (1.2 참고)
 | campaign_id   | N        | 두 모드 공통 선택 필터 |
 | page          | 조건부   | `game_user_id` 미지정 시 필수 |
 | page_size     | 조건부   | `game_user_id` 미지정 시 필수. 20/30/50/100 중 선택. 기본 20 |
+
+```json
+{
+  "game_user_id": "player_1001",
+  "campaign_id": 100,
+  "page": 1,
+  "page_size": 20
+}
+```
 
 ### Validation
 

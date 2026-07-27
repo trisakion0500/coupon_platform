@@ -68,7 +68,7 @@ export interface UnconfirmedItem {
   created_at: string;
 }
 
-/** GET /v1/coupons/unconfirmed 응답 — 특정유저 모드는 items만, 전체유저 모드는 페이지네이션 포함. */
+/** POST /v1/coupons/unconfirmed 응답 — 특정유저 모드는 items만, 전체유저 모드는 페이지네이션 포함. */
 export type UnconfirmedResult =
   { items: UnconfirmedItem[] } | PaginatedResult<UnconfirmedItem>;
 

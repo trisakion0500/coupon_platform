@@ -190,7 +190,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 
 - **reserve = 즉시 최종 소모 확정 모델**(IAP consume/acknowledge 패턴과 동일): reserve 성공 시 이 테이블에 행이 생성되는 시점에 이미 소모가 확정된다(`coupon_campaign.used_qty` 원자적 +1, RANDOM은 `coupon_code.status`도 함께 사용완료로 전환). 예약중 상태로 대기했다가 confirm으로 넘어가는 중간 단계는 없음
 - `confirm`은 상태를 바꾸지 않는다 — `confirmed_at`에 지급 성공 시각만 기록하는 결과 보고일 뿐. `confirmed_at IS NULL`이면 미컨슘
-- confirm이 끝내 오지 않아도 쿠폰서버는 아무것도 자동으로 되돌리지 않는다. 대신 미컨슘 건을 게임서버가 스스로 찾아 재처리할 수 있는 조회 API(`GET /coupons/unconfirmed`, 특정유저/전체유저)를 제공 — 재시도 여부/시점 판단은 전적으로 게임서버 책임(쿠폰서버→게임서버 콜백/웹훅 없음)
+- confirm이 끝내 오지 않아도 쿠폰서버는 아무것도 자동으로 되돌리지 않는다. 대신 미컨슘 건을 게임서버가 스스로 찾아 재처리할 수 있는 조회 API(`POST /coupons/unconfirmed`, 특정유저/전체유저)를 제공 — 재시도 여부/시점 판단은 전적으로 게임서버 책임(쿠폰서버→게임서버 콜백/웹훅 없음)
 - `game_user_id`는 관리콘솔 계정(`user`)과 무관한 별개 신원 체계(게임 플레이어). 게임서버마다 포맷이 다를 수 있어 FK 없이 원문 문자열로 저장
 - **`coupon_campaign_id`/`project_id`(비정규화)**: 사용한도 카운트(`COUNT(*) WHERE coupon_campaign_id=? AND game_user_id=?`) 및 미컨슘 조회용. 특히 `project_id`는 `game_user_id` 값이 서로 다른 프로젝트끼리 우연히 겹칠 수 있어(예: 두 게임 모두 "12345") 미컨슘 조회 API의 크로스테넌트 스코핑에 필수 — 없으면 `campaign_id` 필터를 생략한 특정유저 조회 시 다른 프로젝트 데이터가 섞여 나올 수 있음
 - **동시성**: 사용자당 한도 체크는 단순 `COUNT` 후 `INSERT`로는 동시 요청 시 한도를 넘길 수 있어, `SELECT COUNT(*) ... WHERE coupon_campaign_id=? AND game_user_id=? FOR UPDATE`로 조회해 `ix_campaign_user` 인덱스 구간에 갭락을 걸어 동시 INSERT를 직렬화한 뒤 판단해야 함

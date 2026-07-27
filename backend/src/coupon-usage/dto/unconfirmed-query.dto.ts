@@ -12,7 +12,11 @@ import { PAGE_SIZE_OPTIONS } from '../../common/response/pagination';
 import type { PageSize } from '../../common/response/pagination';
 
 /**
- * GET /v1/coupons/unconfirmed 쿼리 파라미터. 18_COUPON_USAGE_API.md 3.1.
+ * POST /v1/coupons/unconfirmed 요청 바디. 18_COUPON_USAGE_API.md 3.1.
+ *
+ * 원래 GET 쿼리 파라미터였으나(2026-07-27) `game_user_id` 등이 URL 쿼리스트링에 실려 접근/프록시
+ * 로그에 그대로 남는 걸 피하기 위해 POST+바디로 전환했다 — 조회 성격은 그대로이므로
+ * `@HttpCode(200)`을 유지한다(생성 API가 아니라서 201이 아니다).
  *
  * `page`/`page_size`는 형식만 여기서 검증한다 — "`game_user_id` 미지정 시 필수"라는 조건부
  * 필수 규칙은 30001(REQUIRED_FIELD_MISSING)로 정확히 응답해야 하는데, class-validator의

@@ -191,7 +191,7 @@ stringToSign = HTTP_METHOD + "\n"
 X-API-Signature = HMAC-SHA256(secret, stringToSign)  // hex 인코딩
 ```
 
-- 쿼리스트링(`GET /coupons/unconfirmed` 등)까지 서명 대상에 포함시키는 이유: 그렇지 않으면 서명은 그대로 두고 쿼리 파라미터(`game_user_id` 등)만 바꿔치기하는 변조가 가능해진다
+- `RAW_QUERY_STRING`까지 서명 대상에 포함시키는 이유: 그렇지 않으면 서명은 그대로 두고 쿼리 파라미터만 바꿔치기하는 변조가 가능해진다 — 현재 3개 엔드포인트(reserve/confirm/unconfirmed)는 전부 POST+바디라 실제로 쿼리스트링을 쓰는 곳은 없지만(`unconfirmed`도 2026-07-27부터 POST — 파라미터가 URL에 남아 접근 로그에 그대로 찍히는 걸 피하려는 목적), 이 필드 자체는 향후 GET 엔드포인트가 추가될 가능성을 대비해 그대로 유지한다
 - `RAW_BODY`를 파싱 후 재직렬화하지 않고 원문 그대로 서명에 사용해야 한다 — JSON 키 순서/공백 차이로 서버가 재직렬화한 문자열이 클라이언트가 서명한 문자열과 달라지면 정상 요청도 서명 불일치로 거부된다
 - 서명 비교는 타이밍 공격을 막기 위해 상수 시간 비교(Node.js `crypto.timingSafeEqual`)로 수행한다
 
@@ -247,7 +247,7 @@ URL 패턴 : /v1/coupons/reserve, /v1/coupons/confirm 등
 ```text
 기준   : X-API-Key 헤더값당 토큰 버킷 — 용량(capacity) 개까지 순간 버스트 허용, 이후 초당 refill개씩 회복
          (기본 용량 600 / 초당 10, COUPON_USAGE_RATE_LIMIT_BUCKET_CAPACITY/COUPON_USAGE_RATE_LIMIT_REFILL_PER_SEC)
-대상   : POST /v1/coupons/{code}/reserve, POST /v1/coupons/{code}/confirm (GET /v1/coupons/unconfirmed 제외 — 조회 API라 상대적으로 저위험)
+대상   : POST /v1/coupons/{code}/reserve, POST /v1/coupons/{code}/confirm (POST /v1/coupons/unconfirmed 제외 — HTTP 메서드와 무관하게 조회 전용 API라 상대적으로 저위험)
 초과 시 : 429 Too Many Requests (Retry-After 헤더에 최소 대기 초 포함)
 저장소 : in-memory (프로젝트 API Key별 버킷을 Map에 보관, 로그인 리미터와 동일하게 스케일아웃 시 인스턴스별로 버킷이 나뉘어 실효 한도가 인스턴스 수배로 늘어나는 한계는 인지하고 감수)
 ```

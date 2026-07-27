@@ -36,7 +36,7 @@ export class ConfirmResultDto {
   confirmed_at!: string;
 }
 
-/** GET /v1/coupons/unconfirmed 응답 항목. 18_COUPON_USAGE_API.md 3.1. */
+/** POST /v1/coupons/unconfirmed 응답 항목. 18_COUPON_USAGE_API.md 3.1. */
 export class UnconfirmedItemDto {
   @ApiProperty({ description: '코드 값', example: '23A4-B7C9-DEF2' })
   code_value!: string;

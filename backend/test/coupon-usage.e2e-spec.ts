@@ -155,13 +155,6 @@ describe('Coupon Usage S2S E2E (18_COUPON_USAGE_API.md 2/3장)', () => {
     return request(app.getHttpServer()).post(path).set(headers).send(body);
   };
 
-  /** S2S 서명 헤더를 계산해 GET 요청을 보낸다(쿼리스트링은 호출부가 직접 조립한다). */
-  const s2sGet = (path: string, rawQuery: string) => {
-    const headers = buildS2sHeaders(creds, 'GET', path, rawQuery, '');
-    const url = rawQuery ? `${path}?${rawQuery}` : path;
-    return request(app.getHttpServer()).get(url).set(headers);
-  };
-
   describe('POST /v1/coupons/:code/reserve → confirm → 미컨슘 조회', () => {
     it('reserve 성공 후 미컨슘 목록에 나타나고, confirm 후에는 사라진다', async () => {
       const reserveRes = await s2sPost(`/v1/coupons/${codeA}/reserve`, {
@@ -171,10 +164,9 @@ describe('Coupon Usage S2S E2E (18_COUPON_USAGE_API.md 2/3장)', () => {
       expect(reserved.code_value).toBe(codeA);
       expect(reserved.reward_data).toEqual({ item_id: 1001, item_amount: 100 });
 
-      const unconfirmedRes = await s2sGet(
-        '/v1/coupons/unconfirmed',
-        'game_user_id=e2e_player_A1',
-      ).expect(200);
+      const unconfirmedRes = await s2sPost('/v1/coupons/unconfirmed', {
+        game_user_id: 'e2e_player_A1',
+      }).expect(200);
       const unconfirmedBody = success<{ items: UnconfirmedItemDto[] }>(
         unconfirmedRes,
       );
@@ -190,10 +182,9 @@ describe('Coupon Usage S2S E2E (18_COUPON_USAGE_API.md 2/3장)', () => {
         reserved.coupon_code_usage_id,
       );
 
-      const afterConfirmRes = await s2sGet(
-        '/v1/coupons/unconfirmed',
-        'game_user_id=e2e_player_A1',
-      ).expect(200);
+      const afterConfirmRes = await s2sPost('/v1/coupons/unconfirmed', {
+        game_user_id: 'e2e_player_A1',
+      }).expect(200);
       expect(
         success<{ items: UnconfirmedItemDto[] }>(afterConfirmRes).data.items,
       ).toEqual([]);

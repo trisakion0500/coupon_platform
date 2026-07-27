@@ -672,7 +672,7 @@ POST /campaigns/{coupon_campaign_id}/codes/abort
 
 # 4. Read & Log APIs (Admin Console)
 
-관리 콘솔(JWT 인증)에서 캠페인/코드/사용 도메인의 이력·로그를 조회하는 API. [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md)의 `GET /coupons/unconfirmed`는 게임서버가 S2S(API Key)로 호출하는 별개의 엔드포인트이며, 이 절의 API와는 인증 주체·용도가 다르다(그쪽은 게임서버의 미지급 재처리용, 이쪽은 운영자의 조회/문의대응용) — `log_coupon_use` 조회(4.3)도 원본 시도 기록은 게임서버 S2S 호출로 쌓이지만, 그걸 사람이 들여다보는 창구는 이 절의 관리 콘솔 API다.
+관리 콘솔(JWT 인증)에서 캠페인/코드/사용 도메인의 이력·로그를 조회하는 API. [18_COUPON_USAGE_API.md](./18_COUPON_USAGE_API.md)의 `POST /coupons/unconfirmed`는 게임서버가 S2S(API Key)로 호출하는 별개의 엔드포인트이며, 이 절의 API와는 인증 주체·용도가 다르다(그쪽은 게임서버의 미지급 재처리용, 이쪽은 운영자의 조회/문의대응용) — `log_coupon_use` 조회(4.3)도 원본 시도 기록은 게임서버 S2S 호출로 쌓이지만, 그걸 사람이 들여다보는 창구는 이 절의 관리 콘솔 API다.
 
 ## 4.1 Get Coupon Usage List
 

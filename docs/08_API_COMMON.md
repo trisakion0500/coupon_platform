@@ -144,13 +144,13 @@ Coupon Platform API는 HTTP Status Code와 Result Code를 함께 사용한다. �
 | GET /campaigns    | 캠페인 목록 |
 | GET /campaigns/{id}/codes | 쿠폰 코드 목록 |
 | GET /campaigns/{id}/usages | 쿠폰 사용 이력(관리 콘솔 조회) |
-| GET /coupons/unconfirmed (`game_user_id` 미지정, 전체유저 조회) | 미컨슘 쿠폰 사용 기록 목록 |
+| POST /coupons/unconfirmed (`game_user_id` 미지정, 전체유저 조회) | 미컨슘 쿠폰 사용 기록 목록 |
 
 ## 2.2 미적용 대상 (전체 로드)
 
 | API             | 표현 방식                  |
 | --------------- | --------------------------- |
-| GET /coupons/unconfirmed (`game_user_id` 지정, 특정유저 조회) | 한 유저의 미컨슘 건은 소수라 페이지네이션 없이 전체 반환 |
+| POST /coupons/unconfirmed (`game_user_id` 지정, 특정유저 조회) | 한 유저의 미컨슘 건은 소수라 페이지네이션 없이 전체 반환 |
 
 ## 2.3 요청 파라미터
 
