@@ -47,6 +47,37 @@
 경우 `-`로 남는다. `unconfirmed`(3.1)는 특정 캠페인 하나를 대상으로 하는 액션이 아니라 이 로그
 대상이 아니다.
 
+## 1.4 클러스터(다중 인스턴스) 구동 대비 — 로그 파일명 인스턴스 suffix
+
+`log4js-logger.service.ts`의 `dateFile` 어펜더(`app.log`/`error.log`/`code-generation-stale.log`/
+`s2s-failure.log` 4개 전부)는 같은 프로세스 안에서의 동시 쓰기만 안전하게 직렬화할 뿐, 여러 OS
+프로세스가 파일 하나를 동시에 공유 쓰기하는 것까지는 보장하지 않는다(2026-07-28) — 스케일아웃
+환경에서 레플리카 전부가 동일한 `logs/app.log`를 바라보면 줄이 섞이거나 파일이 깨질 수 있다.
+
+**해결**: 파일명에 `instanceSuffix`(예: `-2` → `logs/app-2.log`)를 붙여 인스턴스마다 물리적으로
+다른 파일에 쓰게 한다. `instanceSuffix`는 `process.env.INSTANCE_ID ?? process.env.NODE_APP_INSTANCE`
+(둘 다 없으면 빈 문자열)로 계산 — PM2 클러스터 모드는 `NODE_APP_INSTANCE`를 별도 설정 없이
+인스턴스마다 자동으로 다르게 주입해주므로 그대로 쓸 수 있고, Docker/k8s 등 다른 환경은
+`INSTANCE_ID`를 컨테이너별로 직접 지정하면 된다.
+
+**`.env`(Joi 검증 대상, `02_TECH_STACK.md`)가 아니라 실제 프로세스 환경변수에서 직접 읽는다** —
+두 가지 이유가 겹친다.
+
+- `log4js.configure()`는 모듈 로드 시점에 실행되는데, `AppModule`이 다른 도메인 모듈(예:
+  `CodeGenerationStaleMonitorModule`)을 import하는 과정에서 이 파일이 먼저 require되어
+  `ConfigModule.forRoot()`가 호출되기도 전에 실행된다 — 이 시점엔 `ConfigService`(DI)도, dotenv가
+  읽어들인 `.env` 값도 아직 쓸 수 없다.
+- 설령 타이밍 문제가 없더라도 `.env`는 모든 인스턴스가 공유하는 단일 파일이라 애초에 인스턴스별로
+  다른 값을 담을 수 없다 — 인스턴스 식별자는 프로세스 매니저가 인스턴스마다 실제로 다르게 주입해줘야
+  의미가 있다.
+
+이 코드베이스는 설정값을 어디서든 `ConfigService`로만 주입받고(`backend/src/**`에 `process.env` 직접
+참조가 없다) `env.validation.ts`(Joi)로 검증하는데, `instanceSuffix`는 DI 컨테이너 자체가 아직 없는
+부트스트랩 극초반에 필요해 이 관례의 유일한 예외다 — `SP_LOCK_ACQUIRE`/`SP_LOCK_RELEASE`(4.1)가 "ORM/Native
+SQL 금지" 정책의 유일한 예외였던 것과 같은 성격("정책 위반"이 아니라 그 정책이 전제하는 인프라 자체가
+아직 준비되지 않은 지점이라는 뜻). 둘 다 없으면(로컬 개발/단일 인스턴스) `instanceSuffix`가 빈 문자열이라
+기존 파일명이 그대로 유지된다 — 하위호환.
+
 ---
 
 # 2. 코드 모듈화 원칙

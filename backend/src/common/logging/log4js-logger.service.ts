@@ -1,6 +1,27 @@
 import { LoggerService } from '@nestjs/common';
 import * as log4js from 'log4js';
 
+// 클러스터(다중 인스턴스) 구동 대비(2026-07-28) — log4js의 dateFile 어펜더는 같은 프로세스
+// 안에서의 동시 쓰기만 안전하게 직렬화할 뿐, 여러 OS 프로세스가 파일 하나를 동시에 공유
+// 쓰기하는 것까지는 보장하지 않는다. 스케일아웃 환경에서 레플리카가 전부 동일한
+// `logs/app.log`를 바라보면 줄이 서로 섞이거나 파일이 깨질 수 있어, 인스턴스 식별자를
+// 파일명 suffix로 붙여 인스턴스마다 물리적으로 다른 파일에 쓰게 한다.
+//
+// `.env`(dotenv)가 아니라 실제 프로세스 환경변수에서 직접 읽는다 — 두 가지 이유가 있다.
+// (1) 이 파일의 `log4js.configure()`는 모듈 로드 시점에 실행되는데, `AppModule`이 다른 도메인
+//     모듈(예: CodeGenerationStaleMonitorModule)을 import하는 과정에서 이 파일이 먼저
+//     require되어 `ConfigModule.forRoot()`가 호출되기도 전에 실행된다 — 즉 이 시점엔
+//     ConfigService(DI)도, dotenv가 읽어들인 `.env` 값도 아직 쓸 수 없다.
+// (2) 설령 타이밍 문제가 없더라도 `.env`는 모든 인스턴스가 공유하는 단일 파일이라 애초에
+//     인스턴스별로 다른 값을 담을 수 없다 — 인스턴스 식별자는 프로세스 매니저가 인스턴스마다
+//     실제로 다르게 주입해줘야 의미가 있다(PM2 클러스터 모드가 자동으로 넣어주는
+//     `NODE_APP_INSTANCE`, 또는 Docker/k8s 등에서 컨테이너별로 직접 지정하는 `INSTANCE_ID`).
+//
+// 둘 다 없으면(로컬 개발/단일 인스턴스) instanceSuffix는 빈 문자열이라 기존 파일명(`app.log`
+// 등)이 그대로 유지된다 — 하위호환.
+const instanceId = process.env.INSTANCE_ID ?? process.env.NODE_APP_INSTANCE;
+const instanceSuffix = instanceId ? `-${instanceId}` : '';
+
 log4js.configure({
   appenders: {
     console: { type: 'console' },
@@ -12,7 +33,7 @@ log4js.configure({
     // "지금 쓰고 있는 파일"과 "지난 날짜 파일"을 이름만으로 구분하려는 의도.
     file: {
       type: 'dateFile',
-      filename: 'logs/app.log',
+      filename: `logs/app${instanceSuffix}.log`,
       pattern: 'yyyy-MM-dd',
       keepFileExt: true,
     },
@@ -23,7 +44,7 @@ log4js.configure({
     // 쓰므로 error.log는 복제본이지 대체가 아니다(app.log만 봐도 시간순 전체 맥락은 유지됨).
     errorFile: {
       type: 'dateFile',
-      filename: 'logs/error.log',
+      filename: `logs/error${instanceSuffix}.log`,
       pattern: 'yyyy-MM-dd',
       keepFileExt: true,
     },
@@ -37,7 +58,7 @@ log4js.configure({
     // 점검 5번 후속). 운영 환경에서 이 파일만 별도로 tail/알림 연동하기 위함.
     codeGenerationStaleFile: {
       type: 'dateFile',
-      filename: 'logs/code-generation-stale.log',
+      filename: `logs/code-generation-stale${instanceSuffix}.log`,
       pattern: 'yyyy-MM-dd',
       keepFileExt: true,
     },
@@ -46,7 +67,7 @@ log4js.configure({
     // 동일한 이유로 분리한다. CouponUsageService에서만 쓴다.
     s2sFailureFile: {
       type: 'dateFile',
-      filename: 'logs/s2s-failure.log',
+      filename: `logs/s2s-failure${instanceSuffix}.log`,
       pattern: 'yyyy-MM-dd',
       keepFileExt: true,
     },

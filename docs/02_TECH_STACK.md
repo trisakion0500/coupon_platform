@@ -112,6 +112,7 @@
 | 변수              | 기본값  | 용도 |
 | ----------------- | ------- | ---- |
 | `LOG_DEBUG_ERRORS`| `false` | 500 계열 오류 발생 시 서버 로그(log4js)에 스택트레이스까지 남길지 여부. **API 응답 바디에는 어떤 경우에도 노출되지 않는다** — 서버 로그 상세도만 제어(`HttpExceptionFilter` 참고) |
+| `INSTANCE_ID` / `NODE_APP_INSTANCE` | (없음) | **위 표와 달리 Joi로 검증되지 않는다** — log4js 로그 파일명에 붙는 인스턴스 suffix(`04_DEV_CONVENTIONS.md` 1.4)로, `ConfigModule.forRoot()`가 `.env`를 읽기도 전에 log4js 설정이 끝나야 해서 실제 프로세스 환경변수를 직접 읽는다. 둘 다 없으면(로컬 개발/단일 인스턴스) suffix가 빈 문자열이라 기존 파일명(`app.log` 등) 그대로다. 클러스터(다중 인스턴스) 배포 시에만 프로세스 매니저가 인스턴스별로 다르게 채워줘야 의미가 있다 — PM2 클러스터 모드는 `NODE_APP_INSTANCE`를 자동 주입, 그 외(Docker/k8s 등)는 `INSTANCE_ID`를 컨테이너별로 직접 지정 |
 
 ### Rate Limit / 정리 배치
 
