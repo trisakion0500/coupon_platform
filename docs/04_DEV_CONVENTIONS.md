@@ -85,7 +85,13 @@ SQL 금지" 정책의 유일한 예외였던 것과 같은 성격("정책 위반
 - **두 번 이상 중복되는 코드는 모듈화한다**: 동일하거나 사소한 차이만 있는 로직이 두 곳 이상에서 쓰이게 되면 공통 함수/모듈로 분리한다.
 - **개발 초기에 자주 쓰일 공통 기능은 먼저 모듈화한다**: DB 커넥션(mysql2 풀 획득/해제, SP 호출 래퍼), 공통 응답 포맷(result/data) 빌더, S2S 인증 가드 등 프로젝트 전반에서 반복 호출될 인프라성 기능은 개별 도메인 로직을 만들기 전에 먼저 공통 모듈로 정리해둔다.
 
-## 2.1 요청/응답 DTO는 `@ApiProperty()`를 함께 작성한다
+## 2.1 프론트엔드 라우트 컴포넌트는 처음부터 `React.lazy()`로 등록한다
+
+화면(leaf 페이지) 컴포넌트를 일반 `import`로 등록하면 라우트가 늘어날수록 단일 번들이 커져 결국 청크 크기 경고(500kB)에 부딪힌다 — 새 화면을 추가하는 시점에 처음부터 `lazy(() => import('...').then(m => ({default: m.XxxPage})))`로 등록한다. `routes/AppRoutes.tsx`가 이 패턴이니 새 라우트도 그대로 따른다.
+
+대형 서드파티 라이브러리(antd 등)를 새로 추가할 때는 `vite.config.ts`의 `build.rolldownOptions.output.codeSplitting.groups`에 벤더 청크 규칙을 추가할지 검토한다 — 이 프로젝트는 Vite 8.x가 내부적으로 **rollup이 아니라 rolldown**이라 `manualChunks`가 아니라 이 API를 쓴다.
+
+## 2.2 요청/응답 DTO는 `@ApiProperty()`를 함께 작성한다
 
 `nest-cli.json`에 `@nestjs/swagger` CLI 플러그인(`classValidatorShim: true`)이 등록돼 있어 필수/타입 추론은 어느 정도 자동화되지만, 설명(description)과 example 값은 자동 생성되지 않는다. 새 요청 DTO(`*.dto.ts`)를 추가하거나 필드를 수정할 때는 `@ApiProperty()`(필수)/`@ApiPropertyOptional()`(선택)를 함께 붙여 `description`과 `example`을 채운다 — enum류 필드는 값의 실제 의미를 한글로 명시한다(예: `역할 코드(20:DEVELOPER/30:MANAGER/40:OPERATOR)`).
 
