@@ -2,6 +2,8 @@
 
 > 여러 게임이 하나의 플랫폼을 공유해 쓰는 멀티테넌트 쿠폰 발급/사용 서버
 
+📄 **[포트폴리오 PDF로 한눈에 보기](docs/pdf-export/COUPON_PLATFORM_GUIDE_PORTFOLIO.pdf)** — 이 프로젝트 소개 + 입점사 연동 가이드를 한 파일로 정리한 버전
+
 ---
 
 ## 왜 만들었나
@@ -111,6 +113,8 @@ coupon_platform은 인앱결제의 consume/acknowledge 패턴을 참고해 **res
 | [19_CAMPAIGN_API.md](docs/19_CAMPAIGN_API.md) | 캠페인 CRUD, 상태변경, 승인/반려, 코드 발급(RANDOM 비동기/FIXED 동기) |
 | [20_COUPON_USAGE_API.md](docs/20_COUPON_USAGE_API.md) | 쿠폰 사용 reserve/confirm, 미컨슘 조회 |
 | [21_TEST_GAME_SERVER.md](docs/21_TEST_GAME_SERVER.md) | S2S 연동 검증용 독립 테스트 클라이언트(test_game_server) 설계 |
+
+> 위 문서 중 프로젝트 소개(본 README)+`01_COUPON_PLATFORM_GUIDE.md`를 합친 PDF는 [COUPON_PLATFORM_GUIDE_PORTFOLIO.pdf](docs/pdf-export/COUPON_PLATFORM_GUIDE_PORTFOLIO.pdf)에서 볼 수 있습니다.
 
 ---
 
