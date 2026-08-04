@@ -193,6 +193,7 @@ coupon_platform/
   3. `user_session` — Redis로 가면 TTL 자연만료라 `SESSION_CLEANUP_CRON` 불필요해짐 — `user_session.user_id`에 FK를 안 건 것도 애초에 이 전환을 대비한 설계(`06_DATABASE_SCHEMA.md` 참고)
 
   프로젝트 단위 rate limiter(`CouponUsageRateLimitMiddleware`)는 in-memory로 유지하기로 확정된 설계라 이관 대상 아님.
+- **`react-router` 메이저 업그레이드(7→8)** — `npm audit`에서 High로 잡히는 CVE(GHSA-qwww-vcr4-c8h2, RSC 모드 CSRF 우회)는 `createBrowserRouter`/`RouterProvider`/`loader`/`action` 없이 `<BrowserRouter>`+`<Routes>`+`<Route>` 선언형 모드만 쓰는 이 프로젝트에는 실질적으로 노출되지 않는다. 반면 패치 버전인 v8은 `react-router-dom` 패키지 자체가 폐지되고(`react-router`/`react-router/dom`으로 import 경로 전환 필요) `react >=19.2.7`을 요구해, 2026-07-24에 명시적으로 확정한 "React 18 유지" 결정(`02_TECH_STACK.md`)까지 되돌려야 한다. 지금 업그레이드하기엔 실익 대비 비용이 커 보류 — React 19 전환을 별도로 결정하는 시점에 함께 처리.
 
 ---
 
