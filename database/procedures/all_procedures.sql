@@ -4309,6 +4309,9 @@ BEGIN
     --        세션이 없거나 만료된 경우를 구분하지 않고 10008(Refresh Token 만료)로 통일한다.
     --        role_code는 SP_USER_GET_BY_LOGIN_ID와 동일하게 이 시점에 다시 계산한다(저장값을
     --        그대로 반환하지 않음 — 11_AUTH_API.md 7장 참고).
+    --        2026-08-05: 회전 전 access_token_jti도 함께 반환한다 — Redis 세션 캐시 도입 후
+    --        AuthService.refresh()가 이 값으로 옛 jti의 캐시 항목만 정밀 삭제하기 위함
+    --        (09_AUTH_SECURITY.md 1.5). WHERE/PARAM/RESULT 규약은 그대로, SELECT 컬럼만 추가.
     -- ------------------------------------------------------------------------------------------------------------ --
     DECLARE sql_state     CHAR(5)      DEFAULT '00000';
     DECLARE error_no      INT          DEFAULT 0;
@@ -4333,12 +4336,13 @@ BEGIN
         SELECT 0 AS RESULT;
         SELECT
             s.`session_id`, s.`user_id`, u.`status` AS user_status, u.`company_id`,
+            s.`access_token_jti`,
             COALESCE(MIN(ur.`role_code`), 40) AS role_code
         FROM `user_session` s
         JOIN `user` u ON s.`user_id` = u.`user_id`
         LEFT JOIN `user_role` ur ON u.`user_id` = ur.`user_id` AND ur.`status` = 1
         WHERE s.`refresh_token_hash` = i_refresh_token_hash AND s.`status` = 1 AND s.`expired_at` > NOW()
-        GROUP BY s.`session_id`, s.`user_id`, u.`status`, u.`company_id`;
+        GROUP BY s.`session_id`, s.`user_id`, u.`status`, u.`company_id`, s.`access_token_jti`;
     END proc_block;
 END$$
 

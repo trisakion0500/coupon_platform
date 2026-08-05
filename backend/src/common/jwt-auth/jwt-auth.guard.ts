@@ -5,6 +5,7 @@ import type { Request } from 'express';
 import { SpExecutorService } from '../database/sp-executor.service';
 import { BusinessException } from '../response/business.exception';
 import { ResultCode } from '../response/result-code.enum';
+import { SessionCacheService } from '../session-cache/session-cache.service';
 import { JwtPayload } from './jwt-payload.interface';
 
 /** JWT 인증 통과 후 컨트롤러가 사용할 수 있도록 부착되는 요청자 정보. */
@@ -35,6 +36,7 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly spExecutor: SpExecutorService,
+    private readonly sessionCache: SessionCacheService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -83,12 +85,22 @@ export class JwtAuthGuard implements CanActivate {
   }
 
   /**
+   * `SessionCacheService`(Redis 읽기 캐시, DB가 여전히 source of truth) 히트 시 DB를 아예
+   * 타지 않는다 — 캐시는 검증 성공(status=1) 케이스만 저장하므로 히트 자체가 곧 통과를 뜻해
+   * user_status switch를 다시 확인할 필요가 없다. 미스일 때만 기존 DB 경로를 그대로 타고,
+   * 성공(status=1)했을 때만 결과를 캐싱한다(0/2/3으로 실패하는 케이스는 캐싱하지 않음).
+   *
    * @throws {BusinessException} 10009 — 세션이 없거나 로그아웃된 경우
    * @throws {BusinessException} 10005/10006/10007 — 가입승인대기/가입반려/사용중지
    */
   private async validateSession(
     jti: string,
   ): Promise<{ userId: number; companyId: number }> {
+    const cached = await this.sessionCache.getCachedSession(jti);
+    if (cached) {
+      return cached;
+    }
+
     const { result, data } = await this.spExecutor.callProcedure<
       Array<{ user_id: number; company_id: number; user_status: number }>
     >('SP_USER_SESSION_VALIDATE_BY_JTI', [jti]);
@@ -99,8 +111,10 @@ export class JwtAuthGuard implements CanActivate {
 
     const row = data[0];
     switch (row.user_status) {
-      case 1:
+      case 1: {
+        void this.sessionCache.cacheSession(jti, row.user_id, row.company_id);
         return { userId: row.user_id, companyId: row.company_id };
+      }
       case 0:
         throw new BusinessException(ResultCode.SIGNUP_PENDING_APPROVAL);
       case 2:

@@ -11,6 +11,7 @@ import {
 } from '../common/response/pagination';
 import { ResultCode } from '../common/response/result-code.enum';
 import { RoleCode } from '../common/roles/role-code.enum';
+import { SessionCacheService } from '../common/session-cache/session-cache.service';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserListQueryDto } from './dto/user-list-query.dto';
@@ -75,6 +76,7 @@ export class UserService {
     private readonly spExecutor: SpExecutorService,
     private readonly crypto: CryptoService,
     private readonly auditLog: AuditLogService,
+    private readonly sessionCache: SessionCacheService,
   ) {}
 
   /**
@@ -199,6 +201,13 @@ export class UserService {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
 
+    // SP_USER_UPDATE는 i_status=3(사용중지)으로 전환하는 경우에만 DB에서 세션을 무효화한다
+    // (다른 값으로 바뀌거나 이미 3이었던 경우는 세션에 영향 없음) — 캐시 무효화도 정확히 이
+    // 조건만 그대로 미러링한다.
+    if (dto.status === 3) {
+      void this.sessionCache.invalidateUser(userId);
+    }
+
     const row = data[0];
     void this.auditLog.record({
       action: AuditAction.UPDATE,
@@ -240,6 +249,8 @@ export class UserService {
     if (result !== 0 || !data?.[0]) {
       throw new BusinessException(ResultCode.INTERNAL_ERROR);
     }
+    // SP_USER_PASSWORD_RESET은 무조건 해당 유저의 전체 활성 세션을 DB에서 무효화한다.
+    void this.sessionCache.invalidateUser(userId);
 
     const row = data[0];
     void this.auditLog.record({

@@ -54,7 +54,7 @@ export class AuthController {
   async logout(
     @Req() req: AuthenticatedRequest,
   ): Promise<Record<string, never>> {
-    await this.authService.logout(req.user!.jti);
+    await this.authService.logout(req.user!.jti, req.user!.userId);
     return {};
   }
 

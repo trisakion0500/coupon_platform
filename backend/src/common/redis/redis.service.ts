@@ -10,8 +10,10 @@ import Redis from 'ioredis';
 /**
  * `REDIS_ENABLED` 뒤에서 ioredis 클라이언트를 감싸는 공용 서비스.
  *
- * `REDIS_ENABLED=false`면 클라이언트를 아예 만들지 않는다 — 이 상태에서 `setNx`를
- * 호출하는 건 호출부 버그이므로 예외를 던진다(호출부는 반드시 `isEnabled`를 먼저 확인해야 함).
+ * `REDIS_ENABLED=false`면 클라이언트를 아예 만들지 않는다 — 이 상태에서 아래 커맨드 메서드
+ * (`setNx`/`get`/`set`/`del`/`incrWithExpire`)를 호출하는 건 호출부 버그이므로 예외를 던진다
+ * (호출부는 반드시 `isEnabled`를 먼저 확인해야 함). 순수 KV 프리미티브만 제공하고, 값의 의미
+ * 부여(JSON 인코딩, 키 네이밍 등)는 소비하는 쪽(`S2sAuthGuard`/`SessionCacheService`)이 담당한다.
  *
  * `enableOfflineQueue: false` + `maxRetriesPerRequest: 1`을 쓰는 이유: Redis가 응답하지
  * 않을 때 커맨드를 무한정 큐잉하며 요청을 붙잡는 대신 즉시 실패시켜야, 호출부(예:
@@ -83,5 +85,50 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
     const result = await this.client.set(key, '1', 'EX', ttlSec, 'NX');
     return result === 'OK';
+  }
+
+  /** 순수 KV 읽기. 키가 없으면 null. */
+  async get(key: string): Promise<string | null> {
+    if (!this.client) {
+      throw new Error('RedisService.get called while Redis is disabled');
+    }
+    return this.client.get(key);
+  }
+
+  /** 순수 KV 쓰기(TTL 필수 — 이 프로젝트에서 TTL 없는 키를 두는 용도는 없다). */
+  async set(key: string, value: string, ttlSec: number): Promise<void> {
+    if (!this.client) {
+      throw new Error('RedisService.set called while Redis is disabled');
+    }
+    await this.client.set(key, value, 'EX', ttlSec);
+  }
+
+  /** 키 삭제. 이미 없어도 에러 없이 통과(ioredis DEL은 존재하지 않는 키에도 0을 반환할 뿐). */
+  async del(key: string): Promise<void> {
+    if (!this.client) {
+      throw new Error('RedisService.del called while Redis is disabled');
+    }
+    await this.client.del(key);
+  }
+
+  /**
+   * INCR 후 EXPIRE(슬라이딩 TTL) — 두 커맨드를 파이프라인으로 묶어 왕복 1회로 처리한다.
+   * 반환값은 증가된 이후 값.
+   */
+  async incrWithExpire(key: string, ttlSec: number): Promise<number> {
+    if (!this.client) {
+      throw new Error(
+        'RedisService.incrWithExpire called while Redis is disabled',
+      );
+    }
+    const results = await this.client
+      .multi()
+      .incr(key)
+      .expire(key, ttlSec)
+      .exec();
+    if (!results || results[0][0]) {
+      throw results?.[0]?.[0] ?? new Error('incrWithExpire pipeline failed');
+    }
+    return results[0][1] as number;
   }
 }

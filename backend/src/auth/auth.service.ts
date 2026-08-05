@@ -12,6 +12,7 @@ import { SpExecutorService } from '../common/database/sp-executor.service';
 import type { JwtPayload } from '../common/jwt-auth/jwt-payload.interface';
 import { BusinessException } from '../common/response/business.exception';
 import { ResultCode } from '../common/response/result-code.enum';
+import { SessionCacheService } from '../common/session-cache/session-cache.service';
 import { formatDateTime } from '../common/util/format-datetime.util';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
@@ -47,6 +48,8 @@ interface SessionByRefreshRow {
   user_status: number;
   company_id: number;
   role_code: number;
+  /** 회전 전 jti — `SessionCacheService.evictJti`로 이 jti만 정밀 무효화하는 데 쓴다. */
+  access_token_jti: string;
 }
 
 /** SP_USER_PASSWORD_CHANGE 결과 result set — 감사로그(log_audit)용 필드만 담는다. */
@@ -73,6 +76,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly crypto: CryptoService,
     private readonly auditLog: AuditLogService,
+    private readonly sessionCache: SessionCacheService,
   ) {}
 
   async signup(dto: SignupDto) {
@@ -137,10 +141,13 @@ export class AuthService {
     return this.issueSession(user.user_id, user.company_id, user.role_code);
   }
 
-  async logout(accessTokenJti: string): Promise<void> {
+  async logout(accessTokenJti: string, userId: number): Promise<void> {
     await this.spExecutor.callProcedure('SP_USER_SESSION_LOGOUT', [
       accessTokenJti,
     ]);
+    // 캐시 무효화는 응답을 지연시킬 이유가 없는 best-effort 작업이라 await하지 않는다
+    // (AuditLogService.record()와 동일한 fire-and-forget 관례).
+    void this.sessionCache.invalidateUser(userId);
   }
 
   async refresh(dto: RefreshDto) {
@@ -169,6 +176,10 @@ export class AuthService {
       session.session_id,
       jti,
     ]);
+    // 이전 jti는 DB에서 이미 새 jti로 덮어써졌으니, 캐시에 남아있다면 정밀 삭제한다 — 다른
+    // 기기 세션까지 건드리는 generation bump 대신 이 jti 하나만(11_AUTH_API.md 7장,
+    // "재발급 후 이전 Access Token 즉시 무효화" 불변식을 캐시 도입 후에도 유지).
+    void this.sessionCache.evictJti(session.access_token_jti);
 
     return {
       access_token: accessToken,
@@ -197,6 +208,9 @@ export class AuthService {
     const { data } = await this.spExecutor.callProcedure<
       PasswordChangeAuditRow[]
     >('SP_USER_PASSWORD_CHANGE', [userId, newPasswordHash]);
+    // SP_USER_PASSWORD_CHANGE는 무조건 해당 유저의 전체 활성 세션을 DB에서 무효화한다 —
+    // 캐시도 동일하게 무조건 무효화해야 DB와 어긋나지 않는다.
+    void this.sessionCache.invalidateUser(userId);
 
     // 15_LOG_AUDIT_API.md 2.4 — 본인 비밀번호 변경도 user UPDATE 감사 로그 대상.
     const row = data?.[0];

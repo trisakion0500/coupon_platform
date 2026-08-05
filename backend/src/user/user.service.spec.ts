@@ -3,12 +3,14 @@ import { CryptoService } from '../common/crypto/crypto.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
 import { ResultCode } from '../common/response/result-code.enum';
 import { RoleCode } from '../common/roles/role-code.enum';
+import { SessionCacheService } from '../common/session-cache/session-cache.service';
 import { UserService } from './user.service';
 
 describe('UserService', () => {
   let spExecutor: jest.Mocked<Pick<SpExecutorService, 'callProcedure'>>;
   let crypto: jest.Mocked<Pick<CryptoService, 'encrypt' | 'decrypt'>>;
   let auditLog: jest.Mocked<Pick<AuditLogService, 'record'>>;
+  let sessionCache: jest.Mocked<Pick<SessionCacheService, 'invalidateUser'>>;
   let service: UserService;
 
   const userRow = {
@@ -41,10 +43,12 @@ describe('UserService', () => {
       decrypt: jest.fn((enc: string) => enc.replace(/^enc\(|\)$/g, '')),
     };
     auditLog = { record: jest.fn() };
+    sessionCache = { invalidateUser: jest.fn().mockResolvedValue(undefined) };
     service = new UserService(
       spExecutor as unknown as SpExecutorService,
       crypto as unknown as CryptoService,
       auditLog as unknown as AuditLogService,
+      sessionCache as unknown as SessionCacheService,
     );
   });
 
@@ -239,10 +243,35 @@ describe('UserService', () => {
         resultCode: ResultCode.PERMISSION_DENIED,
       });
     });
+
+    it('invalidates the session cache when status is set to 3 (suspend) — mirrors SP_USER_UPDATE exactly', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({
+        result: 0,
+        data: [{ ...userRow, status: 3 }],
+      });
+
+      await service.update(100, { status: 3 }, 1);
+
+      expect(sessionCache.invalidateUser).toHaveBeenCalledWith(100);
+    });
+
+    it.each([undefined, 0, 1, 2])(
+      'does not invalidate the session cache when status=%s (SP only invalidates on status=3)',
+      async (status) => {
+        spExecutor.callProcedure.mockResolvedValueOnce({
+          result: 0,
+          data: [userRow],
+        });
+
+        await service.update(100, { status }, 1);
+
+        expect(sessionCache.invalidateUser).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe('resetPassword', () => {
-    it('returns the user after resetting the password', async () => {
+    it('returns the user after resetting the password and invalidates the session cache', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({
         result: 0,
         data: [userRow],
@@ -259,6 +288,7 @@ describe('UserService', () => {
         'SP_USER_PASSWORD_RESET',
         [100, expect.any(String), 1],
       );
+      expect(sessionCache.invalidateUser).toHaveBeenCalledWith(100);
     });
 
     it('throws USER_NOT_FOUND on 31003', async () => {

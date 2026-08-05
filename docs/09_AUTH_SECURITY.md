@@ -42,10 +42,22 @@ Refresh Token 만료시간 : 7일  (JWT_REFRESH_EXPIRES_IN 기본값)
 - 로그아웃/만료 시 `status`만 변경(UPDATE), DELETE하지 않음 → 그대로 두면 행이 무한정 누적되므로 배치로 정리
   - 주기: `SESSION_CLEANUP_CRON` (기본 `0 4 * * *`, 매일 새벽 4시)
   - 대상: `expired_at`이 현재 시각보다 과거인 세션(`status` 무관), 물리 삭제
-- `user_session.user_id`는 FK를 의도적으로 적용하지 않음(추후 Redis 전환 대비, [06_DATABASE_SCHEMA.md](./06_DATABASE_SCHEMA.md) 참고)
-- `user.status`와 세션 상태는 별도로 관리되나, 아래 두 경우에는 해당 사용자의 모든 활성 세션(`status = 1`)을 즉시 종료(`status = 0`)한다
+- `user_session.user_id`는 FK를 의도적으로 적용하지 않음(추후 Redis 전환 대비 — 1.3.1의 세션 검증 캐시가 그 활용 사례, [06_DATABASE_SCHEMA.md](./06_DATABASE_SCHEMA.md) 참고)
+- `user.status`와 세션 상태는 별도로 관리되나, 아래 세 경우에는 해당 사용자의 모든 활성 세션(`status = 1`)을 즉시 종료(`status = 0`)한다
   - 사용중지(`user.status = 3`) 처리 시
-  - 비밀번호 변경 시
+  - 비밀번호 변경 시(본인 변경/관리자 초기화 둘 다)
+  - (아래 1.3.1의 Redis 캐시가 활성화된 경우) 위 두 경우 및 로그아웃 시 해당 유저의 캐시된 세션도 함께 무효화
+
+### 1.3.1 세션 검증 읽기 캐시 (Redis, 2026-08-05 도입, 선택)
+
+`REDIS_ENABLED=true`면 1.5의 3번째 단계(Session 확인, `SP_USER_SESSION_VALIDATE_BY_JTI` 호출)를 `SessionCacheService`가 캐싱한다 — DB는 여전히 source of truth이고 Redis는 순수 읽기 캐시다(2.5의 nonce처럼 "Redis 우선/DB 폴백" 구조가 아니다). 목적은 매 인증된 요청마다 도는 이 DB 조회의 부하를 줄이는 것.
+
+- **캐시 대상**: 검증 성공(`user_status=1`) 케이스만 `session:{jti}` 키에 `{userId, companyId, generation}`으로 저장(TTL=`SESSION_CACHE_TTL_SEC`, 기본 60초). 실패 케이스(0/2/3)는 캐싱하지 않는다.
+- **무효화 — 유저 단위 generation 카운터**: jti별 캐시를 개별 삭제하는 대신, `session-gen:{userId}` 카운터(TTL=`SESSION_CACHE_GENERATION_TTL_SEC`, 기본 120초)를 둬서 로그아웃/비밀번호변경(변경·초기화)/계정정지 시 이 카운터만 올린다(`SessionCacheService.invalidateUser`). 캐시 조회 시 "캐시된 generation == 현재 generation"이 같을 때만 히트로 인정 — 카운터 하나만 올리면 그 유저의 캐시된 세션이 몇 개(여러 기기)든 다음 조회 시점에 한꺼번에 미스로 전환된다.
+- **카운터 TTL이 캐시 TTL보다 반드시 커야 한다**: 카운터가 캐시보다 먼저 만료돼 0으로 리셋되면, 아직 살아있는 옛 캐시 항목(리셋 이전 값으로 캐싱된)의 generation과 우연히 일치해버려 무효화가 원상복구되는 보안 구멍이 생긴다. `env.validation.ts`가 부팅 시점에 `SESSION_CACHE_GENERATION_TTL_SEC > SESSION_CACHE_TTL_SEC`를 강제해, 이 관계를 어긴 설정은 서버가 뜨지 않는다.
+- **`refresh()`(jti 회전)는 generation이 아니라 정밀 삭제**: 재발급 시 이전 jti는 그 즉시 무효여야 하는데(11_AUTH_API.md 7장), generation bump는 그 유저의 다른 기기 세션까지 전부 캐시 미스를 만들어 불필요하게 넓다 — 대신 `SP_USER_SESSION_GET_BY_REFRESH_HASH`가 회전 전 `access_token_jti`를 함께 반환하도록 해, `evictJti`로 그 jti의 캐시 항목 하나만 정밀 삭제한다.
+- Redis 미스/에러는 항상 안전하게 기존 DB 경로로 떨어진다 — 캐시가 통째로 죽어도(예: `REDIS_ENABLED=false`) 인증 자체는 순수 DB 경로로 완전히 동일하게 동작한다.
+- **알려진 한계(2026-08-05 동시성 감사에서 발견, 완전히 닫을 수는 없음)**: DB 검증 성공 시점과 캐시 write 시점 사이에는 구조적 갭이 있다(캐시하려면 DB가 반환한 `userId`가 있어야 해서, generation을 DB 검증보다 먼저 읽을 방법이 없다) — 그 사이 같은 유저의 무효화가 끼어들면 방금 무효화된 세션을 오히려 새로 캐싱해버릴 수 있다. MySQL과 Redis가 물리적으로 다른 시스템이라 진짜 트랜잭션으로 묶어 완전히 닫을 수는 없고, `SessionCacheService.cacheSession`이 write 직후 generation을 한 번 더 읽어 그 사이 바뀌었으면 즉시 삭제하는 이중 확인으로 창을 "DB 왕복 1회" 수준에서 "Redis 명령 1회" 수준으로 좁히는 완화만 적용돼 있다. 최악의 경우도 `SESSION_CACHE_TTL_SEC`로 상한이 걸려 무한정 유효해지지는 않는다. `refresh()`의 `evictJti`(단순 키 삭제, generation과 무관)는 같은 방식의 완화조차 적용할 수 없는 별개의 레이스가 남아있으나, 권한 상승 위험 없이 "같은 유저의 여전히 유효한 세션이 옛 jti로 잠깐 더 도는" 수준이라 심각도가 낮아 의도적으로 손대지 않았다.
 
 ## 1.4 요청 제한(Rate Limit) 정책
 
@@ -63,7 +75,8 @@ Access Token 재발급 엔드포인트는 유효한 refresh token 보유가 전�
 ```text
 1. Authorization 헤더 존재 여부 확인
 2. Access Token 유효성 검증 (서명/만료)
-3. Session 확인 (user_session.status = 1)
+3. Session 확인 (user_session.status = 1) — REDIS_ENABLED=true면 1.3.1의 캐시를 먼저 확인,
+   히트면 이 단계와 4번을 건너뛰고 바로 통과(캐시는 검증 성공 케이스만 저장하므로 재확인 불필요)
 4. User 상태 확인 (user.status = 1 : 가입승인)
 ```
 

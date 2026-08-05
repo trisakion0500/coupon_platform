@@ -13,6 +13,7 @@ import { LogDatabaseModule } from './common/database/log-database.module';
 import { RequestResponseLoggingMiddleware } from './common/logging/request-response-logging.middleware';
 import { NonceCleanupModule } from './common/nonce-cleanup/nonce-cleanup.module';
 import { RedisModule } from './common/redis/redis.module';
+import { SessionCacheModule } from './common/session-cache/session-cache.module';
 import { SessionCleanupModule } from './common/session-cleanup/session-cleanup.module';
 import { CouponUsageModule } from './coupon-usage/coupon-usage.module';
 import { CouponUseLogModule } from './coupon-use-log/coupon-use-log.module';
@@ -38,6 +39,7 @@ import { UserRoleModule } from './user-role/user-role.module';
     DatabaseModule,
     LogDatabaseModule,
     RedisModule,
+    SessionCacheModule,
     AuditLogModule,
     SessionCleanupModule,
     ApiSecretCleanupModule,

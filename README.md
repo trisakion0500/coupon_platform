@@ -189,10 +189,10 @@ coupon_platform/
 ### 향후 개선사항 (우선순위 낮음, 별도 검토 필요)
 
 - 쿠폰 사용(reserve/confirm) API의 **유저 단위 rate limit** — 프로젝트 단위(인프라 보호)는 구현 완료(위 항목 참고). 실제 쿠폰 소비 한도는 `use_limit_per_user`가 SP 레벨에서 이미 원자적으로 강제하므로 유저단위 리미터가 막아주는 건 "특정 유저의 과도한 호출이 같은 프로젝트의 공유 버킷을 소진해 다른 유저까지 영향받는" 상황 정도로 한정적이다. 이마저도 게임서버(S2S 호출 주체) 쪽에서 유저별 호출 빈도를 1차로 조절할 수 있는 여지가 있어, 쿠폰 서버가 반드시 이중으로 막아야 하는 필수 방어선은 아니라고 본다. 지금 규모에서는 급하지 않다고 판단해 우선순위를 낮게 두고 보류 중 — 필요해지면 아래 Redis 도입과 함께 정확한 분산 카운터로 구현하는 쪽을 고려.
-- **Redis 도입**(총 3개 대상 중 1개 완료, 2026-08-05):
+- **Redis 도입**(총 3개 대상 중 2개 완료, 2026-08-05):
   1. ✅ `project_api_nonce`(S2S nonce 재전송 방지) — 공용 `RedisModule`/`RedisService`(ioredis) 신설, `S2sAuthGuard.consumeNonce`가 Redis `SET NX EX`를 1차 경로로 쓰고 Redis 장애 시 기존 DB 경로(`SP_NONCE_INSERT`)로 fail-open 폴백한다(`02_TECH_STACK.md` "Redis" 절, `09_AUTH_SECURITY.md` 2.5). 당초 예상과 달리 fail-open 설계 특성상 DB가 완전히 안 쓰이는 건 아니라 `S2S_NONCE_CLEANUP_CRON`/`NonceCleanupService`는 그대로 유지
-  2. 유저 단위 rate limit 카운터 — 신규 구현 필요, 다음 단계
-  3. `user_session` — 다음 단계. `user_session.user_id`에 FK를 안 건 것도 애초에 이 전환을 대비한 설계(`06_DATABASE_SCHEMA.md` 참고)
+  2. ✅ `user_session` — 저장소 자체 이관이 아니라 `JwtAuthGuard.validateSession`(매 인증된 요청마다 도는 jti→세션 검증)의 **읽기 캐시**로 구현(`SessionCacheService`) — DB가 항상 source of truth. 로그아웃/비밀번호변경(변경·초기화)/계정정지 시 유저 단위 generation 카운터를 올려 그 유저의 캐시된 세션 전체를 일괄 무효화하고, `refresh()`의 jti 회전은 이전 jti만 정밀 삭제한다(`09_AUTH_SECURITY.md` 1.3.1). 카운터 TTL이 캐시 TTL보다 짧으면 무효화가 우연히 원상복구되는 보안 구멍이 생겨, 이 관계를 Joi로 부팅 시점에 강제
+  3. 유저 단위 rate limit 카운터 — 신규 구현 필요, 다음 단계
 
   프로젝트 단위 rate limiter(`CouponUsageRateLimitMiddleware`)는 in-memory로 유지하기로 확정된 설계라 이관 대상 아님. 크론 배치 리더선출(`SpExecutorService.runExclusive`, `SP_LOCK_ACQUIRE`/`RELEASE`)도 의도적으로 MySQL만 사용하며 Redis 이관 대상이 아니다(`04_DEV_CONVENTIONS.md` 4.1).
 - **`react-router` 메이저 업그레이드(7→8)** — `npm audit`에서 High로 잡히는 CVE(GHSA-qwww-vcr4-c8h2, RSC 모드 CSRF 우회)는 `createBrowserRouter`/`RouterProvider`/`loader`/`action` 없이 `<BrowserRouter>`+`<Routes>`+`<Route>` 선언형 모드만 쓰는 이 프로젝트에는 실질적으로 노출되지 않는다. 반면 패치 버전인 v8은 `react-router-dom` 패키지 자체가 폐지되고(`react-router`/`react-router/dom`으로 import 경로 전환 필요) `react >=19.2.7`을 요구해, 2026-07-24에 명시적으로 확정한 "React 18 유지" 결정(`02_TECH_STACK.md`)까지 되돌려야 한다. 지금 업그레이드하기엔 실익 대비 비용이 커 보류 — React 19 전환을 별도로 결정하는 시점에 함께 처리.

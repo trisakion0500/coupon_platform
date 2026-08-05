@@ -99,8 +99,8 @@ export const envValidationSchema = Joi.object({
   // 초 단위로 급박한 처리가 아니라 5분 기본값이면 충분하다고 판단.
   CAMPAIGN_EXPIRY_CRON: Joi.string().default('*/5 * * * *'),
 
-  // Redis 도입 1단계(2026-08-05) — REDIS_ENABLED=true일 때만 나머지 4개가 필수가 된다.
-  // 현재는 S2S nonce 재전송 방지(RedisService.setNx)의 1차 경로로만 쓰이고, 실패 시 기존
+  // Redis 도입 1단계(2026-08-05) — REDIS_ENABLED=true일 때만 REDIS_HOST/REDIS_KEY_PREFIX가
+  // 필수가 된다. S2S nonce 재전송 방지(RedisService.setNx)의 1차 경로로 쓰이고, 실패 시 기존
   // DB 경로(SP_NONCE_INSERT)로 자동 폴백(fail-open)한다.
   REDIS_ENABLED: Joi.boolean().default(false),
   REDIS_HOST: Joi.string().when('REDIS_ENABLED', {
@@ -116,4 +116,20 @@ export const envValidationSchema = Joi.object({
     then: Joi.required(),
     otherwise: Joi.optional(),
   }),
+
+  // Redis 도입 2단계(2026-08-05) — JwtAuthGuard.validateSession(jti->세션 검증) 읽기 캐시.
+  // DB가 여전히 source of truth, Redis는 순수 캐시(SessionCacheService). 카운터 TTL이 캐시
+  // TTL보다 짧거나 같으면, 카운터가 캐시보다 먼저 만료돼 0으로 리셋된 뒤 아직 살아있는 옛
+  // 캐시 항목의 generation과 우연히 일치해버려 무효화(로그아웃/비번변경/계정정지)가 원상복구
+  // 되는 보안 구멍이 생긴다 — 이 관계(카운터 TTL > 캐시 TTL)를 어긴 설정은 부팅 자체를 막는다.
+  SESSION_CACHE_TTL_SEC: Joi.number().integer().min(1).default(60),
+  SESSION_CACHE_GENERATION_TTL_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .default(120)
+    .greater(Joi.ref('SESSION_CACHE_TTL_SEC'))
+    .messages({
+      'number.greater':
+        'SESSION_CACHE_GENERATION_TTL_SEC must be greater than SESSION_CACHE_TTL_SEC (counter TTL must outlive the cache TTL it invalidates)',
+    }),
 });

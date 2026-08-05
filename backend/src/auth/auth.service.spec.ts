@@ -7,6 +7,7 @@ import { CryptoService } from '../common/crypto/crypto.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
 import { BusinessException } from '../common/response/business.exception';
 import { ResultCode } from '../common/response/result-code.enum';
+import { SessionCacheService } from '../common/session-cache/session-cache.service';
 import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
 
@@ -27,6 +28,9 @@ describe('AuthService', () => {
   let jwtService: JwtService;
   let cryptoService: CryptoService;
   let auditLog: jest.Mocked<Pick<AuditLogService, 'record'>>;
+  let sessionCache: jest.Mocked<
+    Pick<SessionCacheService, 'invalidateUser' | 'evictJti'>
+  >;
   let service: AuthService;
 
   beforeEach(() => {
@@ -34,12 +38,17 @@ describe('AuthService', () => {
     jwtService = new JwtService({ secret: 'test-jwt-secret' });
     cryptoService = new CryptoService(buildConfigService());
     auditLog = { record: jest.fn() };
+    sessionCache = {
+      invalidateUser: jest.fn().mockResolvedValue(undefined),
+      evictJti: jest.fn().mockResolvedValue(undefined),
+    };
     service = new AuthService(
       spExecutor as unknown as SpExecutorService,
       jwtService,
       buildConfigService(),
       cryptoService,
       auditLog as unknown as AuditLogService,
+      sessionCache as unknown as SessionCacheService,
     );
   });
 
@@ -246,23 +255,24 @@ describe('AuthService', () => {
   });
 
   describe('logout', () => {
-    it('resolves when the SP succeeds', async () => {
+    it('resolves when the SP succeeds and invalidates the user session cache', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({ result: 0 });
-      await expect(service.logout('some-jti')).resolves.toBeUndefined();
+      await expect(service.logout('some-jti', 1)).resolves.toBeUndefined();
+      expect(sessionCache.invalidateUser).toHaveBeenCalledWith(1);
     });
 
     it('propagates DATABASE_ERROR when the SP call throws it (does not silently succeed)', async () => {
       spExecutor.callProcedure.mockRejectedValueOnce(
         new BusinessException(ResultCode.DATABASE_ERROR),
       );
-      await expect(service.logout('some-jti')).rejects.toMatchObject({
+      await expect(service.logout('some-jti', 1)).rejects.toMatchObject({
         resultCode: ResultCode.DATABASE_ERROR,
       });
     });
   });
 
   describe('refresh', () => {
-    it('issues a new access token and updates the session JTI', async () => {
+    it('issues a new access token, updates the session JTI, and evicts the old jti from cache', async () => {
       spExecutor.callProcedure.mockResolvedValueOnce({
         result: 0,
         data: [
@@ -272,6 +282,7 @@ describe('AuthService', () => {
             user_status: 1,
             company_id: 1,
             role_code: 20,
+            access_token_jti: 'old-jti',
           },
         ],
       });
@@ -288,6 +299,7 @@ describe('AuthService', () => {
         'SP_USER_SESSION_UPDATE_JTI',
         [5, expect.any(String)],
       );
+      expect(sessionCache.evictJti).toHaveBeenCalledWith('old-jti');
     });
 
     it('throws REFRESH_TOKEN_EXPIRED when session is missing/expired', async () => {
@@ -358,7 +370,7 @@ describe('AuthService', () => {
   });
 
   describe('changePassword', () => {
-    it('updates the password when the current password matches', async () => {
+    it('updates the password when the current password matches, and invalidates the session cache', async () => {
       const currentHash = await bcrypt.hash('old-password', 12);
       spExecutor.callProcedure.mockResolvedValueOnce({
         result: 0,
@@ -378,6 +390,7 @@ describe('AuthService', () => {
         'SP_USER_PASSWORD_CHANGE',
         [1, expect.any(String)],
       );
+      expect(sessionCache.invalidateUser).toHaveBeenCalledWith(1);
     });
 
     it('throws PASSWORD_MISMATCH when the current password is wrong', async () => {
