@@ -74,6 +74,15 @@ export const envValidationSchema = Joi.object({
     .min(1)
     .default(10),
 
+  // reserve/confirm 유저(game_user_id) 기준 rate limit — 09_AUTH_SECURITY.md 2.8, Redis
+  // 도입 3단계(2026-08-05). 프로젝트 단위 리미터와 별개 레이어, 슬라이딩 윈도우 카운터
+  // 알고리즘. REDIS_ENABLED=false면 이 레이어는 완전히 스킵된다(폴백 없음).
+  COUPON_USAGE_USER_RATE_LIMIT_WINDOW_SEC: Joi.number()
+    .integer()
+    .min(1)
+    .default(60),
+  COUPON_USAGE_USER_RATE_LIMIT_MAX: Joi.number().integer().min(1).default(30),
+
   // RANDOM 코드 대량생성 백그라운드 루프(07_COUPON_ISSUANCE_SCENARIO.md 2.2) — DB 일시 오류
   // 재시도 한도/지연. 코드값 충돌(1062)은 이 설정과 무관하게 무제한 즉시 재시도한다.
   CODE_GENERATION_MAX_DB_RETRIES: Joi.number().integer().min(0).default(5),

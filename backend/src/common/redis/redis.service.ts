@@ -129,6 +129,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     if (!results || results[0][0]) {
       throw results?.[0]?.[0] ?? new Error('incrWithExpire pipeline failed');
     }
+    // 파이프라인 자체는 성공해도 EXPIRE만 개별 명령 레벨로 실패할 수 있다(WRONGTYPE 등) —
+    // 이걸 놓치면 TTL 없는 키가 영구히 남는다.
+    if (results[1][0]) {
+      throw results[1][0];
+    }
     return results[0][1] as number;
   }
 }

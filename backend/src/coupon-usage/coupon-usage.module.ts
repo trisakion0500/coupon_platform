@@ -5,6 +5,7 @@ import {
   RequestMethod,
 } from '@nestjs/common';
 import { S2sAuthModule } from '../common/s2s-auth/s2s-auth.module';
+import { CouponUsageUserRateLimitMiddleware } from './coupon-usage-user.rate-limit.middleware';
 import { CouponUsageController } from './coupon-usage.controller';
 import { CouponUsageRateLimitMiddleware } from './coupon-usage.rate-limit.middleware';
 import { CouponUsageService } from './coupon-usage.service';
@@ -27,8 +28,10 @@ export class CouponUsageModule implements NestModule {
    * 실제로 실서버 스모크에서 이렇게 재현된 뒤 발견).
    */
   configure(consumer: MiddlewareConsumer): void {
+    // 프로젝트 단위(저렴한 in-memory 체크)가 먼저 걸러야 유저 단위(Redis 커맨드)로
+    // 불필요한 부하가 넘어가지 않는다 — 순서를 바꾸지 말 것.
     consumer
-      .apply(CouponUsageRateLimitMiddleware)
+      .apply(CouponUsageRateLimitMiddleware, CouponUsageUserRateLimitMiddleware)
       .forRoutes(
         { path: 'v1/coupons/:code/reserve', method: RequestMethod.POST },
         { path: 'v1/coupons/:code/confirm', method: RequestMethod.POST },

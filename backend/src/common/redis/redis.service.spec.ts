@@ -192,6 +192,16 @@ describe('RedisService', () => {
       ).rejects.toThrow('WRONGTYPE');
     });
 
+    it('incrWithExpire throws if EXPIRE fails even though INCR succeeded (no orphaned TTL-less key)', async () => {
+      multiChain.exec.mockResolvedValueOnce([
+        [null, 3],
+        [new Error('ERR unknown command'), null],
+      ]);
+      await expect(
+        service.incrWithExpire('session:gen:1', 120),
+      ).rejects.toThrow('ERR unknown command');
+    });
+
     it('onModuleDestroy quits the client', async () => {
       await service.onModuleDestroy();
       expect(clientInstance.quit).toHaveBeenCalled();

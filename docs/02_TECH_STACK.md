@@ -111,10 +111,14 @@
 | `REDIS_KEY_PREFIX`  | (필수 시)    | 모든 Redis 키 앞에 붙는 네임스페이스. `RedisService`가 ioredis의 `keyPrefix` 옵션으로 넘겨 매 키마다 수동으로 이어붙일 필요가 없다 |
 | `SESSION_CACHE_TTL_SEC` | `60` | JWT 세션 검증(jti) 읽기 캐시 TTL(초). `SessionCacheService` |
 | `SESSION_CACHE_GENERATION_TTL_SEC` | `120` | 유저 단위 무효화 generation 카운터 TTL(초) — **반드시 `SESSION_CACHE_TTL_SEC`보다 커야 하며, 어기면 부팅이 실패한다**(Joi `.greater(Joi.ref(...))`) |
+| `COUPON_USAGE_USER_RATE_LIMIT_WINDOW_SEC` | `60` | reserve/confirm 유저(game_user_id) 단위 rate limit 슬라이딩 윈도우 크기(초). `SlidingWindowCounterLimiter` |
+| `COUPON_USAGE_USER_RATE_LIMIT_MAX` | `30` | 위 윈도우당(가중평균 기준) 허용 요청 수 |
 
 2026-08-05 도입 1단계 — S2S nonce 재전송 방지(`S2sAuthGuard.consumeNonce`)의 1차 경로. Redis `SET key '1' EX <S2S_TIMESTAMP_TOLERANCE_SEC> NX`가 원자적으로 성공하면 신규 nonce, 실패(키 존재)하면 재전송으로 판단해 즉시 `10015`를 거부한다(DB로 폴백하지 않음 — 정상 응답이라 폴백 대상이 아님). Redis 커맨드 자체가 실패하면(연결 끊김 등) 예외를 잡아 기존 DB 경로(`SP_NONCE_INSERT`, `project_api_nonce` 테이블)로 fail-open 폴백한다 — 이 fail-open 설계 때문에 `S2S_NONCE_CLEANUP_CRON`/`NonceCleanupService`는 Redis 활성화 여부와 무관하게 계속 실행된다(Redis 장애 중엔 여전히 DB에 기록되므로).
 
-2026-08-05 도입 2단계 — `JwtAuthGuard.validateSession`(매 인증된 요청마다 도는 jti→세션 검증)의 읽기 캐시(`SessionCacheService`). 1단계 nonce와 달리 "Redis 우선/DB 폴백" 구조가 아니라, **DB가 항상 source of truth이고 Redis는 순수 캐시**다 — 미스/에러는 그냥 기존 DB 경로로 넘어간다(fail-open이라 부를 것도 없이 캐시 실패가 곧 DB 조회). 로그아웃/비밀번호변경(변경·초기화)/계정정지(`status=3`) 시 jti별 캐시를 개별 삭제하는 대신 유저 단위 generation 카운터를 올려 그 유저의 캐시된 세션 전체를 한꺼번에 미스나게 만든다(`09_AUTH_SECURITY.md` 1.5). 유저 단위 rate limit으로의 확장은 다음 단계로 남아있다(`README.md` "향후 개선사항" 참고).
+2026-08-05 도입 2단계 — `JwtAuthGuard.validateSession`(매 인증된 요청마다 도는 jti→세션 검증)의 읽기 캐시(`SessionCacheService`). 1단계 nonce와 달리 "Redis 우선/DB 폴백" 구조가 아니라, **DB가 항상 source of truth이고 Redis는 순수 캐시**다 — 미스/에러는 그냥 기존 DB 경로로 넘어간다(fail-open이라 부를 것도 없이 캐시 실패가 곧 DB 조회). 로그아웃/비밀번호변경(변경·초기화)/계정정지(`status=3`) 시 jti별 캐시를 개별 삭제하는 대신 유저 단위 generation 카운터를 올려 그 유저의 캐시된 세션 전체를 한꺼번에 미스나게 만든다(`09_AUTH_SECURITY.md` 1.5).
+
+2026-08-05 도입 3단계(Redis 도입 대상 완료) — reserve/confirm **유저(game_user_id) 단위** rate limit(`SlidingWindowCounterLimiter`, `09_AUTH_SECURITY.md` 2.8.2). 프로젝트 단위 리미터(in-memory 토큰버킷)와 별개 레이어로, 슬라이딩 윈도우 카운터 알고리즘을 `RedisService.get`/`incrWithExpire` 프리미티브만으로 구현했다(Lua 불필요). `REDIS_ENABLED=false`면 이 레이어는 완전히 스킵된다(1/2단계와 달리 대체할 DB/인메모리 경로 자체가 없는 신규 기능이라 폴백이 아니라 스킵).
 
 ### CORS / 보안 헤더
 
