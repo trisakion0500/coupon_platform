@@ -8,6 +8,7 @@ import { SpExecutorService } from '../common/database/sp-executor.service';
 import { BusinessException } from '../common/response/business.exception';
 import { ResultCode } from '../common/response/result-code.enum';
 import { AuthService } from './auth.service';
+import { SignupDto } from './dto/signup.dto';
 
 function buildConfigService(): ConfigService {
   const encryptionKey = randomBytes(32).toString('hex');
@@ -87,7 +88,10 @@ describe('AuthService', () => {
     });
 
     it('passes null for requested_project_id when omitted (선택 입력)', async () => {
-      const { requested_project_id: _omit, ...dtoWithoutProject } = dto;
+      // 구조분해로 걷어낸 값을 버려서 lint의 no-unused-vars에 걸리는 대신,
+      // requested_project_id?가 이미 선택 필드인 SignupDto로 얕은 복사한 뒤 delete한다.
+      const dtoWithoutProject: SignupDto = { ...dto };
+      delete dtoWithoutProject.requested_project_id;
       spExecutor.callProcedure.mockResolvedValueOnce({
         result: 0,
         data: [

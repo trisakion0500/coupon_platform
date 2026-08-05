@@ -278,6 +278,8 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 
 S2S(게임서버 → 쿠폰서버) HMAC 요청 서명의 재전송(replay) 방지용 1회성 nonce 저장소([09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 2장 참고)
 
+**2026-08-05부터 유일한 저장소가 아니다** — `REDIS_ENABLED=true`면 Redis `SET NX EX`가 1차 경로이고, 이 테이블은 Redis 장애 시의 fail-open 폴백 경로로만 쓰인다(`02_TECH_STACK.md` "Redis" 절, `09_AUTH_SECURITY.md` 2.5). 아래 특징은 이 폴백 경로 기준 서술이다.
+
 ### 특징
 
 - `X-API-Nonce` 헤더값을 서명 검증 통과 후 `(project_id, nonce)` UNIQUE 제약으로 INSERT 시도 — 위반 시 재전송(replay)으로 판단해 거부. INSERT 자체의 유니크 제약을 이용하므로 동시 요청에도 원자적으로 하나만 성공

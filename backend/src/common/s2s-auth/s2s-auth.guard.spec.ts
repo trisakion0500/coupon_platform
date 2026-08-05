@@ -2,6 +2,7 @@ import { ExecutionContext } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CryptoService } from '../crypto/crypto.service';
 import { SpExecutorService } from '../database/sp-executor.service';
+import { RedisService } from '../redis/redis.service';
 import { ResultCode } from '../response/result-code.enum';
 import { S2sAuthGuard, S2sRequest } from './s2s-auth.guard';
 
@@ -31,6 +32,9 @@ describe('S2sAuthGuard', () => {
     Pick<CryptoService, 'decrypt' | 'hmacSha256Hex' | 'timingSafeEqualHex'>
   >;
   let configService: ConfigService;
+  let redisService: jest.Mocked<Pick<RedisService, 'setNx'>> & {
+    isEnabled: boolean;
+  };
   let guard: S2sAuthGuard;
 
   const validHeaders = (): Record<string, string> => ({
@@ -56,10 +60,13 @@ describe('S2sAuthGuard', () => {
       }),
     } as unknown as ConfigService;
 
+    redisService = { isEnabled: false, setNx: jest.fn() };
+
     guard = new S2sAuthGuard(
       spExecutor as unknown as SpExecutorService,
       crypto as unknown as CryptoService,
       configService,
+      redisService as unknown as RedisService,
     );
   });
 
@@ -184,6 +191,70 @@ describe('S2sAuthGuard', () => {
       projectId: 42,
       companyCode: 'DEV_CO',
       projectCode: 'DEV_PROJECT',
+    });
+  });
+
+  describe('Redis nonce path (REDIS_ENABLED=true)', () => {
+    const projectRow = {
+      project_id: 42,
+      status: 1,
+      api_secret: 'enc',
+      api_secret_prev: null,
+      project_code: 'DEV_PROJECT',
+      company_code: 'DEV_CO',
+    };
+
+    beforeEach(() => {
+      redisService.isEnabled = true;
+    });
+
+    it('passes via Redis without touching the DB nonce path for a fresh nonce', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({
+        result: 0,
+        data: [projectRow],
+      });
+      redisService.setNx.mockResolvedValueOnce(true);
+
+      const context = buildContext(buildRequest(validHeaders()));
+
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+      expect(redisService.setNx).toHaveBeenCalledWith(
+        `nonce:${projectRow.project_id}:nonce-1`,
+        300,
+      );
+      expect(spExecutor.callProcedure).toHaveBeenCalledTimes(1); // project lookup only
+    });
+
+    it('rejects with 10015 when Redis reports the nonce already exists, without falling back to DB', async () => {
+      spExecutor.callProcedure.mockResolvedValueOnce({
+        result: 0,
+        data: [projectRow],
+      });
+      redisService.setNx.mockResolvedValueOnce(false);
+
+      const context = buildContext(buildRequest(validHeaders()));
+
+      await expect(guard.canActivate(context)).rejects.toMatchObject({
+        resultCode: ResultCode.S2S_NONCE_REUSED,
+      });
+      expect(spExecutor.callProcedure).toHaveBeenCalledTimes(1); // project lookup only, no DB fallback
+    });
+
+    it('falls back to the DB nonce path when the Redis command itself fails', async () => {
+      spExecutor.callProcedure
+        .mockResolvedValueOnce({ result: 0, data: [projectRow] })
+        .mockResolvedValueOnce({ result: 0 }); // SP_NONCE_INSERT succeeds
+      redisService.setNx.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+
+      const context = buildContext(buildRequest(validHeaders()));
+
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+      expect(spExecutor.callProcedure).toHaveBeenCalledTimes(2);
+      expect(spExecutor.callProcedure).toHaveBeenNthCalledWith(
+        2,
+        'SP_NONCE_INSERT',
+        [projectRow.project_id, 'nonce-1'],
+      );
     });
   });
 });

@@ -206,8 +206,8 @@ X-API-Signature = HMAC-SHA256(secret, stringToSign)  // hex 인코딩
 4. project.status 확인 (0:중지) — 실패 시 10014
 5. project.api_secret(및 유예기간 내 api_secret_prev) 복호화 후 2.3의 stringToSign으로 서명 재계산,
    X-API-Signature와 상수 시간 비교 — 두 Secret 중 어느 쪽과도 불일치하면 10011
-6. (project_id, X-API-Nonce)로 project_api_nonce에 INSERT 시도 — UNIQUE 위반(이미 사용된 nonce)이면
-   재전송으로 판단해 10015 (2.5 참고)
+6. (project_id, X-API-Nonce)를 원자적으로 등록 시도(Redis 우선, 장애 시 DB로 fail-open 폴백) — 이미
+   사용된 nonce면 재전송으로 판단해 10015 (2.5 참고)
 7. 모두 통과 — project_id 확정, 이후 요청 처리로 진행
 ```
 
@@ -215,9 +215,11 @@ X-API-Signature = HMAC-SHA256(secret, stringToSign)  // hex 인코딩
 
 ## 2.5 Nonce 저장 및 재전송(Replay) 방지
 
-- `project_api_nonce` 테이블(`database/tables/project_api_nonce.sql`)에 `(project_id, nonce)` UNIQUE 제약으로 1회성을 보장한다 — INSERT 자체의 유니크 제약 위반을 이용하므로 동시에 같은 nonce가 들어와도 원자적으로 하나만 성공한다
-- 보관 기간은 `S2S_TIMESTAMP_TOLERANCE_SEC`만큼이면 충분하다 — 그 범위를 벗어난 요청은 2.4의 2번 단계(Timestamp 허용범위)에서 이미 거부되므로, 그 이후에는 같은 nonce가 다시 와도 위협이 되지 않는다
-- 정리 배치(`S2S_NONCE_CLEANUP_CRON`, 기본 `*/10 * * * *` — 10분 간격)가 `created_at`이 `NOW() - S2S_TIMESTAMP_TOLERANCE_SEC`보다 과거인 행을 물리 삭제한다. `SESSION_CLEANUP_CRON`(1일 1회)보다 훨씬 잦은 이유는 reserve/confirm 트래픽이 호출마다 1행씩 쌓여 테이블이 빠르게 커질 수 있기 때문이다
+**저장소는 이중 경로다(2026-08-05, Redis 도입 1단계)**: `REDIS_ENABLED=true`면 Redis가 1차 경로, 기존 MySQL(`project_api_nonce`)이 fail-open 폴백 경로다.
+
+- **Redis 경로(정상 상태)**: `RedisService.setNx`가 `SET nonce:{project_id}:{nonce} '1' EX <S2S_TIMESTAMP_TOLERANCE_SEC> NX`를 실행한다. 성공하면 신규 nonce, 실패(키가 이미 존재)하면 재전송으로 판단해 10015 — 이 경우는 DB로 폴백하지 않는다(Redis가 정상적으로 응답한 결과이지 장애가 아니므로). TTL이 곧 `S2S_TIMESTAMP_TOLERANCE_SEC`이라 별도 정리 배치가 필요 없다.
+- **DB 폴백 경로(Redis 장애 시)**: Redis 커맨드 자체가 실패하면(연결 끊김/타임아웃) `S2sAuthGuard`가 이를 잡아 기존 `project_api_nonce` 테이블(`database/tables/project_api_nonce.sql`)에 `(project_id, nonce)` UNIQUE 제약으로 INSERT하는 경로로 넘어간다 — INSERT 자체의 유니크 제약 위반을 이용하므로 동시에 같은 nonce가 들어와도 원자적으로 하나만 성공한다. 보관 기간은 `S2S_TIMESTAMP_TOLERANCE_SEC`만큼이면 충분하다(그 범위를 벗어난 요청은 2.4의 2번 단계에서 이미 거부됨). 정리 배치(`S2S_NONCE_CLEANUP_CRON`, 기본 `*/10 * * * *`)가 `created_at`이 `NOW() - S2S_TIMESTAMP_TOLERANCE_SEC`보다 과거인 행을 물리 삭제한다 — **이 배치는 `REDIS_ENABLED` 여부와 무관하게 항상 실행된다**, Redis가 정상일 때도 장애 순간에 DB에 기록될 수 있기 때문이다.
+- **알려진 한계(fail-open의 부수 효과)**: Redis가 짧게 끊겼다 복구되는 사이(flapping) 같은 nonce의 요청1이 Redis 경로로, 재전송인 요청2가 DB 경로로 각각 착지하면 이론상 재전송이 통과할 수 있다. `S2S_TIMESTAMP_TOLERANCE_SEC`(기본 300초) 창이 좁고 이 조합 자체가 흔치 않아 감수하기로 한 트레이드오프다 — 가용성을 우선하고 이중 경로 간 완전한 일관성은 보장하지 않기로 한 설계다.
 
 ## 2.6 Secret Rotation (Grace Period 방식)
 

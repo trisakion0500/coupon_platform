@@ -98,4 +98,22 @@ export const envValidationSchema = Joi.object({
   // 사용기간이 지난 활성 캠페인 자동 종료 배치(SP_CAMPAIGN_EXPIRE, 2026-07-25) 스케줄.
   // 초 단위로 급박한 처리가 아니라 5분 기본값이면 충분하다고 판단.
   CAMPAIGN_EXPIRY_CRON: Joi.string().default('*/5 * * * *'),
+
+  // Redis 도입 1단계(2026-08-05) — REDIS_ENABLED=true일 때만 나머지 4개가 필수가 된다.
+  // 현재는 S2S nonce 재전송 방지(RedisService.setNx)의 1차 경로로만 쓰이고, 실패 시 기존
+  // DB 경로(SP_NONCE_INSERT)로 자동 폴백(fail-open)한다.
+  REDIS_ENABLED: Joi.boolean().default(false),
+  REDIS_HOST: Joi.string().when('REDIS_ENABLED', {
+    is: true,
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
+  REDIS_PORT: Joi.number().port().default(6379),
+  // 비밀번호 없는 Redis 인스턴스도 있어 REDIS_ENABLED=true여도 필수로 두지 않는다.
+  REDIS_PASSWORD: Joi.string().allow('').optional(),
+  REDIS_KEY_PREFIX: Joi.string().when('REDIS_ENABLED', {
+    is: true,
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
 });

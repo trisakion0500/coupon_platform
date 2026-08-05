@@ -1,8 +1,14 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
 import { CryptoService } from '../crypto/crypto.service';
 import { SpExecutorService } from '../database/sp-executor.service';
+import { RedisService } from '../redis/redis.service';
 import { BusinessException } from '../response/business.exception';
 import { ResultCode } from '../response/result-code.enum';
 
@@ -48,10 +54,13 @@ export interface S2sRequest extends Request {
  */
 @Injectable()
 export class S2sAuthGuard implements CanActivate {
+  private readonly logger = new Logger(S2sAuthGuard.name);
+
   constructor(
     private readonly spExecutor: SpExecutorService,
     private readonly crypto: CryptoService,
     private readonly configService: ConfigService,
+    private readonly redisService: RedisService,
   ) {}
 
   /**
@@ -77,7 +86,7 @@ export class S2sAuthGuard implements CanActivate {
     const stringToSign = this.buildStringToSign(request, headers);
     this.verifySignature(project, headers.signature, stringToSign);
 
-    // 6. Nonce 등록 (원자적 UNIQUE 제약으로 재전송 차단)
+    // 6. Nonce 등록 (Redis SET NX 우선, 장애 시 DB UNIQUE 제약 경로로 fail-open 폴백)
     await this.consumeNonce(project.project_id, headers.nonce);
 
     // 7. 통과 — 이후 처리에서 사용할 project 식별 정보를 request에 부착
@@ -184,12 +193,40 @@ export class S2sAuthGuard implements CanActivate {
   }
 
   /**
-   * `SP_NONCE_INSERT`로 nonce를 원자적으로 등록한다. SP 시스템 오류(50001)는
-   * `callProcedure`가 이미 `BusinessException(DATABASE_ERROR)`로 던지므로 여기서는
-   * 재전송 감지(10015)만 확인하면 된다.
+   * nonce를 원자적으로 등록해 재전송을 막는다. `REDIS_ENABLED=true`면 Redis
+   * `SET NX EX`를 1차 경로로 쓰고(09_AUTH_SECURITY.md 2.5), Redis 자체가 응답하지
+   * 못하면(연결 끊김 등) 예외를 잡아 기존 DB 경로(`SP_NONCE_INSERT`)로 fail-open
+   * 폴백한다 — 단, "이미 존재함"(진짜 재전송)은 Redis가 정상 응답한 결과이므로
+   * 폴백 대상이 아니라 그대로 거부해야 한다(BusinessException은 재throw).
    * @throws {BusinessException} 10015 — 이미 사용된 nonce(재전송 의심)일 때
    */
   private async consumeNonce(projectId: number, nonce: string): Promise<void> {
+    if (this.redisService.isEnabled) {
+      try {
+        const toleranceSec = this.configService.getOrThrow<number>(
+          'S2S_TIMESTAMP_TOLERANCE_SEC',
+        );
+        const acquired = await this.redisService.setNx(
+          `nonce:${projectId}:${nonce}`,
+          toleranceSec,
+        );
+        if (!acquired) {
+          throw new BusinessException(ResultCode.S2S_NONCE_REUSED);
+        }
+        return;
+      } catch (err) {
+        if (err instanceof BusinessException) {
+          throw err;
+        }
+        this.logger.warn(
+          `Redis nonce check failed, falling back to DB path: ${(err as Error).message}`,
+        );
+        // fall through — 아래 기존 DB 경로 그대로 실행
+      }
+    }
+
+    // 기존 DB 경로 — SP 시스템 오류(50001)는 `callProcedure`가 이미
+    // `BusinessException(DATABASE_ERROR)`로 던지므로 여기서는 재전송 감지(10015)만 확인한다.
     const { result } = await this.spExecutor.callProcedure('SP_NONCE_INSERT', [
       projectId,
       nonce,

@@ -100,6 +100,18 @@
 
 `API_SECRET_CLEANUP_CRON`은 `ApiSecretCleanupService`가 실제로 `node-cron` 등록까지 마쳤다(project 도메인 구현 시점, `SP_PROJECT_API_SECRET_CLEANUP` 호출). `S2S_NONCE_CLEANUP_CRON`도 `NonceCleanupService`가 실제로 `node-cron` 등록까지 마쳤다(`SP_NONCE_CLEANUP` 호출, 스케일아웃 점검 4번, 2026-07-23 — 애초 설계 시점에 계획됐던 배치가 S2S 도메인 구현 때 누락된 채 남아있다가 뒤늦게 발견돼 추가됨). `S2S_TIMESTAMP_TOLERANCE_SEC`은 `S2sAuthGuard`에서 이미 실제로 소비 중이다. 위 3개 크론 배치(`SESSION_CLEANUP_CRON`/`API_SECRET_CLEANUP_CRON`/`S2S_NONCE_CLEANUP_CRON`) 전부 `SpExecutorService.runExclusive`로 감싸져 있어 스케일아웃 환경에서 레플리카 간 중복 실행되지 않는다(`04_DEV_CONVENTIONS.md` 4.1).
 
+### Redis (선택, `REDIS_ENABLED`)
+
+| 변수                | 기본값       | 용도 |
+| ------------------- | ------------ | ---- |
+| `REDIS_ENABLED`     | `false`      | Redis 사용 여부. `true`면 `REDIS_HOST`/`REDIS_KEY_PREFIX` 2개가 필수가 된다(Joi `.when`) — `REDIS_PORT`는 기본값이 있어 원래도 필수가 아니고, `REDIS_PASSWORD`는 비밀번호 없는 인스턴스도 있어 항상 선택이다 |
+| `REDIS_HOST`        | (필수 시)    | Redis 호스트 |
+| `REDIS_PORT`        | `6379`       | Redis 포트 |
+| `REDIS_PASSWORD`    | (없음)       | Redis 비밀번호 — 비밀번호 없는 인스턴스도 있어 `REDIS_ENABLED=true`여도 필수는 아니다 |
+| `REDIS_KEY_PREFIX`  | (필수 시)    | 모든 Redis 키 앞에 붙는 네임스페이스. `RedisService`가 ioredis의 `keyPrefix` 옵션으로 넘겨 매 키마다 수동으로 이어붙일 필요가 없다 |
+
+2026-08-05 도입 1단계 — 현재는 S2S nonce 재전송 방지(`S2sAuthGuard.consumeNonce`)의 1차 경로로만 쓰인다. Redis `SET key '1' EX <S2S_TIMESTAMP_TOLERANCE_SEC> NX`가 원자적으로 성공하면 신규 nonce, 실패(키 존재)하면 재전송으로 판단해 즉시 `10015`를 거부한다(DB로 폴백하지 않음 — 정상 응답이라 폴백 대상이 아님). Redis 커맨드 자체가 실패하면(연결 끊김 등) 예외를 잡아 기존 DB 경로(`SP_NONCE_INSERT`, `project_api_nonce` 테이블)로 fail-open 폴백한다 — 이 fail-open 설계 때문에 `S2S_NONCE_CLEANUP_CRON`/`NonceCleanupService`는 Redis 활성화 여부와 무관하게 계속 실행된다(Redis 장애 중엔 여전히 DB에 기록되므로). `user_session`/유저 단위 rate limit으로의 확장은 다음 단계로 남아있다(`README.md` "향후 개선사항" 참고).
+
 ### CORS / 보안 헤더
 
 | 변수                  | 기본값 | 용도 |
