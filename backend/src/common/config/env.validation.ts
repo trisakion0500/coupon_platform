@@ -141,4 +141,11 @@ export const envValidationSchema = Joi.object({
       'number.greater':
         'SESSION_CACHE_GENERATION_TTL_SEC must be greater than SESSION_CACHE_TTL_SEC (counter TTL must outlive the cache TTL it invalidates)',
     }),
+
+  // log_coupon_rate_limit 적재용 api_key -> {project_id, company_id} 캐시(ProjectIdentityCacheService,
+  // 2026-08-05) TTL. project.api_key/company_id는 생성 이후 절대 안 바뀌는 값이라(재발급/이관
+  // 기능 없음) 만료 자체가 정합성 문제는 아니고, 그저 만료되면 다음 조회 때 SP 폴백으로 한 번 더
+  // 채워지는 것뿐이라 길게 잡는다(기본 30일). REDIS_ENABLED=false면 이 캐시 자체를 안 쓰고
+  // 매번 SP_PROJECT_GET_IDENTITY_BY_API_KEY로 조회한다(429는 원래 드문 이벤트라 무해).
+  PROJECT_API_KEY_CACHE_TTL_SEC: Joi.number().integer().min(1).default(2592000),
 });

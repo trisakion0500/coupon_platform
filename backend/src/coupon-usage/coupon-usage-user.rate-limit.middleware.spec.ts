@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import type { NextFunction, Request, Response } from 'express';
 import { RedisService } from '../common/redis/redis.service';
 import { CouponUsageUserRateLimitMiddleware } from './coupon-usage-user.rate-limit.middleware';
+import { RateLimitLogService } from './rate-limit-log.service';
 
 function buildConfigService(): ConfigService {
   const values: Record<string, number> = {
@@ -34,6 +35,7 @@ describe('CouponUsageUserRateLimitMiddleware', () => {
   let redisService: jest.Mocked<
     Pick<RedisService, 'get' | 'incrWithExpire'>
   > & { isEnabled: boolean };
+  let rateLimitLog: jest.Mocked<Pick<RateLimitLogService, 'record'>>;
   let middleware: CouponUsageUserRateLimitMiddleware;
   let next: jest.MockedFunction<NextFunction>;
 
@@ -43,9 +45,11 @@ describe('CouponUsageUserRateLimitMiddleware', () => {
       get: jest.fn().mockResolvedValue(null),
       incrWithExpire: jest.fn().mockResolvedValue(1),
     };
+    rateLimitLog = { record: jest.fn().mockResolvedValue(undefined) };
     middleware = new CouponUsageUserRateLimitMiddleware(
       redisService as unknown as RedisService,
       buildConfigService(),
+      rateLimitLog as unknown as RateLimitLogService,
     );
     next = jest.fn();
   });
@@ -91,11 +95,12 @@ describe('CouponUsageUserRateLimitMiddleware', () => {
     expect(statusSpy).not.toHaveBeenCalled();
   });
 
-  it('한도를 넘으면 429 + Retry-After 헤더로 거부한다', async () => {
+  it('한도를 넘으면 429 + Retry-After 헤더로 거부하고 레이트리밋 로그를 남긴다', async () => {
     redisService.incrWithExpire.mockResolvedValue(2); // maxRequests=1을 이미 초과
     const req = {
       header: jest.fn().mockReturnValue('api-key-1'),
       body: { game_user_id: 'player-1' },
+      path: '/v1/coupons/CODE1/reserve',
       ip: '127.0.0.1',
     } as unknown as Request;
     const { response, statusSpy, setHeaderSpy, jsonSpy } = buildResponse();
@@ -111,6 +116,31 @@ describe('CouponUsageUserRateLimitMiddleware', () => {
     expect(jsonSpy).toHaveBeenCalledWith(
       expect.objectContaining({ result: 40001 }),
     );
+    expect(rateLimitLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limitScope: 'USER',
+        action: 'RESERVE',
+        apiKey: 'api-key-1',
+        gameUserId: 'player-1',
+        callerIp: '127.0.0.1',
+      }),
+    );
+    const [[recordedArgs]] = rateLimitLog.record.mock.calls;
+    expect(recordedArgs.retryAfterSec).toBeGreaterThan(0);
+  });
+
+  it('한도 이내면 레이트리밋 로그를 남기지 않는다', async () => {
+    const req = {
+      header: jest.fn().mockReturnValue('api-key-1'),
+      body: { game_user_id: 'player-1' },
+      path: '/v1/coupons/CODE1/reserve',
+      ip: '127.0.0.1',
+    } as unknown as Request;
+    const { response } = buildResponse();
+
+    await middleware.use(req, response, next);
+
+    expect(rateLimitLog.record).not.toHaveBeenCalled();
   });
 
   it('X-API-Key 헤더가 없으면 IP로 폴백해 키를 만든다', async () => {

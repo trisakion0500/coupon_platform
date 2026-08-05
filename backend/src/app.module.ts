@@ -12,6 +12,7 @@ import { DatabaseModule } from './common/database/database.module';
 import { LogDatabaseModule } from './common/database/log-database.module';
 import { RequestResponseLoggingMiddleware } from './common/logging/request-response-logging.middleware';
 import { NonceCleanupModule } from './common/nonce-cleanup/nonce-cleanup.module';
+import { ProjectIdentityCacheModule } from './common/project-identity-cache/project-identity-cache.module';
 import { RedisModule } from './common/redis/redis.module';
 import { SessionCacheModule } from './common/session-cache/session-cache.module';
 import { SessionCleanupModule } from './common/session-cleanup/session-cleanup.module';
@@ -40,6 +41,7 @@ import { UserRoleModule } from './user-role/user-role.module';
     LogDatabaseModule,
     RedisModule,
     SessionCacheModule,
+    ProjectIdentityCacheModule,
     AuditLogModule,
     SessionCleanupModule,
     ApiSecretCleanupModule,

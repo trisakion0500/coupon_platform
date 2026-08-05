@@ -173,6 +173,19 @@ erDiagram
         DATETIME    created_at
     }
 
+    log_coupon_rate_limit {
+        BIGINT      idx                 PK
+        TINYINT     limit_scope         "10:PROJECT, 20:USER"
+        TINYINT     action              "10:RESERVE, 20:CONFIRM"
+        VARCHAR64   api_key             "원문, 마스킹없음(식별자성격)"
+        BIGINT      project_id          "FK없음, NULL허용(미해석)"
+        BIGINT      company_id          "FK없음, NULL허용(미해석)"
+        VARCHAR100  game_user_id        "USER스코프에서만, FK없음"
+        SMALLINT    retry_after_sec
+        VARCHAR45   caller_ip           "NULL허용"
+        DATETIME    created_at
+    }
+
     project_api_nonce {
         BIGINT      project_api_nonce_id    PK
         BIGINT      project_id              FK
@@ -206,6 +219,7 @@ erDiagram
 | `log_audit` | 전체 (`company_id`/`project_id`/`created_by` 포함) | Append-Only 로그 테이블 원칙 — FK 없음. 실 운영 환경에서 메인 서비스 DB와 별도인 VM/DB에 둔다는 확정 전제([04_DEV_CONVENTIONS.md](./04_DEV_CONVENTIONS.md) 1장 참고) |
 | `log_coupon_campaign` | 전체 (`coupon_campaign_id`/`project_id`/`created_by` 포함) | 위와 동일한 로그 원칙 — 원본 스냅샷이라 원본 삭제/변경과 무관하게 값 보존 필요 |
 | `log_coupon_use` | 전체 (`project_id`/`coupon_campaign_id`/`created_by` 포함) | 위와 동일. `code_value`도 FK 아님 — 존재하지 않는 코드로 시도한 요청도 그대로 기록해야 하므로 |
+| `log_coupon_rate_limit` | 전체 (`project_id`/`company_id` 포함) | 위와 동일. `project_id`/`company_id`는 리젝트 시점엔 아직 `S2sAuthGuard` 검증 전이라 캐시/SP로 해석한 값이고, 해석 실패(존재하지 않는 api_key)면 NULL로 남는다 — FK를 걸 수 없는 이유이기도 함 |
 
 ## 비정규화 FK 컬럼
 
@@ -236,3 +250,5 @@ erDiagram
 | log_coupon_campaign | action | 10:CREATE / 20:UPDATE / 30:STATUS_CHANGE / 40:APPROVE / 50:REJECT |
 | log_coupon_use | action | 10:RESERVE / 20:CONFIRM |
 | log_coupon_use | result_type | 0:성공 / 10:코드없음 / 20:이미소모·중지 / 30:캠페인 사용불가 / 40:사용자한도초과 / 50:소모기록없음(CONFIRM 전용) — API result 코드 매핑은 [20_COUPON_USAGE_API.md](./20_COUPON_USAGE_API.md) 4장 참고 |
+| log_coupon_rate_limit | limit_scope | 10:PROJECT / 20:USER (회사 단위는 아직 미구현이라 코드값 미예약) |
+| log_coupon_rate_limit | action | 10:RESERVE / 20:CONFIRM |

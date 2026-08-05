@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import type { NextFunction, Request, Response } from 'express';
 import { RedisService } from '../common/redis/redis.service';
 import { ResultCode } from '../common/response/result-code.enum';
+import { RateLimitLogService } from './rate-limit-log.service';
 import { SlidingWindowCounterLimiter } from './sliding-window-counter-limiter';
 
 /**
@@ -31,6 +32,7 @@ export class CouponUsageUserRateLimitMiddleware implements NestMiddleware {
   constructor(
     private readonly redisService: RedisService,
     configService: ConfigService,
+    private readonly rateLimitLog: RateLimitLogService,
   ) {
     this.limiter = new SlidingWindowCounterLimiter(
       redisService,
@@ -64,6 +66,14 @@ export class CouponUsageUserRateLimitMiddleware implements NestMiddleware {
       res.status(429).json({
         result: ResultCode.RATE_LIMIT_EXCEEDED,
         message: 'Too many requests',
+      });
+      void this.rateLimitLog.record({
+        limitScope: 'USER',
+        action: req.path.endsWith('/reserve') ? 'RESERVE' : 'CONFIRM',
+        apiKey: apiKeyOrIp,
+        gameUserId,
+        retryAfterSec,
+        callerIp: req.ip ?? null,
       });
       return;
     }

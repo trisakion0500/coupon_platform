@@ -4,7 +4,7 @@
 
 Coupon Platform 데이터베이스 스키마 정의 문서
 
-본 문서는 현재 확정된 운영 스키마(company/project/user/user_role/user_session), 쿠폰 도메인 스키마(coupon_campaign/coupon_code/coupon_code_usage), 로그 스키마(log_audit/log_coupon_campaign/log_coupon_use)를 정의한다.
+본 문서는 현재 확정된 운영 스키마(company/project/user/user_role/user_session), 쿠폰 도메인 스키마(coupon_campaign/coupon_code/coupon_code_usage), 로그 스키마(log_audit/log_coupon_campaign/log_coupon_use/log_coupon_rate_limit)를 정의한다.
 
 ---
 
@@ -286,6 +286,37 @@ S2S(게임서버 → 쿠폰서버) HMAC 요청 서명의 재전송(replay) 방�
 - 로그 테이블이 아니라 실시간 보안 검증용 기능 테이블이라 `project_id`에 FK를 건다(로그 테이블의 FK 미적용 원칙과 다름)
 - 보관 기간이 `S2S_TIMESTAMP_TOLERANCE_SEC`(기본 300초)만 필요해 `log_*` 테이블과 달리 장기 보관하지 않음 — 그 범위를 벗어난 요청은 Timestamp 검증 단계에서 이미 거부되므로 오래된 nonce는 재사용 위협이 없음
 - 정리 배치(`S2S_NONCE_CLEANUP_CRON`, 기본 10분 간격)가 `created_at`이 허용범위보다 과거인 행을 물리 삭제 — 세션 정리(1일 1회)보다 훨씬 잦은 이유는 reserve/confirm 호출마다 1행씩 쌓여 테이블이 빠르게 커질 수 있기 때문
+
+---
+
+## 13. log_coupon_rate_limit
+
+쿠폰 사용(reserve/confirm) 레이트리밋 초과(429) 이력 — Append-Only (2026-08-05 도입, [09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 2.8.3 참고)
+
+### 특징
+
+- 프로젝트 단위(`CouponUsageRateLimitMiddleware`, in-memory 토큰버킷)/유저 단위(`CouponUsageUserRateLimitMiddleware`, Redis 슬라이딩 윈도우 카운터) 두 미들웨어가 429를 반환할 때마다 fire-and-forget으로 기록
+- `limit_scope`(10:PROJECT, 20:USER)로 두 레이어를 구분 — 회사(company) 단위 리미터는 아직 미구현이라 코드값을 미리 예약하지 않음(TINYINT라 나중에 값을 추가해도 마이그레이션 불필요)
+- `api_key`는 마스킹 없이 원문 저장 — `project.api_key`는 시크릿이 아니라 식별자 성격(HMAC 서명에 실제로 쓰이는 건 `api_secret`뿐)
+- `project_id`/`company_id`(NULL 허용, FK 없음) — 리젝트 시점엔 아직 `S2sAuthGuard` 서명 검증 전이라 원문 `api_key`뿐이라, `ProjectIdentityCacheService`가 Redis 캐시(`project:apikey:{api_key}`, `PROJECT_API_KEY_CACHE_TTL_SEC` 기본 30일) 우선 조회 후 미스 시 `SP_PROJECT_GET_IDENTITY_BY_API_KEY`로 폴백해서 채운다. 존재하지 않는 api_key(스캐닝성 트래픽 등)는 끝내 NULL로 남는다 — 회사 단위 집계를 이 테이블만으로 `GROUP BY company_id` 가능하게 하기 위해 `project_id`뿐 아니라 `company_id`도 비정규화
+- `game_user_id`는 USER 스코프에서만 값이 있고(요청 바디 원문 그대로, 조회 불필요) PROJECT 스코프는 항상 NULL
+- `caller_ip`(NULL 허용) — `log_coupon_use.caller_ip`와 동일 성격
+- 물리 수정 및 삭제를 허용하지 않음(Append-Only)
+- 전체 컬럼 FK 없음 — 로그 원칙
+
+### 리밋 종류
+
+| 값  | 설명    |
+| --- | ------- |
+| 10  | PROJECT |
+| 20  | USER    |
+
+### 요청 유형
+
+| 값  | 설명    |
+| --- | ------- |
+| 10  | RESERVE |
+| 20  | CONFIRM |
 
 ---
 

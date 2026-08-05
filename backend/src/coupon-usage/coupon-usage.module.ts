@@ -9,6 +9,7 @@ import { CouponUsageUserRateLimitMiddleware } from './coupon-usage-user.rate-lim
 import { CouponUsageController } from './coupon-usage.controller';
 import { CouponUsageRateLimitMiddleware } from './coupon-usage.rate-limit.middleware';
 import { CouponUsageService } from './coupon-usage.service';
+import { RateLimitLogService } from './rate-limit-log.service';
 
 /**
  * 20_COUPON_USAGE_API.md 2~3장 도메인 모듈 — reserve/confirm + 미컨슘 조회 3개 S2S 엔드포인트.
@@ -18,7 +19,7 @@ import { CouponUsageService } from './coupon-usage.service';
 @Module({
   imports: [S2sAuthModule],
   controllers: [CouponUsageController],
-  providers: [CouponUsageService],
+  providers: [CouponUsageService, RateLimitLogService],
 })
 export class CouponUsageModule implements NestModule {
   /**

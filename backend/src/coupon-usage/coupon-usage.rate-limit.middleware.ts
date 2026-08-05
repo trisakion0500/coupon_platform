@@ -2,6 +2,7 @@ import { Injectable, NestMiddleware } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { NextFunction, Request, Response } from 'express';
 import { ResultCode } from '../common/response/result-code.enum';
+import { RateLimitLogService } from './rate-limit-log.service';
 import { TokenBucketLimiter } from './token-bucket-limiter';
 
 /**
@@ -30,7 +31,10 @@ import { TokenBucketLimiter } from './token-bucket-limiter';
 export class CouponUsageRateLimitMiddleware implements NestMiddleware {
   private readonly limiter: TokenBucketLimiter;
 
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly rateLimitLog: RateLimitLogService,
+  ) {
     this.limiter = new TokenBucketLimiter(
       configService.getOrThrow<number>(
         'COUPON_USAGE_RATE_LIMIT_BUCKET_CAPACITY',
@@ -50,6 +54,14 @@ export class CouponUsageRateLimitMiddleware implements NestMiddleware {
       res.status(429).json({
         result: ResultCode.RATE_LIMIT_EXCEEDED,
         message: 'Too many requests',
+      });
+      void this.rateLimitLog.record({
+        limitScope: 'PROJECT',
+        action: req.path.endsWith('/reserve') ? 'RESERVE' : 'CONFIRM',
+        apiKey: key,
+        gameUserId: null,
+        retryAfterSec,
+        callerIp: req.ip ?? null,
       });
       return;
     }

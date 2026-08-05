@@ -292,7 +292,19 @@ URL 패턴 : /v1/coupons/reserve, /v1/coupons/confirm 등
 
 `game_user_id`가 요청 바디에 없으면(형식오류 등) 이 레이어를 건너뛴다 — 서비스 레이어가 곧 `30001`로 거부하므로 이중 처리가 불필요하다. 카운트는 거부된 시도도 포함해 항상 먼저 증가시킨다(공격자가 한도 바로 아래에서 무한정 버티는 것을 막기 위한 표준 구현 관례).
 
-**미구현(TODO)**: 카운터 초과 시 운영 로그(예: `logs/s2s-failure.log`류 전용 파일) 관측 기능, 회사(company) 단위 리미터(미들웨어 시점엔 `company_id`를 알 수 없어 `S2sAuthGuard` 인증 이후로 걸어야 하는 등 별도 설계가 필요해 이연) — `README.md` "향후 개선사항" 참고.
+### 2.8.3 초과(429) 이력 로깅 — `log_coupon_rate_limit` (2026-08-05 도입)
+
+2.8.1/2.8.2 두 레이어 모두 리젝트(429)할 때마다 `log_coupon_rate_limit`(로그 DB, [06_DATABASE_SCHEMA.md](./06_DATABASE_SCHEMA.md) 13장)에 fire-and-forget으로 기록한다 — 429 응답 자체는 이 기록을 기다리지 않는다.
+
+```text
+컬럼   : limit_scope(10:PROJECT/20:USER), action(10:RESERVE/20:CONFIRM), api_key, project_id, company_id,
+         game_user_id(USER 스코프에서만), retry_after_sec, caller_ip, created_at
+기록시점: 429를 반환하는 그 순간(CouponUsageRateLimitMiddleware/CouponUsageUserRateLimitMiddleware)
+```
+
+**`project_id`/`company_id` 해석**: 두 미들웨어 모두 `S2sAuthGuard`보다 먼저 실행되어 이 시점엔 아직 검증된 `project_id`가 없고 `X-API-Key` 원문 헤더값뿐이다. `ProjectIdentityCacheService`가 Redis 캐시(`project:apikey:{api_key}`, `PROJECT_API_KEY_CACHE_TTL_SEC` 기본 30일)를 먼저 조회하고, 미스면 `SP_PROJECT_GET_IDENTITY_BY_API_KEY`(시크릿을 다루지 않는 좁은 목적 SP)로 폴백한다. `project.api_key`/`company_id`는 프로젝트 생성 이후 절대 안 바뀌는 값(재발급/회사이관 기능 없음)이라 캐시 무효화 로직 자체가 불필요하고, `ProjectService.create()`가 성공 직후 write-through로 채워둬 대부분의 조회는 SP 호출 없이 캐시만으로 끝난다. 존재하지 않는 api_key(스캐닝성 트래픽 등)는 끝내 해석되지 않아 `project_id`/`company_id`가 NULL로 남는다 — 이는 결함이 아니라 의도된 동작이다(레이트리미터가 `S2sAuthGuard`보다 먼저 실행되는 구조상 미인증 트래픽도 리미터에 도달할 수 있기 때문). `REDIS_ENABLED=false`면 캐시 없이 매번 SP로 조회한다(429는 원래 드문 이벤트라 무해).
+
+**미구현(TODO)**: 회사(company) 단위 리미터(미들웨어 시점엔 `company_id`를 알 수 없어 `S2sAuthGuard` 인증 이후로 걸어야 하는 등 별도 설계가 필요해 이연), 카운터 초과 시 실시간 알람(현재는 DB 기록만) — `README.md` "향후 개선사항" 참고.
 
 ---
 

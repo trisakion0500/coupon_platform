@@ -4,6 +4,7 @@ import { AuditAction } from '../common/audit-log/audit-action.enum';
 import { AuditLogService } from '../common/audit-log/audit-log.service';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { SpExecutorService } from '../common/database/sp-executor.service';
+import { ProjectIdentityCacheService } from '../common/project-identity-cache/project-identity-cache.service';
 import { BusinessException } from '../common/response/business.exception';
 import {
   buildPaginatedResult,
@@ -124,6 +125,7 @@ export class ProjectService {
     private readonly spExecutor: SpExecutorService,
     private readonly crypto: CryptoService,
     private readonly auditLog: AuditLogService,
+    private readonly projectIdentityCache: ProjectIdentityCacheService,
   ) {}
 
   async create(
@@ -172,6 +174,13 @@ export class ProjectService {
       createdBy: requesterUserId,
       createdByName: row.requester_name,
     });
+    // log_coupon_rate_limit 적재용 api_key->{project_id,company_id} write-through 캐시
+    // (ProjectIdentityCacheService) — 실패해도 무시, 첫 캐시미스 때 SP 폴백으로 자연 복구된다.
+    void this.projectIdentityCache.cacheIdentity(
+      row.api_key,
+      row.project_id,
+      row.company_id,
+    );
 
     return {
       project_id: row.project_id,

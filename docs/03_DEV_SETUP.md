@@ -179,6 +179,13 @@ REDIS_KEY_PREFIX=cp:
 # JWT 세션 검증(jti) 읽기 캐시 — 카운터 TTL은 캐시 TTL보다 반드시 커야 한다(부팅 시 검증됨)
 SESSION_CACHE_TTL_SEC=60
 SESSION_CACHE_GENERATION_TTL_SEC=120
+
+# reserve/confirm 유저(game_user_id) 단위 rate limit — REDIS_ENABLED=false면 이 레이어는 완전히 스킵된다
+COUPON_USAGE_USER_RATE_LIMIT_WINDOW_SEC=60
+COUPON_USAGE_USER_RATE_LIMIT_MAX=30
+
+# 레이트리밋 초과(429) 이력 로깅(log_coupon_rate_limit)용 api_key->{project_id,company_id} 캐시 TTL(초, 기본 30일)
+PROJECT_API_KEY_CACHE_TTL_SEC=2592000
 ```
 
 `ENCRYPTION_KEY`는 `phone_number`/`project.api_secret`를 AES-256-CBC로 암호화하는 데 쓰는 32바이트
