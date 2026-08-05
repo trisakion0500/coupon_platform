@@ -63,7 +63,7 @@ describe('SessionCacheService', () => {
         .mockResolvedValueOnce(
           JSON.stringify({ userId: 1, companyId: 2, generation: 0 }),
         )
-        .mockResolvedValueOnce(null); // session-gen:1 missing -> defaults to 0
+        .mockResolvedValueOnce(null); // session:gen:1 missing -> defaults to 0
 
       await expect(service.getCachedSession('jti-1')).resolves.toEqual({
         userId: 1,
@@ -96,7 +96,7 @@ describe('SessionCacheService', () => {
       await service.cacheSession('jti-1', 1, 2);
 
       expect(redis.set).toHaveBeenCalledWith(
-        'session:jti-1',
+        'session:jti:jti-1',
         JSON.stringify({ userId: 1, companyId: 2, generation: 3 }),
         60,
       );
@@ -111,11 +111,11 @@ describe('SessionCacheService', () => {
       await service.cacheSession('jti-1', 1, 2);
 
       expect(redis.set).toHaveBeenCalledWith(
-        'session:jti-1',
+        'session:jti:jti-1',
         JSON.stringify({ userId: 1, companyId: 2, generation: 3 }),
         60,
       );
-      expect(redis.del).toHaveBeenCalledWith('session:jti-1');
+      expect(redis.del).toHaveBeenCalledWith('session:jti:jti-1');
     });
 
     it('swallows Redis errors (best-effort write)', async () => {
@@ -129,7 +129,7 @@ describe('SessionCacheService', () => {
   describe('evictJti', () => {
     it('deletes the exact session key', async () => {
       await service.evictJti('jti-1');
-      expect(redis.del).toHaveBeenCalledWith('session:jti-1');
+      expect(redis.del).toHaveBeenCalledWith('session:jti:jti-1');
     });
 
     it('swallows Redis errors', async () => {
@@ -142,7 +142,7 @@ describe('SessionCacheService', () => {
     it('bumps the generation counter with the configured TTL', async () => {
       redis.incrWithExpire.mockResolvedValueOnce(1);
       await service.invalidateUser(42);
-      expect(redis.incrWithExpire).toHaveBeenCalledWith('session-gen:42', 120);
+      expect(redis.incrWithExpire).toHaveBeenCalledWith('session:gen:42', 120);
     });
 
     it('swallows Redis errors (logged, not thrown)', async () => {

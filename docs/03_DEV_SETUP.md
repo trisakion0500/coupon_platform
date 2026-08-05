@@ -168,12 +168,17 @@ CODE_GENERATION_STALE_MONITOR_CRON=*/5 * * * *
 CAMPAIGN_EXPIRY_CRON=*/5 * * * *
 
 # Redis(선택) — 아래처럼 false로 두면 Redis 없이도 그대로 개발 가능하다(S2S nonce 재전송 방지가
-# DB 전용 경로로 동작). REDIS_ENABLED=true로 켜려면 REDIS_HOST/REDIS_KEY_PREFIX가 필수다.
+# DB 전용 경로로, JWT 세션 검증이 순수 DB 경로로 동작). REDIS_ENABLED=true로 켜려면
+# REDIS_HOST/REDIS_KEY_PREFIX가 필수다.
 REDIS_ENABLED=false
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 REDIS_PASSWORD=
 REDIS_KEY_PREFIX=cp:
+
+# JWT 세션 검증(jti) 읽기 캐시 — 카운터 TTL은 캐시 TTL보다 반드시 커야 한다(부팅 시 검증됨)
+SESSION_CACHE_TTL_SEC=60
+SESSION_CACHE_GENERATION_TTL_SEC=120
 ```
 
 `ENCRYPTION_KEY`는 `phone_number`/`project.api_secret`를 AES-256-CBC로 암호화하는 데 쓰는 32바이트

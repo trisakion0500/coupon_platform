@@ -9,6 +9,8 @@
 --        [FK 미적용 의도] user_id 에 대한 FK 를 적용하지 않음
 --                        세션 조회는 access_token_jti 기준으로 수행하므로
 --                        MySQL → Redis 저장소 전환 시 인증 로직 수정 없이 확장 가능하도록 설계
+--                        2026-08-05: 저장소 이관이 아니라 SessionCacheService 읽기 캐시로
+--                        실제 구현됨(이 테이블은 여전히 source of truth) - 09_AUTH_SECURITY.md 1.3.1
 -- ------------------------------------------------------------------------------------------------------------ --
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `user_session`;

@@ -155,11 +155,11 @@ export class SessionCacheService {
   }
 
   private sessionKey(jti: string): string {
-    return `session:${jti}`;
+    return `session:jti:${jti}`;
   }
 
   private generationKey(userId: number): string {
-    return `session-gen:${userId}`;
+    return `session:gen:${userId}`;
   }
 
   private cacheTtlSec(): number {

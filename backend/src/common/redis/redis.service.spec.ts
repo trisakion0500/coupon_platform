@@ -167,18 +167,18 @@ describe('RedisService', () => {
         [null, 1],
       ]);
 
-      await expect(service.incrWithExpire('session-gen:1', 120)).resolves.toBe(
+      await expect(service.incrWithExpire('session:gen:1', 120)).resolves.toBe(
         3,
       );
       expect(clientInstance.multi).toHaveBeenCalled();
-      expect(multiChain.incr).toHaveBeenCalledWith('session-gen:1');
-      expect(multiChain.expire).toHaveBeenCalledWith('session-gen:1', 120);
+      expect(multiChain.incr).toHaveBeenCalledWith('session:gen:1');
+      expect(multiChain.expire).toHaveBeenCalledWith('session:gen:1', 120);
     });
 
     it('incrWithExpire throws if the pipeline itself fails to execute', async () => {
       multiChain.exec.mockResolvedValueOnce(null);
       await expect(
-        service.incrWithExpire('session-gen:1', 120),
+        service.incrWithExpire('session:gen:1', 120),
       ).rejects.toThrow('incrWithExpire pipeline failed');
     });
 
@@ -188,7 +188,7 @@ describe('RedisService', () => {
         [null, 1],
       ]);
       await expect(
-        service.incrWithExpire('session-gen:1', 120),
+        service.incrWithExpire('session:gen:1', 120),
       ).rejects.toThrow('WRONGTYPE');
     });
 

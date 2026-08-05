@@ -109,7 +109,7 @@ SUPER_ADMIN은 어떤 프로젝트에 연결되어도 무관함 (전체 접근 �
 
 - `access_token_jti`(JWT의 jti)를 UNIQUE 키로 관리
 - `refresh_token_hash` — refresh token 원문은 저장하지 않고 해시값만 저장
-- `user_id`에 FK를 의도적으로 적용하지 않음 — 세션 조회가 `access_token_jti` 기준으로 이뤄져, MySQL → Redis 저장소 전환 시 인증 로직 수정 없이 확장 가능하도록 설계
+- `user_id`에 FK를 의도적으로 적용하지 않음 — 세션 조회가 `access_token_jti` 기준으로 이뤄져, MySQL → Redis 저장소 전환 시 인증 로직 수정 없이 확장 가능하도록 설계(2026-08-05: 저장소 자체 이관은 아니고, 이 테이블은 여전히 source of truth로 남긴 채 `SessionCacheService`가 이 조회를 읽기 캐시로 감싸는 형태로 실제 구현됨 — `09_AUTH_SECURITY.md` 1.3.1)
 - `user.status`와 별도로 관리되는 세션 단위 상태
 
 ### 상태

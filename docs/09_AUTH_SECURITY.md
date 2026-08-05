@@ -52,8 +52,8 @@ Refresh Token 만료시간 : 7일  (JWT_REFRESH_EXPIRES_IN 기본값)
 
 `REDIS_ENABLED=true`면 1.5의 3번째 단계(Session 확인, `SP_USER_SESSION_VALIDATE_BY_JTI` 호출)를 `SessionCacheService`가 캐싱한다 — DB는 여전히 source of truth이고 Redis는 순수 읽기 캐시다(2.5의 nonce처럼 "Redis 우선/DB 폴백" 구조가 아니다). 목적은 매 인증된 요청마다 도는 이 DB 조회의 부하를 줄이는 것.
 
-- **캐시 대상**: 검증 성공(`user_status=1`) 케이스만 `session:{jti}` 키에 `{userId, companyId, generation}`으로 저장(TTL=`SESSION_CACHE_TTL_SEC`, 기본 60초). 실패 케이스(0/2/3)는 캐싱하지 않는다.
-- **무효화 — 유저 단위 generation 카운터**: jti별 캐시를 개별 삭제하는 대신, `session-gen:{userId}` 카운터(TTL=`SESSION_CACHE_GENERATION_TTL_SEC`, 기본 120초)를 둬서 로그아웃/비밀번호변경(변경·초기화)/계정정지 시 이 카운터만 올린다(`SessionCacheService.invalidateUser`). 캐시 조회 시 "캐시된 generation == 현재 generation"이 같을 때만 히트로 인정 — 카운터 하나만 올리면 그 유저의 캐시된 세션이 몇 개(여러 기기)든 다음 조회 시점에 한꺼번에 미스로 전환된다.
+- **캐시 대상**: 검증 성공(`user_status=1`) 케이스만 `session:jti:{jti}` 키에 `{userId, companyId, generation}`으로 저장(TTL=`SESSION_CACHE_TTL_SEC`, 기본 60초). 실패 케이스(0/2/3)는 캐싱하지 않는다.
+- **무효화 — 유저 단위 generation 카운터**: jti별 캐시를 개별 삭제하는 대신, `session:gen:{userId}` 카운터(TTL=`SESSION_CACHE_GENERATION_TTL_SEC`, 기본 120초)를 둬서 로그아웃/비밀번호변경(변경·초기화)/계정정지 시 이 카운터만 올린다(`SessionCacheService.invalidateUser`). 캐시 조회 시 "캐시된 generation == 현재 generation"이 같을 때만 히트로 인정 — 카운터 하나만 올리면 그 유저의 캐시된 세션이 몇 개(여러 기기)든 다음 조회 시점에 한꺼번에 미스로 전환된다. `session:jti:{jti}`(캐시 엔트리)와 `session:gen:{userId}`(카운터)는 같은 `session:` 트리 아래 종류별로 나뉘어 있지만, 캐시 엔트리에 담긴 `generation` 필드는 write 시점의 스냅샷일 뿐 이 카운터 자체가 아니다 — 무효화는 항상 이 카운터 하나만 갱신하고, 모든 jti 엔트리가 조회 때마다 자기 스냅샷을 이 카운터와 비교한다.
 - **카운터 TTL이 캐시 TTL보다 반드시 커야 한다**: 카운터가 캐시보다 먼저 만료돼 0으로 리셋되면, 아직 살아있는 옛 캐시 항목(리셋 이전 값으로 캐싱된)의 generation과 우연히 일치해버려 무효화가 원상복구되는 보안 구멍이 생긴다. `env.validation.ts`가 부팅 시점에 `SESSION_CACHE_GENERATION_TTL_SEC > SESSION_CACHE_TTL_SEC`를 강제해, 이 관계를 어긴 설정은 서버가 뜨지 않는다.
 - **`refresh()`(jti 회전)는 generation이 아니라 정밀 삭제**: 재발급 시 이전 jti는 그 즉시 무효여야 하는데(11_AUTH_API.md 7장), generation bump는 그 유저의 다른 기기 세션까지 전부 캐시 미스를 만들어 불필요하게 넓다 — 대신 `SP_USER_SESSION_GET_BY_REFRESH_HASH`가 회전 전 `access_token_jti`를 함께 반환하도록 해, `evictJti`로 그 jti의 캐시 항목 하나만 정밀 삭제한다.
 - Redis 미스/에러는 항상 안전하게 기존 DB 경로로 떨어진다 — 캐시가 통째로 죽어도(예: `REDIS_ENABLED=false`) 인증 자체는 순수 DB 경로로 완전히 동일하게 동작한다.

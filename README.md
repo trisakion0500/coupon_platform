@@ -170,7 +170,8 @@ coupon_platform/
   - ✅ Coupon Usage History / Campaign Change Log / Coupon Use Log 조회 API
   - ✅ Coupon Usage API(S2S) — reserve / confirm(즉시확정 모델) / 미컨슘 조회 + `log_coupon_use` 적재
   - ✅ 스케일아웃(수평 확장) 대응 — graceful shutdown, DB 커넥션 풀 크기 env화, 크론 배치 중복실행 방지(`runExclusive`), nonce 정리 배치, 정체 코드생성 감지 모니터링
-  - ✅ Redis 도입 1단계 — 공용 `RedisModule`(ioredis, `REDIS_ENABLED`) + S2S nonce 재전송 방지의 1차 경로(Redis 장애 시 기존 DB 경로로 fail-open 폴백). 나머지 대상(유저 단위 rate limit/`user_session`)은 위 "향후 개선사항" 참고
+  - ✅ Redis 도입 1단계 — 공용 `RedisModule`(ioredis, `REDIS_ENABLED`) + S2S nonce 재전송 방지의 1차 경로(Redis 장애 시 기존 DB 경로로 fail-open 폴백)
+  - ✅ Redis 도입 2단계 — JWT 세션 검증(jti) 읽기 캐시(`SessionCacheService`, DB가 항상 source of truth). 로그아웃/비밀번호변경/계정정지 시 유저 단위 generation 카운터로 일괄 무효화, `refresh()`는 이전 jti만 정밀 삭제. 동시성 감사로 발견한 "DB 검증 성공~캐시 write 사이" 레이스는 write 직후 재확인으로 완화(완전 폐쇄는 구조적으로 불가능 — `09_AUTH_SECURITY.md` 1.3.1). 남은 대상(유저 단위 rate limit)은 아래 "향후 개선사항" 참고
   - ✅ 사용기간 만료 캠페인 자동 종료 — 활성+승인완료(또는 승인불요) 상태에서 `campaign_end`가 지나면 배치가 `status=4`(종료)로 전환(`CampaignExpiryService`, 종료 후엔 예외 없이 모든 수정 차단)
   - ✅ 운영 보완 — 로그 파일 일별 로테이션 + ERROR 전용 분리, 클러스터(다중 인스턴스) 구동 대비 로그 파일명 인스턴스 suffix(`INSTANCE_ID`/`NODE_APP_INSTANCE`), S2S 호출자 IP 기록, 전역 API 실행 타임아웃, reserve/confirm 프로젝트 단위 rate limiter(토큰 버킷)
   - ✅ Swagger 문서화 — `nest-cli.json`에 swagger CLI 플러그인(`classValidatorShim`) 등록 + 전체 요청 DTO(32개)에 `@ApiProperty()`/`@ApiPropertyOptional()`(설명/예시 포함) 추가. 응답 스키마도 문서화 완료 — 응답 타입(순수 TS interface)을 데코레이터 붙은 클래스로 옮기고, `{result, data}` 응답 봉투까지 그대로 반영하는 공용 데코레이터(`ApiEnvelopedResponse`/`ApiEnvelopedPaginatedResponse`/`ApiEnvelopedEmptyResponse`)를 신설해 전체 엔드포인트에 연결. `SWAGGER_ENABLED=true`일 때 `/docs`에서 요청/응답 스키마·example이 실제 API 응답 모양 그대로 채워진 문서로 확인 가능
