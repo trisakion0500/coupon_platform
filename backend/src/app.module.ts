@@ -20,6 +20,7 @@ import { CouponUsageModule } from './coupon-usage/coupon-usage.module';
 import { CouponUseLogModule } from './coupon-use-log/coupon-use-log.module';
 import { HealthModule } from './health/health.module';
 import { LogAuditModule } from './log-audit/log-audit.module';
+import { LogRateLimitModule } from './log-rate-limit/log-rate-limit.module';
 import { ProjectModule } from './project/project.module';
 import { PublicConfigModule } from './public-config/public-config.module';
 import { UserModule } from './user/user.module';
@@ -59,6 +60,7 @@ import { UserRoleModule } from './user-role/user-role.module';
     CouponUsageModule,
     CouponUseLogModule,
     LogAuditModule,
+    LogRateLimitModule,
   ],
 })
 export class AppModule implements NestModule {

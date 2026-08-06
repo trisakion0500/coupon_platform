@@ -142,7 +142,7 @@
 | 변수                          | 기본값   | 용도 |
 | ----------------------------- | -------- | ---- |
 | `API_EXECUTION_TIMEOUT_MS`    | `30000`  | API 요청 처리 타임아웃(ms). 전역 `TimeoutInterceptor`(`main.ts`)가 이 값을 읽어 컨트롤러 핸들러 실행 전체에 적용, 초과 시 408(`50002 API_EXECUTION_TIMEOUT`, `10_API_COMMON.md` 1.3) |
-| `LOGIN_RATE_LIMIT_WINDOW_MS`  | `900000` | 로그인/회원가입 API의 IP 기준 rate limit 윈도우(15분, `09_AUTH_SECURITY.md` 1.4). `AuthRateLimitMiddleware`가 실제로 이 값을 읽어 적용한다 |
+| `LOGIN_RATE_LIMIT_WINDOW_MS`  | `300000` | 로그인/회원가입 API의 IP 기준 rate limit 윈도우(5분, `09_AUTH_SECURITY.md` 1.4). `AuthRateLimitMiddleware`가 실제로 이 값을 읽어 적용한다 |
 | `LOGIN_RATE_LIMIT_MAX`        | `10`     | 위 윈도우 동안 허용하는 최대 요청 횟수. `AuthRateLimitMiddleware`가 실제로 소비 중 |
 | `COUPON_USAGE_RATE_LIMIT_BUCKET_CAPACITY` | `600` | reserve/confirm(S2S)의 프로젝트(API Key) 기준 토큰 버킷 용량 — 순간 최대 버스트 허용치(`09_AUTH_SECURITY.md` 2.8, 2026-07-24 고정 윈도우에서 토큰 버킷으로 교체). `CouponUsageRateLimitMiddleware`가 실제로 이 값을 읽어 적용한다 |
 | `COUPON_USAGE_RATE_LIMIT_REFILL_PER_SEC` | `10` | 위 버킷이 초당 채워지는 토큰 수 — 정상상태에서 프로젝트당 허용되는 평균 처리율(reserve+confirm 합산). `CouponUsageRateLimitMiddleware`가 실제로 소비 중 |

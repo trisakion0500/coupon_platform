@@ -37,7 +37,7 @@ MainLayout, AdminLayout에서 동일하게 사용한다.
 
 회사/프로젝트 목록은 [12_COMPANY_API.md](./12_COMPANY_API.md) 3장 `GET /companies/active-header-data`로 로그인 시 1회 로드한다.
 
-> **관리 화면 잠금**: `/admin/companies`, `/admin/projects`, `/admin/users`, `/admin/audit-logs`(목록 화면)를 제외한 나머지 관리 화면(등록/상세·수정)에서는 회사·프로젝트 선택 모두 비활성화된다 — 작업 도중 헤더 선택이 바뀌면 상세 내용과 어긋나 보여 혼란을 주기 때문. 관리 메뉴가 아닌 화면(쿠폰 컨트롤 등)은 대상 아님.
+> **관리 화면 잠금**: `/admin/companies`, `/admin/projects`, `/admin/users`, `/admin/audit-logs`, `/admin/rate-limit-logs`(목록 화면)를 제외한 나머지 관리 화면(등록/상세·수정)에서는 회사·프로젝트 선택 모두 비활성화된다 — 작업 도중 헤더 선택이 바뀌면 상세 내용과 어긋나 보여 혼란을 주기 때문. 관리 메뉴가 아닌 화면(쿠폰 컨트롤 등)은 대상 아님.
 
 ## 2.2 역할별 Header 노출
 
@@ -111,10 +111,11 @@ MainLayout, AdminLayout에서 동일하게 사용한다.
 | 프로젝트 | `/admin/projects`     | O           | O         | -       | -        |
 | 사용자   | `/admin/users`        | O           | O         | -       | -        |
 | 감사로그 | `/admin/audit-logs`   | O           | O         | -       | -        |
+| 레이트리밋 로그 | `/admin/rate-limit-logs` | O    | O         | -       | -        |
 
 > DEVELOPER는 회사 메뉴에 접근하지 못하므로 `/admin` 진입 시 `/admin/projects`로 리다이렉트한다(SUPER_ADMIN은 `/admin/companies`).
 
-> 프로젝트 목록·사용자 목록·감사로그 목록 화면은 자체 회사 필터 콤보박스를 두지 않고, §2.1의 헤더 회사 선택을 그대로 필터 조건으로 사용한다(중복 UI 방지). SUPER_ADMIN이 헤더에서 "전체 회사"를 선택하면 세 화면 모두 전체 조회로 전환된다.
+> 프로젝트 목록·사용자 목록·감사로그 목록·레이트리밋 로그 목록 화면은 자체 회사 필터 콤보박스를 두지 않고, §2.1의 헤더 회사 선택을 그대로 필터 조건으로 사용한다(중복 UI 방지). SUPER_ADMIN이 헤더에서 "전체 회사"를 선택하면 네 화면 모두 전체 조회로 전환된다.
 
 ---
 
@@ -173,6 +174,7 @@ MainLayout, AdminLayout 하단 공통. 저작권 문구/버전/문의 이메일�
 /admin/users/:user_id         → AdminLayout
 /admin/audit-logs             → AdminLayout
 /admin/audit-logs/:idx        → AdminLayout
+/admin/rate-limit-logs        → AdminLayout
 ```
 
 ---

@@ -91,6 +91,11 @@ const AuditLogDetailPage = lazy(() =>
     default: m.AuditLogDetailPage,
   })),
 );
+const RateLimitLogListPage = lazy(() =>
+  import('@/pages/admin/rate-limit-logs/RateLimitLogListPage').then((m) => ({
+    default: m.RateLimitLogListPage,
+  })),
+);
 const ForbiddenPage = lazy(() =>
   import('@/pages/errors/ForbiddenPage').then((m) => ({
     default: m.ForbiddenPage,
@@ -230,6 +235,14 @@ export function AppRoutes() {
           element={
             <RoleGuard allow={SUPER_ADMIN_AND_DEVELOPER}>
               <AuditLogDetailPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="rate-limit-logs"
+          element={
+            <RoleGuard allow={SUPER_ADMIN_AND_DEVELOPER}>
+              <RateLimitLogListPage />
             </RoleGuard>
           }
         />

@@ -244,6 +244,28 @@
         "beforeJson": "변경 전",
         "afterJson": "변경 후"
       }
+    },
+    "rateLimitLogs": {
+      "list": {
+        "limitScopeFilterPlaceholder": "리밋종류 필터",
+        "actionFilterPlaceholder": "작업유형 필터",
+        "gameUserIdPlaceholder": "게임 유저 ID 검색"
+      },
+      "scopes": {
+        "10": "프로젝트",
+        "20": "유저"
+      },
+      "fields": {
+        "createdAt": "발생일시",
+        "limitScope": "리밋종류",
+        "action": "작업유형",
+        "company": "회사",
+        "project": "프로젝트",
+        "gameUserId": "게임 유저 ID",
+        "apiKey": "API Key",
+        "retryAfterSec": "Retry-After(초)",
+        "callerIp": "호출 IP"
+      }
     }
   },
   "campaigns": {
@@ -455,7 +477,8 @@
       "companies": "회사",
       "projects": "프로젝트",
       "users": "사용자",
-      "auditLogs": "감사로그"
+      "auditLogs": "감사로그",
+      "rateLimitLogs": "레이트리밋 로그"
     }
   },
   "header": {

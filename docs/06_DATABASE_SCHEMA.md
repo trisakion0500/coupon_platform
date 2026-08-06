@@ -291,7 +291,7 @@ S2S(게임서버 → 쿠폰서버) HMAC 요청 서명의 재전송(replay) 방�
 
 ## 13. log_coupon_rate_limit
 
-쿠폰 사용(reserve/confirm) 레이트리밋 초과(429) 이력 — Append-Only (2026-08-05 도입, [09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 2.8.3 참고)
+쿠폰 사용(reserve/confirm) 레이트리밋 초과(429) 이력 — Append-Only (2026-08-05 도입, [09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 2.8.3 참고). 관리 콘솔 조회 API는 2.8.4 참고(2026-08-06 도입, 감사 로그와 동일한 규칙, 목록 화면만 존재).
 
 ### 특징
 

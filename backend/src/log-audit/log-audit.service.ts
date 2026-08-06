@@ -8,6 +8,7 @@ import {
 import { BusinessException } from '../common/response/business.exception';
 import { ResultCode } from '../common/response/result-code.enum';
 import { RoleCode } from '../common/roles/role-code.enum';
+import { resolveDeveloperProjectIds } from '../common/roles/developer-project-ids.util';
 import { LogAuditListQueryDto } from './dto/log-audit-list-query.dto';
 
 /** project_id를 갖는 로그 대상 테이블 — DEVELOPER의 배정 프로젝트 스코핑 대상(15_LOG_AUDIT_API.md 3장). */
@@ -113,7 +114,7 @@ export class LogAuditService {
     const developerProjectIds =
       requester.roleCode === RoleCode.SUPER_ADMIN
         ? null
-        : await this.resolveDeveloperProjectIds(requester.userId);
+        : await resolveDeveloperProjectIds(this.spExecutor, requester.userId);
 
     const offset = (query.page - 1) * query.page_size;
     const { result, data } = await this.logSpExecutor.callProcedure<
@@ -188,7 +189,8 @@ export class LogAuditService {
       requester.roleCode !== RoleCode.SUPER_ADMIN &&
       PROJECT_SCOPED_TABLE_NAMES.has(row.table_name)
     ) {
-      const developerProjectIds = await this.resolveDeveloperProjectIds(
+      const developerProjectIds = await resolveDeveloperProjectIds(
+        this.spExecutor,
         requester.userId,
       );
       const allowedIds = new Set(
@@ -216,23 +218,5 @@ export class LogAuditService {
       created_by_name: row.created_by_name,
       created_at: row.created_at,
     };
-  }
-
-  /**
-   * SP_USER_ROLE_LIST_DEVELOPER_PROJECT_IDS(메인 DB)로 호출자가 role_code<=20(DEVELOPER 이상)
-   * 으로 배정된 프로젝트 ID 콤마 문자열을 조회한다. 배정이 하나도 없으면 GROUP_CONCAT이 NULL을
-   * 반환하므로 빈 문자열로 정규화한다 - "제한 없음"(SUPER_ADMIN이 list()에서 넘기는 실제 NULL)과
-   * 혼동되지 않도록 호출부가 항상 빈 문자열/콤마 목록 둘 중 하나만 받게 한다.
-   */
-  private async resolveDeveloperProjectIds(userId: number): Promise<string> {
-    const { result, data } = await this.spExecutor.callProcedure<
-      Array<{ project_ids: string | null }>
-    >('SP_USER_ROLE_LIST_DEVELOPER_PROJECT_IDS', [userId]);
-
-    if (result !== 0) {
-      throw new BusinessException(ResultCode.INTERNAL_ERROR);
-    }
-
-    return data?.[0]?.project_ids ?? '';
   }
 }

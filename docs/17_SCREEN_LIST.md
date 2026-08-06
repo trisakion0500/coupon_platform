@@ -26,6 +26,7 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
 | SCR-031 | 사용자 상세·수정    | `/admin/users/:user_id`            | O           | O         | -       | -        | 수정·승인·반려·비밀번호초기화·권한관리: SUPER_ADMIN만, DEVELOPER는 조회만 |
 | SCR-040 | 감사 로그 목록      | `/admin/audit-logs`                | O           | O         | -       | -        | DEVELOPER: 자사만(단 `project`/`user_role` 로그는 역할보유 프로젝트로 추가 제한) |
 | SCR-041 | 감사 로그 상세      | `/admin/audit-logs/:idx`           | O           | O         | -       | -        |                                                             |
+| SCR-042 | 레이트리밋 로그 목록 | `/admin/rate-limit-logs`          | O           | O         | -       | -        | DEVELOPER: 자사만(역할보유(role_code<=20) 배정 프로젝트로 추가 제한). 목록 전용(상세 화면 없음) |
 | **비관리 메뉴** |
 | SCR-100 | 캠페인 목록         | `/campaigns`                       | O           | O         | O       | O        | 헤더의 전역 프로젝트 선택을 그대로 필터로 사용, "전체 프로젝트" 상태로는 진입 불가 |
 | SCR-101 | 캠페인 등록         | `/campaigns/new`                   | O           | O         | O       | O        | OPERATOR: 등록 시 승인요청 상태로 전환                     |
@@ -209,6 +210,19 @@ Coupon Platform 관리 콘솔 프론트엔드 화면 목록 및 역할별 접근
   | Method | Endpoint          | 설명           |
   | ------ | ------------------ | -------------- |
   | GET    | /log-audits/{idx} | 감사 로그 상세 |
+
+---
+
+### SCR-042. 레이트리밋 로그 목록
+
+- **Route:** `/admin/rate-limit-logs`
+- **접근:** SUPER_ADMIN, DEVELOPER(자사만, 역할보유(role_code<=20) 배정 프로젝트로 추가 제한 — [09_AUTH_SECURITY.md](./09_AUTH_SECURITY.md) 2.8.4 참고). 감사 로그(SCR-040/041)와 동일한 규칙이되, 목록 1개 화면만 둔다 — `log_coupon_rate_limit`은 컬럼 자체가 목록 행에 다 들어갈 만큼 단순해(before/after JSON 같은 상세 전용 데이터가 없음) 별도 상세 화면이 실질 정보 이득 없이 중복이 된다
+- **주요 기능:** 레이트리밋 초과(429) 이력 목록 조회. 회사 필터는 화면 자체가 아닌 헤더의 전역 회사 선택을 그대로 사용(SUPER_ADMIN만 "전체" 선택 가능), 화면에는 리밋종류(PROJECT/USER)/작업유형(RESERVE/CONFIRM)/게임 유저 ID/기간 필터·페이지네이션 존재. `project_id`/`company_id`가 NULL인 행(API Key 식별 불가 — 09_AUTH_SECURITY.md 2.8.3 참고)은 회사/프로젝트 열에 "-"로 표시
+- **연관 API:**
+
+  | Method | Endpoint                | 설명                  |
+  | ------ | ------------------------ | --------------------- |
+  | GET    | /coupon-rate-limit-logs | 레이트리밋 로그 목록 |
 
 ---
 

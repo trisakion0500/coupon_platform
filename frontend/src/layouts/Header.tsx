@@ -22,6 +22,7 @@ const ADMIN_LIST_ROUTES = [
   '/admin/projects',
   '/admin/users',
   '/admin/audit-logs',
+  '/admin/rate-limit-logs',
 ];
 
 /** 18_LAYOUT.md 2장 공통 Header — 로고/회사·프로젝트 선택/[관리] 버튼/사용자 메뉴/언어 선택. */

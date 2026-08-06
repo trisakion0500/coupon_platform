@@ -64,7 +64,7 @@ Refresh Token 만료시간 : 7일  (JWT_REFRESH_EXPIRES_IN 기본값)
 인증 없이 호출 가능한 API 중 반복 요청 시 브루트포스 피해가 있는 로그인/회원가입 엔드포인트에 IP 기준 요청 제한을 적용한다.
 
 ```text
-기준   : IP당 windowMs 동안 max회 (기본 15분/10회, LOGIN_RATE_LIMIT_WINDOW_MS/LOGIN_RATE_LIMIT_MAX)
+기준   : IP당 windowMs 동안 max회 (기본 5분/10회, LOGIN_RATE_LIMIT_WINDOW_MS/LOGIN_RATE_LIMIT_MAX)
 초과 시 : 429 Too Many Requests
 ```
 
@@ -305,6 +305,70 @@ URL 패턴 : /v1/coupons/reserve, /v1/coupons/confirm 등
 **`project_id`/`company_id` 해석**: 두 미들웨어 모두 `S2sAuthGuard`보다 먼저 실행되어 이 시점엔 아직 검증된 `project_id`가 없고 `X-API-Key` 원문 헤더값뿐이다. `ProjectIdentityCacheService`가 Redis 캐시(`project:apikey:{api_key}`, `PROJECT_API_KEY_CACHE_TTL_SEC` 기본 30일)를 먼저 조회하고, 미스면 `SP_PROJECT_GET_IDENTITY_BY_API_KEY`(시크릿을 다루지 않는 좁은 목적 SP)로 폴백한다. `project.api_key`/`company_id`는 프로젝트 생성 이후 절대 안 바뀌는 값(재발급/회사이관 기능 없음)이라 캐시 무효화 로직 자체가 불필요하고, `ProjectService.create()`가 성공 직후 write-through로 채워둬 대부분의 조회는 SP 호출 없이 캐시만으로 끝난다. 존재하지 않는 api_key(스캐닝성 트래픽 등)는 끝내 해석되지 않아 `project_id`/`company_id`가 NULL로 남는다 — 이는 결함이 아니라 의도된 동작이다(레이트리미터가 `S2sAuthGuard`보다 먼저 실행되는 구조상 미인증 트래픽도 리미터에 도달할 수 있기 때문). `REDIS_ENABLED=false`면 캐시 없이 매번 SP로 조회한다(429는 원래 드문 이벤트라 무해).
 
 **미구현(TODO)**: 회사(company) 단위 리미터(미들웨어 시점엔 `company_id`를 알 수 없어 `S2sAuthGuard` 인증 이후로 걸어야 하는 등 별도 설계가 필요해 이연), 카운터 초과 시 실시간 알람(현재는 DB 기록만) — `README.md` "향후 개선사항" 참고.
+
+### 2.8.4 초과(429) 이력 조회 API (2026-08-06 도입)
+
+관리 콘솔에서 `log_coupon_rate_limit`을 조회하는 API다. `log_audit`([15_LOG_AUDIT_API.md](./15_LOG_AUDIT_API.md) 5장)와 동일한 규칙 — 관리 메뉴 배치, SUPER_ADMIN(전체)/DEVELOPER(자사+역할보유 프로젝트로 스코핑)만 접근, MANAGER/OPERATOR는 접근 불가 — 를 따른다. 상세 화면은 두지 않는다 — 이 테이블은 컬럼 자체가 목록 행 하나에 다 들어갈 만큼 단순해(before/after JSON 같은 상세 전용 데이터가 없음) 별도 상세 조회가 실질 정보 이득이 없다.
+
+## Endpoint
+
+```http
+GET /coupon-rate-limit-logs
+```
+
+## Permission
+
+- SUPER_ADMIN
+- DEVELOPER (본인 소속 회사로 스코핑 + 역할보유(`role_code<=20`) 배정 프로젝트로 추가 제한 — `log_audit`가 `project`/`user_role` 테이블 로그에 적용하는 것과 동일한 규칙. 이 테이블의 모든 행이 개념적으로 프로젝트 단위 이벤트라 `log_audit`의 `table_name` 예외 조건 없이 항상 적용한다)
+
+## Query Parameters
+
+| 이름            | 필수 | 설명                                               |
+| --------------- | ---- | -------------------------------------------------- |
+| company_id      | N    | 회사 ID(SUPER_ADMIN만 유효, DEVELOPER는 본인 소속으로 고정 스코핑) |
+| project_id      | N    | 프로젝트 ID                                        |
+| limit_scope     | N    | 리밋 종류(10:PROJECT, 20:USER)                     |
+| action          | N    | 작업 유형(10:RESERVE, 20:CONFIRM)                  |
+| game_user_id    | N    | 게임 유저 ID                                       |
+| from_created_at | N    | 시작 일시                                          |
+| to_created_at   | N    | 종료 일시                                          |
+| page            | Y    | 페이지 번호                                        |
+| page_size       | Y    | 20/30/50/100 중 선택. 기본 20                       |
+
+## Response
+
+```json
+{
+  "result": 0,
+  "data": {
+    "page": 1,
+    "page_size": 20,
+    "total_count": 1,
+    "items": [
+      {
+        "idx": 501,
+        "limit_scope": 10,
+        "action": 10,
+        "api_key": "a1b2c3d4...",
+        "project_id": 1,
+        "company_id": 1,
+        "game_user_id": null,
+        "retry_after_sec": 30,
+        "caller_ip": "127.0.0.1",
+        "created_at": "2026-08-06 10:00:00"
+      }
+    ]
+  }
+}
+```
+
+## Sorting
+
+```sql
+ORDER BY created_at DESC, idx DESC
+```
+
+`log_audit`와 동일한 이유(`created_at`이 초 단위 정밀도)로 `idx`를 2차 정렬 키로 둬 생성 순서를 항상 정확히 보존한다.
 
 ---
 

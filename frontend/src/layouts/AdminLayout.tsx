@@ -29,6 +29,11 @@ const ALL_MENU_ITEMS: { key: string; labelKey: string; allow: RoleCode[] }[] = [
     labelKey: 'nav.admin.auditLogs',
     allow: [RoleCode.SUPER_ADMIN, RoleCode.DEVELOPER],
   },
+  {
+    key: '/admin/rate-limit-logs',
+    labelKey: 'nav.admin.rateLimitLogs',
+    allow: [RoleCode.SUPER_ADMIN, RoleCode.DEVELOPER],
+  },
 ];
 
 /** 18_LAYOUT.md 4장 — 관리 업무 레이아웃. MANAGER/OPERATOR는 라우트 자체가 RoleGuard로 차단된다. */

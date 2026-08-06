@@ -154,7 +154,7 @@ SWAGGER_ENABLED=true
 
 API_EXECUTION_TIMEOUT_MS=30000
 
-LOGIN_RATE_LIMIT_WINDOW_MS=900000
+LOGIN_RATE_LIMIT_WINDOW_MS=300000
 LOGIN_RATE_LIMIT_MAX=10
 SESSION_CLEANUP_CRON=0 4 * * *
 
@@ -305,7 +305,7 @@ coupon-use-log/log-audit) 141개 테스트로 `docs/09~18`에 문서화된 API �
 
 **작성 시 주의할 점 2가지**:
 
-- **Rate limiter 예산** — `/auth/login`/`/auth/signup`은 IP당 rate limiter(기본 15분당 10회,
+- **Rate limiter 예산** — `/auth/login`/`/auth/signup`은 IP당 rate limiter(기본 5분당 10회,
   `LOGIN_RATE_LIMIT_MAX`)를 공유한다. signup을 반복 호출하는 스펙(예: `auth.e2e-spec.ts`)은 한
   파일 안의 signup+login 총 호출 수가 이 한도를 넘지 않도록 설계할 것(스펙 파일마다 별도 앱
   인스턴스라 파일 간에는 이 예산이 공유되지 않는다 — 권한거부처럼 대상의 실제 상태가 중요하지

@@ -244,6 +244,28 @@
         "beforeJson": "Before",
         "afterJson": "After"
       }
+    },
+    "rateLimitLogs": {
+      "list": {
+        "limitScopeFilterPlaceholder": "Filter by scope",
+        "actionFilterPlaceholder": "Filter by action",
+        "gameUserIdPlaceholder": "Search game user ID"
+      },
+      "scopes": {
+        "10": "Project",
+        "20": "User"
+      },
+      "fields": {
+        "createdAt": "Occurred At",
+        "limitScope": "Scope",
+        "action": "Action",
+        "company": "Company",
+        "project": "Project",
+        "gameUserId": "Game User ID",
+        "apiKey": "API Key",
+        "retryAfterSec": "Retry-After (sec)",
+        "callerIp": "Caller IP"
+      }
     }
   },
   "campaigns": {
@@ -455,7 +477,8 @@
       "companies": "Companies",
       "projects": "Projects",
       "users": "Users",
-      "auditLogs": "Audit Logs"
+      "auditLogs": "Audit Logs",
+      "rateLimitLogs": "Rate Limit Logs"
     }
   },
   "header": {
