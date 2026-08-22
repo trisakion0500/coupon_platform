@@ -34,10 +34,12 @@ coverage/
 
 # Local project instructions (not for repo)
 CLAUDE.md
-.claude/
 
-# CLAUDE.md와 동일 성격의 내부 전용 개발 컨벤션 문서 — 외부 공개 금지
-.agents/skills/trisakion-dev-convention-skill/
+# Claude Code 로컬 전용 설정(크리덴셜/로컬 절대경로 포함) — 커밋 대상 아님
+**/settings.local.json
+
+# Claude Code git worktree(로컬 절대경로를 가리키는 gitlink 포함) — 커밋 대상 아님
+.claude/worktrees/
 
 # MCP 서버 설정(크리덴셜 포함 가능)
 .mcp.json
