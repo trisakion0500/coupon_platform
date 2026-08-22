@@ -1,0 +1,11 @@
+{
+  "name": "coupon_platform",
+  "version": "1.0.0",
+  "private": true,
+  "devDependencies": {
+    "husky": "9.1.7"
+  },
+  "scripts": {
+    "prepare": "husky"
+  }
+}

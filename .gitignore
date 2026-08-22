@@ -38,3 +38,6 @@ CLAUDE.md
 
 # CLAUDE.md와 동일 성격의 내부 전용 개발 컨벤션 문서 — 외부 공개 금지
 .agents/skills/trisakion-dev-convention-skill/
+
+# MCP 서버 설정(크리덴셜 포함 가능)
+.mcp.json
