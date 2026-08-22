@@ -21,6 +21,14 @@ git clone https://github.com/trisakion0500/coupon_platform.git
 cd coupon_platform
 ```
 
+## 2.1 커밋 전 크리덴셜 스캔 훅 활성화
+
+저장소 루트에 husky(pre-commit) 설정이 있다 — `.env`/`.mcp.json` 등 크리덴셜 파일이 `.gitignore`로 실제 커버되는지, 스테이징된 파일에 크리덴셜 리터럴이 없는지를 커밋 시점마다 자동 검사한다. backend/frontend 각각의 `npm install`(4.1/6장)과는 별개로, 저장소 루트에서 한 번 더 설치해야 훅이 활성화된다.
+
+```bash
+npm install   # 저장소 루트에서 실행 — prepare 스크립트가 .git/hooks에 훅을 연결한다
+```
+
 ---
 
 # 3. 데이터베이스 초기화
@@ -135,14 +143,14 @@ LOG_DB_PASSWORD=
 LOG_DB_NAME=coupon_platform_log
 LOG_DB_CONNECTION_LIMIT=10
 
-JWT_SECRET=change-me-to-a-random-string-at-least-32-chars
+JWT_SECRET=<random-string-at-least-32-chars>
 JWT_ACCESS_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
 
 ENCRYPTION_KEY=00000000000000000000000000000000000000000000000000000000000000
 
 API_SECRET_GRACE_PERIOD_DAYS=7
-API_SECRET_CLEANUP_CRON=0 5 * * *
+API_SECRET_CLEANUP_CRON=<cron-expression 예: 0 5 * * *>
 
 S2S_TIMESTAMP_TOLERANCE_SEC=300
 S2S_NONCE_CLEANUP_CRON=*/10 * * * *
