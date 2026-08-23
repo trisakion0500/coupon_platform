@@ -9,6 +9,14 @@ BEGIN
     -- ------------------------------------------------------------------------------------------------------------ --
     -- 명칭 : SP_CAMPAIGN_CODE_ISSUE
     -- 작성 : 2026.07.21 trisakion
+    -- 수정3: 2026.08.23 trisakion — 테이블 잠금순서 감사에서 FIXED 분기 트랜잭션(옛 코드)이
+    --        `coupon_code` INSERT를 `coupon_campaign` 완료 UPDATE보다 먼저 실행해
+    --        database/TABLE_LOCK_ORDER.md의 전역 순서(`coupon_campaign` 7위 -> `coupon_code`
+    --        8위)와 반대로 잠그고 있다는 걸 발견함(SP_CAMPAIGN_CODE_GENERATE_ONE은 이미 올바른
+    --        순서였음 - 이 SP만 비대칭). 완료 UPDATE를 INSERT보다 먼저 실행하도록 재배치 —
+    --        결과/응답은 동일하다(트랜잭션 원자성이 순서와 무관하게 all-or-nothing을 보장하므로),
+    --        캠페인 종료 레이스(status=4)도 이제 INSERT를 시도하기 전에 걸러진다는 부수 이점이
+    --        생긴다.
     -- 수정2: 2026.07.22 trisakion — FIXED 완료 UPDATE의 `generated_qty=1` 하드코딩을
     --        `generated_qty=requested_qty`로 교체(SP_CAMPAIGN_CREATE 수정1과 짝). FIXED는
     --        여전히 coupon_code 물리 행 1건만 만들지만, 캠페인 레벨의 requested_qty/
@@ -46,14 +54,16 @@ BEGIN
     --          project_id/use_hyphen/requested_qty를 가지고 백그라운드로 수행한다(SP는 생성 루프를
     --          모른다 - nanoid는 앱 레이어 라이브러리라 SQL에서 호출할 수 없다,
     --          06_DATABASE_SCHEMA.md 6장 코드 생성 규칙 참고).
-    --        - FIXED(2): 코드 1건을 즉시 INSERT한다. UNIQUE(project_id, code_value) 충돌은 이
-    --          INSERT 문 범위로 좁힌 CONTINUE HANDLER FOR 1062로만 잡는다(더 일반적인 바깥
-    --          EXIT HANDLER FOR SQLEXCEPTION보다 특정 조건 핸들러가 우선한다는 MySQL 규칙을
-    --          이용) - 충돌 시 방금 선점한 generation_status를 1로 되돌려(재요청 가능하게) 32001을
-    --          반환한다. 성공하면 generated_qty=requested_qty=1, generation_status=3(완료)까지
-    --          이 SP 안에서 동기로 확정한다 - 단 이 완료 UPDATE도 `status<>4`를 조건으로 걸어,
-    --          INSERT 이후 COMMIT 전 그 사이 캠페인이 종료됐으면 INSERT까지 함께 되돌리고
-    --          30004를 반환한다(수정1 참고).
+    --        - FIXED(2): 먼저 `generated_qty=requested_qty, generation_status=3`(완료) UPDATE를
+    --          `status<>4` 조건으로 시도한다(coupon_campaign을 coupon_code보다 먼저 잠그는
+    --          전역 테이블 잠금순서를 지키기 위함, database/TABLE_LOCK_ORDER.md 참고 - 수정3).
+    --          그 사이 캠페인이 종료됐으면(ROW_COUNT()=0) 코드 INSERT 자체를 시도하지 않고
+    --          30004를 반환한다(수정1). 완료 UPDATE가 성공하면 이어서 코드 1건을 INSERT한다 -
+    --          UNIQUE(project_id, code_value) 충돌은 이 INSERT 문 범위로 좁힌 CONTINUE HANDLER
+    --          FOR 1062로만 잡는다(더 일반적인 바깥 EXIT HANDLER FOR SQLEXCEPTION보다 특정 조건
+    --          핸들러가 우선한다는 MySQL 규칙을 이용) - 충돌 시 방금 시도한 완료 처리까지 같은
+    --          트랜잭션 ROLLBACK으로 함께 되돌리고, 선점한 generation_status를 1로
+    --          되돌려(재요청 가능하게) 32001을 반환한다.
     --        edit_count는 건드리지 않는다 - 19_CAMPAIGN_API.md 2.4가 edit_count 대상 SP로 나열한
     --        것은 Update/ChangeStatus/Approve/Reject(2.4~2.7)뿐이고 코드 발급(3.1/3.2)은 별개
     --        축이다(coupon_campaign.sql edit_count 헤더 주석, PATCH의 WHERE절도 generation_status를
@@ -117,31 +127,33 @@ BEGIN
         IF v_code_type = 2 THEN
             START TRANSACTION;
 
-            INSERT INTO `coupon_code` (`coupon_campaign_id`, `project_id`, `code_value`, `status`)
-            VALUES (i_coupon_campaign_id, v_project_id, i_code_value, 1);
-
-            IF v_duplicate THEN
-                ROLLBACK;
-                -- 방금 선점한 job을 되돌려 관리자가 다른 code_value로 재요청할 수 있게 한다
-                -- (07_COUPON_ISSUANCE_SCENARIO.md 2.2 - FIXED는 실패해도 generation_status=1 유지).
-                UPDATE `coupon_campaign` SET `generation_status` = 1
-                WHERE `coupon_campaign_id` = i_coupon_campaign_id;
-                SELECT 32001 AS RESULT;
-                LEAVE proc_block;
-            END IF;
-
+            -- coupon_campaign을 coupon_code보다 먼저 잠가 전역 테이블 잠금순서
+            -- (database/TABLE_LOCK_ORDER.md)를 지킨다 - 완료 처리를 INSERT보다 먼저 시도하므로
+            -- 캠페인 종료 레이스(status=4)도 INSERT를 시도하기 전에 걸러진다(수정3).
             UPDATE `coupon_campaign`
             SET `generated_qty` = `requested_qty`, `generation_status` = 3
             WHERE `coupon_campaign_id` = i_coupon_campaign_id
               AND `status` <> 4;
 
             IF ROW_COUNT() = 0 THEN
-                -- INSERT까지는 성공했으나 그 사이 캠페인이 종료(status=4)됨 - 완료 처리를 포기하고
-                -- INSERT까지 함께 되돌린다. generation_status는 선점 당시 값(2)에 그대로 남지만
-                -- 1.3이 종료된 캠페인의 모든 쓰기 API를 이미 차단하므로 무해하다
-                -- (07_COUPON_ISSUANCE_SCENARIO.md 2.5와 동일한 원칙 - 억지로 되돌리지 않는다).
+                -- 그 사이 캠페인이 종료(status=4)됨 - 코드 생성 자체를 시도하지 않는다.
                 ROLLBACK;
                 SELECT 30004 AS RESULT;
+                LEAVE proc_block;
+            END IF;
+
+            INSERT INTO `coupon_code` (`coupon_campaign_id`, `project_id`, `code_value`, `status`)
+            VALUES (i_coupon_campaign_id, v_project_id, i_code_value, 1);
+
+            IF v_duplicate THEN
+                -- 방금 시도한 완료 처리(generated_qty/generation_status)까지 같은 ROLLBACK으로
+                -- 함께 되돌린 뒤, 선점한 job을 대기(1)로 되돌려 관리자가 다른 code_value로
+                -- 재요청할 수 있게 한다(07_COUPON_ISSUANCE_SCENARIO.md 2.2 - FIXED는 실패해도
+                -- generation_status=1 유지).
+                ROLLBACK;
+                UPDATE `coupon_campaign` SET `generation_status` = 1
+                WHERE `coupon_campaign_id` = i_coupon_campaign_id;
+                SELECT 32001 AS RESULT;
                 LEAVE proc_block;
             END IF;
 

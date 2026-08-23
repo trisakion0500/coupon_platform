@@ -46,7 +46,7 @@
 | `SP_CAMPAIGN_APPROVE` | `coupon_campaign` | O |
 | `SP_CAMPAIGN_REJECT` | `coupon_campaign` | O |
 | `SP_CAMPAIGN_EXPIRE` | `coupon_campaign`(임시테이블 `tmp_expiring_campaigns`은 세션 로컬이라 전역순서 대상 아님) | O |
-| `SP_CAMPAIGN_CODE_ISSUE` | `coupon_campaign`(선점 UPDATE) → `coupon_code`(INSERT, 신규 행) → `coupon_campaign`(완료 UPDATE) | O |
+| `SP_CAMPAIGN_CODE_ISSUE` | `coupon_campaign`(선점 UPDATE, 별도 autocommit 단문) → [FIXED 트랜잭션] `coupon_campaign`(완료 UPDATE) → `coupon_code`(INSERT, 신규 행) | O — 2026-08-23 수정 |
 | `SP_CAMPAIGN_CODE_GENERATE_ONE` | `coupon_campaign`(슬롯예약 UPDATE) → `coupon_code`(INSERT, 신규 행) | O |
 | `SP_CAMPAIGN_CODE_GENERATION_COMPLETE` | `coupon_campaign` | O |
 | `SP_CAMPAIGN_CODE_GENERATION_FAIL` | `coupon_campaign` | O |
@@ -54,6 +54,8 @@
 | `SP_CAMPAIGN_CODE_RETRY` | `coupon_campaign` | O |
 | `SP_COUPON_RESERVE` | `coupon_code`(기존 행 UPDATE) → `coupon_campaign`(UPDATE) → `coupon_code_usage`(INSERT → FOR UPDATE 재확인) | **예외** — 아래 참고 |
 | `SP_COUPON_CONFIRM` | `coupon_code_usage` | O |
+
+**`SP_CAMPAIGN_CODE_ISSUE` 2026-08-23 수정 이력**: 이전 버전은 FIXED 분기 트랜잭션 안에서 `coupon_code` INSERT를 `coupon_campaign` 완료 UPDATE보다 먼저 실행해 전역 순서와 반대로 잠그고 있었다(트랜잭션 시작 전에 별도 autocommit 단문으로 실행되는 "선점 UPDATE"와 실제 트랜잭션 내부 순서를 뭉뚱그려 서술한 게 원인 — 두 잠금은 서로 다른 시점에 걸리고 겹치지 않는다). 완료 UPDATE를 INSERT보다 먼저 실행하도록 재배치해 전역 순서에 맞춤(`SP_CAMPAIGN_CODE_GENERATE_ONE`과 동일한 순서로 통일). 결과/응답은 동일하며, 캠페인 종료 레이스(status=4)도 INSERT를 시도하기 전에 걸러진다는 부수 이점이 생겼다.
 
 그 외 조회 전용 SP(`SP_*_LIST`, `SP_*_GET_BY_*`, `SP_PROJECT_CHECK_ACCESS`, `SP_USER_SESSION_VALIDATE_BY_JTI`, `SP_USER_SESSION_LOGOUT`, `SP_USER_SESSION_UPDATE_JTI`, `SP_CAMPAIGN_CODE_GENERATION_STALE_LIST`, `SP_LOCK_ACQUIRE`/`RELEASE` 등)는 단일 테이블만 쓰거나 잠금을 잡는 문(UPDATE/INSERT/FOR UPDATE)이 없어 전역순서 대상이 아니다.
 
