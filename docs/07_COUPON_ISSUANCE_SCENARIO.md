@@ -155,6 +155,7 @@ POST /campaigns/{id}/codes/abort
 - 종료는 `generation_status`를 건드리지 않으므로, "이미 목표 도달"(정상)/"job을 빼앗김(abort)"/"캠페인 종료"를 앱이 구분하려면 SP가 no-op 응답에 `status`도 함께 반환해야 한다. TS 백그라운드 루프는 `generation_status<>2 OR status=4`면 조용히 멈추고 `SP_CAMPAIGN_CODE_GENERATION_COMPLETE`/`FAIL`을 호출하지 않는다.
 - 종료된 캠페인의 `generation_status`는 억지로 전이시키지 않는다 — `19_CAMPAIGN_API.md` 1.3이 종료된 캠페인의 모든 쓰기 API를 이미 차단하므로, 어떤 값이든 더 손댈 필요가 없는 무해한 상태로 남는다.
 - **FIXED 동기 처리도 같은 문제가 있었다**: `SP_CAMPAIGN_CODE_ISSUE`의 FIXED 분기는 코드 INSERT 이후 `generated_qty=1, generation_status=3`으로 확정하는 완료 UPDATE에 원래 `status<>4` 조건이 없어, INSERT~COMMIT 사이의 짧은 순간에 다른 트랜잭션이 캠페인을 종료시키면 그 사실을 모르고 그대로 성공해버리는 비대칭이 있었다(2026-07-21 리뷰에서 발견). 이 완료 UPDATE에도 `status<>4`를 추가해 `ROW_COUNT()=0`이면(=그 사이 종료됨) 방금 성공한 INSERT까지 같은 트랜잭션 `ROLLBACK`으로 함께 되돌리고 30004를 반환하도록 수정했다 — `generation_status`는 선점 당시 값(2)에 그대로 남고, 위와 동일한 원칙(억지로 되돌리지 않음)으로 무해하게 처리한다.
+- **2026-08-23 테이블 잠금순서 감사에서 문장 순서 자체를 재배치**: 위 수정 당시엔 "INSERT 먼저 → 완료 UPDATE"였는데, 이 순서가 `database/TABLE_LOCK_ORDER.md`의 전역 순서(`coupon_campaign`이 `coupon_code`보다 먼저 잠겨야 함)와 반대라는 걸 감사에서 발견함(`SP_CAMPAIGN_CODE_GENERATE_ONE`은 이미 올바른 순서였음 — 이 SP만 비대칭). "완료 UPDATE(`status<>4` 가드) 먼저 → 성공했을 때만 코드 INSERT" 순서로 재배치해 전역 순서를 지키도록 통일했다 — 위 문단이 설명하는 종료 레이스 방어 로직 자체는 동일하게 유지되고(오히려 INSERT를 시도하기도 전에 걸러진다는 부수 이점), 응답 결과도 이전과 동일하다.
 
 ---
 
