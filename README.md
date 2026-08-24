@@ -222,6 +222,8 @@ coupon_platform/
 
 설계 결정, 트레이드오프 판단, 실서버 라이브 검증은 개발자가 직접 수행하였으며, AI(Claude Code)는 문서/코드 초안 작성과 반복적인 구현 작업의 속도를 높이는 데 활용하였다. 예를 들어 낙관적 동시성 제어를 `updated_at` 비교에서 `edit_count` 전용 컬럼으로 바꾼 결정, S2S rate limiter를 고정 윈도우에서 토큰 버킷으로 교체한 결정은 모두 개발자가 먼저 문제를 지적하고 방향을 제시한 뒤 구현했다.
 
+커밋 전 리뷰 단계에서는 직접 구축한 커스텀 검증 서브에이전트 시스템([trisakion-dev-convention-skill](https://github.com/trisakion0500/trisakion-dev-convention-skill))을 이 프로젝트에도 적용해, SP 네이밍/권한체크 컨벤션·동시성(락 순서·멱등성·상태전이)·S2S 인증 및 SQL Injection 등 보안 취약점을 자동 점검했다.
+
 | 도구        | 용도                                  |
 | ----------- | -------------------------------------- |
 | Claude Code | 문서/코드 초안 작성, 리팩터링, 실서버 스모크 테스트 보조 |
