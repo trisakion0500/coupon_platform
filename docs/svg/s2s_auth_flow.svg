@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1000" font-family="sans-serif">
+  <title>S2S 인증(서명 검증) 흐름</title>
+  <desc>게임서버는 CouponS2sClient SDK로 stringToSign을 구성해 HMAC-SHA256으로 서명한 뒤 4개 헤더를 붙여 요청한다. Backend(S2sAuthGuard)는 헤더/Timestamp 검증, API Key 조회, 서명 재계산·비교(현재+유예기간 Secret), Nonce 등록 순으로 검증하며, 통과하면 reserve/confirm/unconfirmed 처리로 넘어간다.</desc>
+  <rect x="0" y="0" width="900" height="1000" fill="#FFFFFF" />
+
+  <defs>
+    <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5F5E5A" />
+    </marker>
+  </defs>
+
+  <text x="450" y="24" text-anchor="middle" font-size="18" font-weight="600" fill="#26251F">S2S 인증(서명 검증) 흐름</text>
+
+  <g stroke="#5F5E5A" stroke-width="0.5" fill="none" marker-end="url(#arrow2)">
+    <line x1="160" y1="106" x2="160" y2="140" />
+    <line x1="160" y1="196" x2="160" y2="230" />
+    <line x1="160" y1="286" x2="160" y2="320" />
+    <line x1="160" y1="376" x2="160" y2="410" stroke-dasharray="4,3" />
+    <line x1="160" y1="466" x2="160" y2="500" />
+    <line x1="160" y1="556" x2="160" y2="590" />
+    <line x1="160" y1="646" x2="160" y2="680" />
+    <line x1="160" y1="736" x2="160" y2="770" />
+  </g>
+  <text x="175" y="396" font-size="12" fill="#5F5E5A">HTTP 요청 (S2S)</text>
+
+  <g>
+    <rect x="60" y="50" width="200" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5" />
+    <text x="160" y="74" text-anchor="middle" font-size="14" font-weight="500" fill="#444441">게임서버</text>
+    <text x="160" y="92" text-anchor="middle" font-size="12" fill="#444441">쿠폰 코드 사용 요청</text>
+  </g>
+  <g>
+    <rect x="60" y="140" width="200" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5" />
+    <text x="160" y="164" text-anchor="middle" font-size="14" font-weight="500" fill="#444441">CouponS2sClient SDK</text>
+    <text x="160" y="182" text-anchor="middle" font-size="12" fill="#444441">stringToSign 구성</text>
+  </g>
+  <g font-size="12" fill="#5F5E5A">
+    <text x="300" y="150">stringToSign = METHOD</text>
+    <text x="300" y="166">  + \n + PATH + \n + QUERY</text>
+    <text x="300" y="182">  + \n + Timestamp + \n + Nonce</text>
+    <text x="300" y="198">  + \n + RAW_BODY</text>
+  </g>
+
+  <g>
+    <rect x="60" y="230" width="200" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5" />
+    <text x="160" y="254" text-anchor="middle" font-size="14" font-weight="500" fill="#444441">HMAC-SHA256 서명</text>
+    <text x="160" y="272" text-anchor="middle" font-size="12" fill="#444441">Secret로 서명 계산</text>
+  </g>
+
+  <g>
+    <rect x="60" y="320" width="200" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5" />
+    <text x="160" y="344" text-anchor="middle" font-size="14" font-weight="500" fill="#444441">S2S 요청 전송</text>
+    <text x="160" y="362" text-anchor="middle" font-size="12" fill="#444441">4개 인증 헤더 첨부</text>
+  </g>
+  <g font-size="12" fill="#5F5E5A">
+    <text x="300" y="330">X-API-Key</text>
+    <text x="300" y="346">X-API-Timestamp</text>
+    <text x="300" y="362">X-API-Nonce</text>
+    <text x="300" y="378">X-API-Signature</text>
+  </g>
+
+  <g>
+    <rect x="60" y="410" width="200" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.5" />
+    <text x="160" y="434" text-anchor="middle" font-size="14" font-weight="500" fill="#085041">헤더·Timestamp 검증</text>
+    <text x="160" y="452" text-anchor="middle" font-size="12" fill="#085041">형식(10012) · 범위(10013)</text>
+  </g>
+  <g>
+    <rect x="60" y="500" width="200" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.5" />
+    <text x="160" y="524" text-anchor="middle" font-size="14" font-weight="500" fill="#085041">API Key 조회</text>
+    <text x="160" y="542" text-anchor="middle" font-size="12" fill="#085041">미존재(10010) · 정지(10014)</text>
+  </g>
+  <g>
+    <rect x="60" y="590" width="200" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.5" />
+    <text x="160" y="614" text-anchor="middle" font-size="14" font-weight="500" fill="#085041">서명 재계산·비교</text>
+    <text x="160" y="632" text-anchor="middle" font-size="12" fill="#085041">timing-safe, 불일치 시 10011</text>
+  </g>
+  <g font-size="12" fill="#5F5E5A">
+    <text x="300" y="600">Secret Grace Period 로테이션</text>
+    <text x="300" y="622" fill="#5F5E5A">이전 Secret</text>
+    <rect x="300" y="605" width="280" height="16" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1" />
+    <text x="480" y="622" fill="#0F6E56">신규 Secret</text>
+    <rect x="480" y="627" width="320" height="16" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" />
+    <line x1="480" y1="650" x2="580" y2="650" stroke="#A32D2D" stroke-width="1.5" />
+    <text x="530" y="666" text-anchor="middle" fill="#A32D2D">유예기간(둘 다 유효)</text>
+  </g>
+
+  <g>
+    <rect x="60" y="680" width="200" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.5" />
+    <text x="160" y="704" text-anchor="middle" font-size="14" font-weight="500" fill="#085041">Nonce 등록</text>
+    <text x="160" y="722" text-anchor="middle" font-size="12" fill="#085041">Redis 우선 → DB fallback (10015)</text>
+  </g>
+
+  <g>
+    <rect x="60" y="770" width="200" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.5" />
+    <text x="160" y="794" text-anchor="middle" font-size="14" font-weight="500" fill="#085041">인증 통과</text>
+    <text x="160" y="812" text-anchor="middle" font-size="12" fill="#085041">reserve/confirm/unconfirmed 호출</text>
+  </g>
+
+  <text x="160" y="850" text-anchor="middle" font-size="12" fill="#5F5E5A">→ 그림 3: coupon_usage_flow.svg (reserve/confirm 상세 흐름)</text>
+
+  <text x="60" y="884" font-size="13" font-weight="500" fill="#26251F">인증 실패 대표 에러 코드</text>
+  <g font-size="12" fill="#5F5E5A">
+    <text x="60" y="902">10010  API Key 없음</text>
+    <text x="60" y="918">10011  서명 불일치</text>
+    <text x="60" y="934">10012  헤더 누락/형식 오류</text>
+    <text x="60" y="950">10013  Timestamp 허용범위 초과</text>
+    <text x="60" y="966">10014  프로젝트 정지</text>
+    <text x="60" y="982">10015  Nonce 재사용(재전송 의심)</text>
+  </g>
+</svg>

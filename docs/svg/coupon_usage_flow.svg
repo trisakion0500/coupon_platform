@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 760" font-family="sans-serif">
+  <title>쿠폰 사용(reserve/confirm) 흐름 — 정상 vs 장애 복구</title>
+  <desc>정상 흐름은 reserve로 즉시 최종 확정한 뒤 confirm으로 지급 결과만 통보한다. 게임서버가 reserve 이후 confirm 전에 재시작/크래시하면, unconfirmed 조회로 누락 건을 찾아 지급을 이어서 처리하고 confirm을 재호출해 같은 confirm 처리로 수렴한다.</desc>
+  <rect x="0" y="0" width="760" height="760" fill="#FFFFFF" />
+
+  <defs>
+    <marker id="arrow3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5F5E5A" />
+    </marker>
+  </defs>
+
+  <text x="380" y="24" text-anchor="middle" font-size="18" font-weight="600" fill="#26251F">쿠폰 사용(reserve/confirm) 흐름 — 정상 vs 장애 복구</text>
+
+  <rect x="395" y="250" width="270" height="400" rx="12" fill="#FDEEEE" stroke="#D98C8C" stroke-width="1.5" stroke-dasharray="5,4" />
+  <text x="410" y="272" font-size="13" font-weight="500" fill="#A32D2D">장애 복구 흐름</text>
+
+  <g stroke="#5F5E5A" stroke-width="0.5" fill="none" marker-end="url(#arrow3)">
+    <line x1="160" y1="106" x2="160" y2="140" />
+    <line x1="160" y1="196" x2="160" y2="230" />
+    <line x1="160" y1="286" x2="160" y2="340" />
+    <line x1="160" y1="396" x2="160" y2="430" />
+    <line x1="160" y1="486" x2="160" y2="520" />
+  </g>
+  <text x="175" y="316" font-size="12" fill="#5F5E5A">정상: 계속 진행</text>
+
+  <line x1="260" y1="258" x2="420" y2="313" stroke="#A32D2D" stroke-width="0.5" stroke-dasharray="4,3" marker-end="url(#arrow3)" fill="none" />
+  <text x="340" y="278" text-anchor="middle" font-size="12" fill="#A32D2D">크래시 발생 시</text>
+
+  <g stroke="#5F5E5A" stroke-width="0.5" fill="none" marker-end="url(#arrow3)">
+    <line x1="520" y1="341" x2="520" y2="355" />
+    <line x1="520" y1="411" x2="520" y2="425" />
+    <line x1="520" y1="481" x2="520" y2="495" />
+    <line x1="520" y1="551" x2="520" y2="565" />
+  </g>
+
+  <line x1="420" y1="593" x2="260" y2="548" stroke="#5F5E5A" stroke-width="0.5" marker-end="url(#arrow3)" fill="none" />
+  <text x="340" y="586" text-anchor="middle" font-size="12" fill="#5F5E5A">재처리 완료 통보</text>
+
+  <g>
+    <rect x="60" y="50" width="200" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5" />
+    <text x="160" y="74" text-anchor="middle" font-size="14" font-weight="500" fill="#444441">유저</text>
+    <text x="160" y="92" text-anchor="middle" font-size="12" fill="#444441">쿠폰 코드 입력</text>
+  </g>
+  <g>
+    <rect x="60" y="140" width="200" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5" />
+    <text x="160" y="164" text-anchor="middle" font-size="14" font-weight="500" fill="#444441">게임서버 → reserve</text>
+    <text x="160" y="182" text-anchor="middle" font-size="12" fill="#444441">즉시 최종 확정(중간상태 없음)</text>
+  </g>
+  <g>
+    <rect x="60" y="230" width="200" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.5" />
+    <text x="160" y="254" text-anchor="middle" font-size="14" font-weight="500" fill="#085041">Backend: reserve 처리</text>
+    <text x="160" y="272" text-anchor="middle" font-size="12" fill="#085041">reward_data 반환</text>
+  </g>
+  <g>
+    <rect x="60" y="340" width="200" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5" />
+    <text x="160" y="364" text-anchor="middle" font-size="14" font-weight="500" fill="#444441">게임서버: 지급 처리</text>
+    <text x="160" y="382" text-anchor="middle" font-size="12" fill="#444441">reward_data로 보상 지급</text>
+  </g>
+  <g>
+    <rect x="60" y="430" width="200" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5" />
+    <text x="160" y="454" text-anchor="middle" font-size="14" font-weight="500" fill="#444441">게임서버 → confirm</text>
+    <text x="160" y="472" text-anchor="middle" font-size="12" fill="#444441">지급 결과 통보</text>
+  </g>
+  <g>
+    <rect x="60" y="520" width="200" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.5" />
+    <text x="160" y="544" text-anchor="middle" font-size="14" font-weight="500" fill="#085041">Backend: confirm 처리</text>
+    <text x="160" y="562" text-anchor="middle" font-size="12" fill="#085041">상태 불변 · 멱등</text>
+  </g>
+
+  <g>
+    <rect x="420" y="285" width="200" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5" />
+    <text x="520" y="309" text-anchor="middle" font-size="14" font-weight="500" fill="#444441">게임서버 재시작</text>
+    <text x="520" y="327" text-anchor="middle" font-size="12" fill="#444441">confirm 호출 전 크래시</text>
+  </g>
+  <g>
+    <rect x="420" y="355" width="200" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5" />
+    <text x="520" y="379" text-anchor="middle" font-size="14" font-weight="500" fill="#444441">게임서버 → unconfirmed 조회</text>
+    <text x="520" y="397" text-anchor="middle" font-size="12" fill="#444441">유저지정 전체 / 미지정 페이지네이션</text>
+  </g>
+  <g>
+    <rect x="420" y="425" width="200" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.5" />
+    <text x="520" y="449" text-anchor="middle" font-size="14" font-weight="500" fill="#085041">Backend: 미컨슘 목록 반환</text>
+    <text x="520" y="467" text-anchor="middle" font-size="12" fill="#085041">SP_COUPON_UNCONFIRMED_LIST</text>
+  </g>
+  <g>
+    <rect x="420" y="495" width="200" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5" />
+    <text x="520" y="519" text-anchor="middle" font-size="14" font-weight="500" fill="#444441">게임서버: 누락 건 지급 이어서 진행</text>
+    <text x="520" y="537" text-anchor="middle" font-size="12" fill="#444441">미컨슘 목록 기준</text>
+  </g>
+  <g>
+    <rect x="420" y="565" width="200" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5" />
+    <text x="520" y="589" text-anchor="middle" font-size="14" font-weight="500" fill="#444441">게임서버 → confirm 재호출</text>
+    <text x="520" y="607" text-anchor="middle" font-size="12" fill="#444441">복구 완료 통보</text>
+  </g>
+
+  <g font-size="12" fill="#5F5E5A">
+    <line x1="60" y1="690" x2="110" y2="690" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow3)" />
+    <text x="120" y="694">정상 흐름</text>
+    <line x1="60" y1="712" x2="110" y2="712" stroke="#A32D2D" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow3)" />
+    <text x="120" y="716">장애 발생/복구</text>
+  </g>
+</svg>

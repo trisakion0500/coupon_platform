@@ -4,6 +4,34 @@
 
 ---
 
+## 요약
+
+멀티테넌트 쿠폰 발급/사용 플랫폼 — 여러 게임사가 하나의 서버를 공유해 쿠폰을 발급·검증한다.
+
+- **핵심 기술**: Node.js 22 + NestJS + TypeScript · MySQL 8.4(Stored Procedure 전용) · Redis(ioredis) · React 18 + Vite + Ant Design
+- **정량 성과**: 테이블 13개, API 엔드포인트 42개, E2E 테스트 8개 도메인/141개 100% PASS
+- **기술적 강조점**: S2S HMAC-SHA256 서명 인증(리플레이 방지) · reserve/confirm 즉시확정 멱등 모델 · DB 락 기반 동시성 제어(오버셀 방지)
+
+---
+
+## 목차
+
+- [요약](#요약)
+- [왜 만들었나](#왜-만들었나)
+- [핵심 아이디어](#핵심-아이디어)
+- [기술적 도전과 해결](#기술적-도전과-해결)
+- [멀티테넌트 운영 구조](#멀티테넌트-운영-구조)
+- [기술 스택](#기술-스택)
+- [주요 기능](#주요-기능)
+- [문서 목록](#문서-목록)
+- [프로젝트 구조](#프로젝트-구조)
+- [AI 활용](#ai-활용)
+- [현재 상태](#현재-상태)
+- [한계 및 개선 과제](#한계-및-개선-과제)
+- [라이선스](#라이선스)
+
+---
+
 ## 왜 만들었나
 
 게임마다 이벤트 쿠폰(신규가입 보상, 프로모션 코드 등)을 발급하고 검증하는 기능이 필요하다. 문제는 이 기능을 게임마다 각자 구현하면 같은 실수가 반복된다는 점이다.
@@ -31,15 +59,69 @@ coupon_platform은 인앱결제의 consume/acknowledge 패턴을 참고해 **res
 
 ---
 
+## 기술적 도전과 해결
+
+### 1. S2S 인증 서명 검증
+
+<img src="docs/svg/s2s_auth_flow.svg" alt="S2S 인증(서명 검증) 흐름" width="700">
+
+- **문제**: 게임서버 ↔ 쿠폰서버 API는 쿠폰 소모(재화 지급)에 직결되는데, 단순 API Key/Secret 정적 헤더 대조 방식은 요청을 가로채 그대로 재전송하는 리플레이 공격에 취약하다.
+- **왜 어려웠는가**:
+  - 검증 순서를 잘못 두면 위조/스팸 요청까지 값비싼 단계(Project 조회, Secret 복호화)를 다 태우게 되고, 반대로 서명 확인 전에 Nonce부터 등록하면 서명이 틀린 위조 요청도 재전송 방지 테이블에 흔적을 남겨 정상 요청이 나중에 오탐으로 막힐 수 있다.
+  - API Secret을 재발급(로테이션)해야 하는데, 재발급 순간 구 Secret으로 서명 중이던 진행 중 요청이 즉시 끊기면 안 된다.
+- **어떻게 해결했는가**:
+  - 검증 단계를 비용 순으로 고정: ① 헤더 형식(10012, DB 조회 없음) → ② Timestamp 허용범위(10013, DB 조회 없음) → ③ API Key로 project 조회 + 정지 확인(10010/10014) → ④ 서명 재계산 후 timing-safe 비교(10011) → ⑤ Nonce 등록(10015)은 서명이 확인된 요청에만 수행.
+  - Secret Grace Period 로테이션 — 재발급 시 이전 Secret을 유예기간 동안 `api_secret_prev`로 함께 보관해, 서명 검증 시 현재/이전 Secret을 모두 시도(둘 중 하나만 맞아도 통과).
+  - Nonce 저장은 Redis `SET NX EX`를 1차 경로로 쓰고, Redis 장애 시 DB UNIQUE 제약 경로로 fail-open 폴백 — 재전송 방지 자체가 가용성 병목이 되지 않게 함.
+- **결과**: 리플레이 공격을 차단하면서도 위조 요청이 값비싼 검증 단계까지 도달하지 않고, Secret 재발급 중에도 진행 중이던 정상 요청이 끊기지 않는다.
+
+### 2. reserve/confirm/unconfirmed 멱등성 설계
+
+<img src="docs/svg/coupon_usage_flow.svg" alt="쿠폰 사용(reserve/confirm) 흐름 — 정상 vs 장애 복구" width="700">
+
+- **문제**: 게임서버가 reserve 호출 후 응답을 받기 전에 타임아웃/크래시가 나면 "재시도해도 안전한가?"에 답해야 하는데, 무작정 재시도를 멱등 처리하면 유저가 정당하게 여러 번 쓸 수 있는 캠페인에서 진짜 반복 사용과 재시도를 구분하지 못하게 된다.
+- **왜 어려웠는가**:
+  - 코드 1건이 유저당 딱 1회만 소모되는 캠페인(`use_limit_per_user=1`)과, 코드 1건을 여러 유저가 각자 여러 번 쓸 수 있는 FIXED 다중한도 캠페인(`use_limit_per_user>1`)은 "같은 코드+같은 유저의 두 번째 요청"이 의미하는 바가 정반대다 — 후자는 서버가 재시도인지 정당한 반복 사용인지 구분할 방법이 없다.
+  - 재전송 방지(Nonce)와 비즈니스 멱등성은 서로 다른 층위인데 헷갈리기 쉽다 — "같은 요청을 그대로 다시 보내면 안전하다"는 멱등성 개념과 "같은 Nonce는 무조건 거부(10015)"가 얼핏 충돌하는 것처럼 보인다.
+- **어떻게 해결했는가**:
+  - `use_limit_per_user=1`일 때만 (코드, 유저) 기존 사용 이력을 확인해 있으면 새로 소모하지 않고 최초 성공 응답을 그대로 재반환(멱등). `use_limit_per_user>1`(FIXED)에서는 이 처리를 적용하지 않고 매 호출을 새 소모 시도로 처리해, 정당한 반복 사용을 막지 않는다.
+  - 대신 unconfirmed(미컨슘) 조회 API를 제공해, 다중한도 캠페인에서는 재시도 전에 실제 소모 여부를 먼저 확인하도록 안내한다.
+  - Nonce는 HTTP 요청 자체의 재전송 방지(전송 계층), 멱등 체크는 비즈니스 로직 수준(코드+유저 조합)으로 계층을 분리 — 그래서 재시도할 때도 Timestamp/Nonce/서명은 매번 새로 생성해야 한다. 같은 Nonce로 보내면 비즈니스 로직에 도달하기도 전에 인증 단계에서 거부된다.
+- **결과**: `use_limit_per_user=1` 캠페인은 재시도가 항상 안전하고, 다중한도 캠페인은 멱등을 억지로 흉내내지 않는 대신 미컨슘 조회로 안전한 재처리 경로를 제공한다 — 성격이 다른 두 캠페인에 하나의 멱등 규칙을 강제하지 않는다.
+
+### 3. Redis 도입과 레이트리밋 관측성
+
+- **문제**: JWT 세션 검증(매 인증 요청마다 DB 조회)과 nonce 재전송 방지가 전부 DB 왕복에 의존해 규모가 커질수록 부하가 늘고, reserve/confirm에서 실제로 429가 발생한 시도를 추적할 방법이 없었다.
+- **왜 어려웠는가**:
+  - 세션 검증에 캐시를 들이면 "DB가 방금 바뀐 상태(로그아웃/비밀번호변경/계정정지)를 캐시가 아직 모르는" 무효화 문제가 생긴다.
+  - 레이트리밋 리젝트는 `S2sAuthGuard` 인증 **이전**(미들웨어 단계)에 발생해, 정작 `project_id`/`company_id`를 아직 모르는 시점에 로그를 남겨야 한다.
+- **어떻게 해결했는가**:
+  - JWT 세션 검증을 유저 단위 generation 카운터 기반 읽기 캐시로 구현(DB가 항상 source of truth) — 로그아웃/비밀번호변경/계정정지 시 카운터를 올려 그 유저의 캐시된 세션 전체를 일괄 무효화.
+  - reserve/confirm에 프로젝트 단위(in-memory 토큰 버킷)와 유저 단위(Redis 슬라이딩 윈도우 카운터) 2단계 rate limit을 분리 적용 — 특정 유저의 과도한 호출이 같은 프로젝트의 다른 유저까지 막지 않게 함.
+  - 레이트리밋 초과 이력(`log_coupon_rate_limit`)을 남기기 위해 `api_key → {project_id, company_id}` 조회 전용 캐시(`ProjectIdentityCacheService`)를 신설 — 인증 전 단계에서도 별도 DB 조회 없이 식별 정보를 붙일 수 있게 함.
+- **결과**: Redis 장애 시에도 fail-open으로 가용성을 지키면서 인증·레이트리밋 경로의 DB 부하를 줄였고, 429 발생 이력을 회사/프로젝트 단위로 추적하는 관리 콘솔 조회 화면(SCR-042)까지 확보했다.
+
+---
+
 ## 멀티테넌트 운영 구조
 
 회사(company) → 프로젝트(project) → 쿠폰 도메인(캠페인/코드/사용이력) 계층으로 데이터 모델을 설계했다. 코드값 유니크 범위도 전역이 아니라 프로젝트 단위로 스코핑되어, 서로 다른 게임의 쿠폰 코드가 우연히 겹쳐도 문제가 없다.
 
 역할은 4단계 누적 구조(`SUPER_ADMIN ⊇ DEVELOPER ⊇ MANAGER ⊇ OPERATOR`)로, 쿠폰 도메인 작업은 프로젝트에 실제로 배정된 역할 기준으로 스코핑된다 — 같은 회사 소속이어도 배정되지 않은 프로젝트의 쿠폰은 건드릴 수 없다.
 
+<!-- 스크린샷: 관리 콘솔 캠페인 목록 화면 (예: docs/screenshots/37_campaigns_list_with_data.png)
+![캠페인 목록](docs/screenshots/37_campaigns_list_with_data.png)
+-->
+
+<!-- 스크린샷: 쿠폰 사용 로그 화면 (예: docs/screenshots/38_coupon_use_logs.png)
+![쿠폰 사용 로그](docs/screenshots/38_coupon_use_logs.png)
+-->
+
 ---
 
 ## 기술 스택
+
+<img src="docs/svg/system_architecture.svg" alt="coupon_platform 시스템 아키텍처" width="700">
 
 **Backend**
 
@@ -148,53 +230,21 @@ coupon_platform/
 
 ## 현재 상태
 
-- ✅ 데이터베이스 설계 완료 (테이블 13개 — 메인 DB 9개 + 로그 DB 4개)
-- ✅ API 명세 작성 완료 (`docs/01~21`)
-- ✅ 역할별 권한 설계 완료 (SUPER_ADMIN/DEVELOPER/MANAGER/OPERATOR)
-- ✅ 화면 목록 작성 완료
-- ✅ 레이아웃 구조 정의 완료
-- ✅ 로컬 개발 환경 설정 완료
-- ✅ Backend 구현 완료
-  - ✅ 공통 인프라 — NestJS + mysql2 SP 실행기 + 공통 응답 포맷 + S2S HMAC 인증 가드 + 헬스체크 + 역할 기반 권한 가드
-  - ✅ Auth API — 회원가입 / 로그인 / 로그아웃 / 토큰 재발급 / 내 정보 조회 / 비밀번호 변경
-  - ✅ Company API — CRUD + 코드조회(lookup, 회원가입 화면 전용 인증 불필요) + 헤더 선택용(active-header-data)
-  - ✅ Project API — CRUD + API Secret 발급/재발급 + 코드조회(lookup) + 헤더 선택용(내 role 조회, `user-roles/me`)
-  - ✅ User / User Role API — 목록 / 상세 / 가입 승인·반려 / 수정 / 비밀번호 강제 초기화 / 권한 배정
-  - ✅ Audit Log API(`log_audit`) — 5개 도메인 감사 이력 적재 + 목록/상세 조회
-  - ✅ Campaign API — CRUD / 상태변경 / 승인·반려(`edit_count` 낙관적 동시성 제어)
-  - ✅ Coupon Code Issuance API — RANDOM 비동기 대량생성+재시도, FIXED 동기 등록, 진행중 정체 시 수동 복구(`abort`)
-  - ✅ Coupon Usage History / Campaign Change Log / Coupon Use Log 조회 API
-  - ✅ Coupon Usage API(S2S) — reserve / confirm(즉시확정 모델) / 미컨슘 조회 + `log_coupon_use` 적재
-  - ✅ 스케일아웃(수평 확장) 대응 — graceful shutdown, DB 커넥션 풀 크기 env화, 크론 배치 중복실행 방지(`runExclusive`), nonce 정리 배치, 정체 코드생성 감지 모니터링
-  - ✅ Redis 도입 1단계 — 공용 `RedisModule`(ioredis, `REDIS_ENABLED`) + S2S nonce 재전송 방지의 1차 경로(Redis 장애 시 기존 DB 경로로 fail-open 폴백)
-  - ✅ Redis 도입 2단계 — JWT 세션 검증(jti) 읽기 캐시(`SessionCacheService`, DB가 항상 source of truth). 로그아웃/비밀번호변경/계정정지 시 유저 단위 generation 카운터로 일괄 무효화, `refresh()`는 이전 jti만 정밀 삭제. 동시성 감사로 발견한 "DB 검증 성공~캐시 write 사이" 레이스는 write 직후 재확인으로 완화(완전 폐쇄는 구조적으로 불가능 — `09_AUTH_SECURITY.md` 1.3.1)
-  - ✅ Redis 도입 3단계 — reserve/confirm **유저(game_user_id) 단위** rate limit(`SlidingWindowCounterLimiter`). 프로젝트 단위(in-memory 토큰버킷)와 별개 레이어, 알고리즘은 고정윈도우/토큰버킷(Lua 필요)/슬라이딩윈도우로그(메모리 부담) 대비 슬라이딩 윈도우 카운터로 확정(`09_AUTH_SECURITY.md` 2.8.2). `REDIS_ENABLED=false`면 대체 경로 없이 완전히 스킵(1·2단계와 다른 성격). 이걸로 Redis 도입 대상 3개 전부 완료 — 남은 TODO(카운터 초과 알람, 회사 단위 리미터)는 아래 "향후 개선사항" 참고
-  - ✅ 사용기간 만료 캠페인 자동 종료 — 활성+승인완료(또는 승인불요) 상태에서 `campaign_end`가 지나면 배치가 `status=4`(종료)로 전환(`CampaignExpiryService`, 종료 후엔 예외 없이 모든 수정 차단)
-  - ✅ 운영 보완 — 로그 파일 일별 로테이션 + ERROR 전용 분리, 클러스터(다중 인스턴스) 구동 대비 로그 파일명 인스턴스 suffix(`INSTANCE_ID`/`NODE_APP_INSTANCE`), S2S 호출자 IP 기록, 전역 API 실행 타임아웃, reserve/confirm 프로젝트 단위 rate limiter(토큰 버킷)
-  - ✅ Swagger 문서화 — `nest-cli.json`에 swagger CLI 플러그인(`classValidatorShim`) 등록 + 전체 요청 DTO(32개)에 `@ApiProperty()`/`@ApiPropertyOptional()`(설명/예시 포함) 추가. 응답 스키마도 문서화 완료 — 응답 타입(순수 TS interface)을 데코레이터 붙은 클래스로 옮기고, `{result, data}` 응답 봉투까지 그대로 반영하는 공용 데코레이터(`ApiEnvelopedResponse`/`ApiEnvelopedPaginatedResponse`/`ApiEnvelopedEmptyResponse`)를 신설해 전체 엔드포인트에 연결. `SWAGGER_ENABLED=true`일 때 `/docs`에서 요청/응답 스키마·example이 실제 API 응답 모양 그대로 채워진 문서로 확인 가능
-  - ✅ E2E 테스트 스위트(`docs/03_DEV_SETUP.md` 5.3) — 실제 로컬 DB로 검증하는 E2E 테스트 8개 도메인/141개(`npm run test:e2e`). 실행마다 DB를 TRUNCATE 후 시드 재적용하는 자동 리셋(`test/global-setup.ts`), `.env.test`로 dev DB와 분리된 전용 테스트 DB 지정 가능(선택). 이 과정에서 실제 애플리케이션 결함(크론 배치 5개의 그레이스풀 셧다운 미비)도 발견해 함께 수정. 2026-08-06 신설된 `GET /coupon-rate-limit-logs`(레이트리밋 로그 관리화면)는 유닛테스트만 있고 아직 이 E2E 스위트에는 미포함
-- ✅ Frontend 구현 완료(`docs/03_DEV_SETUP.md`, React 18 + TypeScript + Vite + Ant Design + Zustand + Axios)
-  - ✅ 구조 스캐폴딩 — 레이아웃 3종(AuthLayout/MainLayout/AdminLayout), 라우트 전체 골격(`18_LAYOUT.md` 7장), role 기반 가드 4종(`RoleGuard`/`PermissionGuard`/`RequireAuth`/`RequireGuest`/`RequireProjectSelected`), Zustand `authStore`/`globalStore`, axios 클라이언트(Access Token 자동 첨부 + 만료 시 자동 재발급·재시도)
-  - ✅ 빌드 최적화 — 라우트별 `React.lazy` 코드 스플리팅 + `vite.config.ts` 벤더 청크 분리(antd/react·router/i18next/기타)로 단일 1.4MB 청크를 라우트별 수십 kB대로 분리(`04_DEV_CONVENTIONS.md` 2.1)
-  - ✅ 로그인(SCR-001) + 내 계정 조회·로그아웃(SCR-200) — 실제 백엔드 연동, 브라우저 라이브 검증 완료
-  - ✅ 다국어(i18n) — react-i18next로 ko/en 지원, 로그인 화면 포함 전체 공통 UI(헤더/사이드바/푸터/에러 페이지) 번역 + 언어 선택 드롭다운(`localStorage` 유지), 백엔드 에러 메시지는 한글 유지가 원칙(`02_TECH_STACK.md` 참고)
-  - ✅ 회원가입(SCR-002) — 회사/프로젝트 코드 텍스트 입력(드롭다운 아님, 인증 불필요 lookup API 사용) + 제출 시점 검증, 실제 백엔드 연동, 브라우저 라이브 검증 완료. 구현 중 `requested_project_id`가 문서(선택)와 실제 백엔드(필수 강제)가 어긋난 걸 발견해 백엔드를 선택 입력으로 수정(`SignupDto`/`SP_USER_SIGNUP`)
-  - ✅ 관리메뉴 — 회사(SCR-010–012, 목록/등록/상세수정), 프로젝트(SCR-020–022, 목록/등록/상세수정 + API Secret 재발급 — `edit_count` 낙관적 락, 등록·재발급 시 평문 Secret 1회 노출 모달), 사용자(SCR-030–031, 목록/상세 + 승인·반려·반려취소·수정·비밀번호강제초기화·프로젝트 권한배정), 감사로그(SCR-040–041, 목록/상세 — before/after JSON 비교, 회사/프로젝트 이름 resolve), 레이트리밋 로그(SCR-042, 목록 전용 — 감사로그와 동일한 SUPER_ADMIN·DEVELOPER 스코핑 규칙) 실제 백엔드 연동 + SUPER_ADMIN·DEVELOPER 권한별 화면(조회전용/스코핑) 브라우저 라이브 검증 완료. 목록 화면 상태/필터에 "전체" 옵션 추가
-  - ✅ 캠페인 목록·등록·상세(SCR-100~102) — 목록(프로젝트/상태/승인상태/발급상태/코드유형 필터), 등록(RANDOM/FIXED 분기), 상세(탭 4개: 정보·코드목록·사용이력·변경이력 — 정보 탭은 `edit_count` 낙관적 락 수정 + 상태전이 + 승인/반려, 코드목록 탭은 RANDOM 발급/재시도/중단 + FIXED 등록) 실제 백엔드 연동 + 브라우저 라이브 검증 완료. 캠페인 활성화/재활성화에 `campaign_end > NOW()` 조건 추가(사용기간이 지난 캠페인은 활성화 자체를 막음 — `19_CAMPAIGN_API.md` 2.5)
-  - ✅ 헤더 실시간 서버 시각 — `GET /health`의 `server_time`으로 클라이언트-서버 시계 오프셋을 계산해 표시(초당 폴링 아님, 5분마다 재동기화). 기기 시계가 어긋나 있어도 실제 판정 기준(서버 시각)을 보여주기 위함
-  - ✅ 쿠폰 사용 로그(SCR-103) — 캠페인/유저/코드값/작업유형/결과/기간 필터 + 페이지네이션, 캠페인 열은 값이 있는 행만 SCR-102로 링크(존재하지 않는 코드로 시도한 행은 `coupon_campaign_id`가 null이라 링크 없이 코드값만 표시) 실제 백엔드 연동 + 브라우저 라이브 검증 완료. 이걸로 화면 목록 전체 구현 완료
+- ✅ 설계 문서 21개(API 스펙/ERD/화면 목록/레이아웃 등, `docs/01~21`) 전체 작성 완료
+- ✅ 데이터베이스 설계 완료 — 테이블 13개(메인 DB 9개 + 로그 DB 4개)
+- ✅ Backend 전체 구현 완료 — Auth/Company/Project/User/Campaign/CouponUsage API(엔드포인트 42개), Redis 3단계 도입(세션 캐시/nonce 재전송 방지/유저 단위 rate limit), 레이트리밋 초과 이력 로깅+조회 화면, 스케일아웃 대응(그레이스풀 셧다운/크론 리더선출/캠페인 자동만료), Swagger 문서화(요청/응답 스키마), E2E 테스트 8개 도메인/141개 100% PASS
+- ✅ Frontend 전체 구현 완료 — 로그인/회원가입/관리메뉴(회사·프로젝트·사용자·감사로그·레이트리밋로그)/캠페인 목록·등록·상세/쿠폰 사용 로그까지 화면 목록 전체 실제 백엔드 연동, 다국어(ko/en), 라우트별 코드 스플리팅
+- ✅ 로컬 개발 환경 설정 문서화 완료
 
-### 향후 개선사항 (우선순위 낮음, 별도 검토 필요)
+세부 구현 내역은 [`docs/03_DEV_SETUP.md`](docs/03_DEV_SETUP.md), Redis/레이트리밋 설계 근거는 [`docs/09_AUTH_SECURITY.md`](docs/09_AUTH_SECURITY.md) 참고.
 
-- **Redis 도입**(총 3개 대상 전부 완료, 2026-08-05):
-  1. ✅ `project_api_nonce`(S2S nonce 재전송 방지) — 공용 `RedisModule`/`RedisService`(ioredis) 신설, `S2sAuthGuard.consumeNonce`가 Redis `SET NX EX`를 1차 경로로 쓰고 Redis 장애 시 기존 DB 경로(`SP_NONCE_INSERT`)로 fail-open 폴백한다(`02_TECH_STACK.md` "Redis" 절, `09_AUTH_SECURITY.md` 2.5). 당초 예상과 달리 fail-open 설계 특성상 DB가 완전히 안 쓰이는 건 아니라 `S2S_NONCE_CLEANUP_CRON`/`NonceCleanupService`는 그대로 유지
-  2. ✅ `user_session` — 저장소 자체 이관이 아니라 `JwtAuthGuard.validateSession`(매 인증된 요청마다 도는 jti→세션 검증)의 **읽기 캐시**로 구현(`SessionCacheService`) — DB가 항상 source of truth. 로그아웃/비밀번호변경(변경·초기화)/계정정지 시 유저 단위 generation 카운터를 올려 그 유저의 캐시된 세션 전체를 일괄 무효화하고, `refresh()`의 jti 회전은 이전 jti만 정밀 삭제한다(`09_AUTH_SECURITY.md` 1.3.1). 카운터 TTL이 캐시 TTL보다 짧으면 무효화가 우연히 원상복구되는 보안 구멍이 생겨, 이 관계를 Joi로 부팅 시점에 강제
-  3. ✅ 쿠폰 사용(reserve/confirm) **유저 단위 rate limit** — 프로젝트 단위(인프라 보호, in-memory 토큰버킷)와 별개 레이어로 `SlidingWindowCounterLimiter` 신규 구현. 목적은 "특정 유저의 과도한 호출이 같은 프로젝트의 공유 버킷을 소진해 다른 유저까지 영향받는" 상황을 막는 2차 방어선(SP 레벨의 `use_limit_per_user`가 이미 실제 소비 한도는 원자적으로 강제하고, S2S 호출 주체인 게임서버 쪽에서도 1차 조절 여지가 있어 필수 방어선은 아님). 알고리즘은 고정윈도우(경계 버스트)/토큰버킷(분산환경에서 Lua 사실상 필수)/슬라이딩윈도우로그(유저 수만큼 메모리 부담) 대비 **슬라이딩 윈도우 카운터**로 확정 — `RedisService.get`/`incrWithExpire`만으로 구현(Lua 불필요), `09_AUTH_SECURITY.md` 2.8.2. `REDIS_ENABLED=false`면 대체 경로 없이 완전히 스킵(1·2단계와 달리 폴백 대상 자체가 없는 신규 기능)
+---
 
-  프로젝트 단위 rate limiter(`CouponUsageRateLimitMiddleware`)는 in-memory로 유지하기로 확정된 설계라 이관 대상 아님. 크론 배치 리더선출(`SpExecutorService.runExclusive`, `SP_LOCK_ACQUIRE`/`RELEASE`)도 의도적으로 MySQL만 사용하며 Redis 이관 대상이 아니다(`04_DEV_CONVENTIONS.md` 4.1).
-- ✅ **레이트리밋 초과(429) 이력 로깅** — 처음엔 `s2s-failure.log`류 파일 로그로 검토했으나, 회사/프로젝트 단위 집계·조회가 필요해 `log_coupon_rate_limit`(로그 DB) **테이블**로 확정(`09_AUTH_SECURITY.md` 2.8.3). 프로젝트/유저 단위 두 리미터 모두 429 시 fire-and-forget으로 기록. 리젝트 시점엔 `S2sAuthGuard` 인증 전이라 `project_id`/`company_id`가 없는 문제는 신규 `ProjectIdentityCacheService`(`api_key -> {project_id, company_id}`, Redis 캐시 우선 + `SP_PROJECT_GET_IDENTITY_BY_API_KEY` 폴백, `ProjectService.create()` write-through)로 해결 — 존재하지 않는 api_key는 해석 실패로 NULL 기록(의도된 동작). 실시간 알림(Slack/이메일 등) 연동은 이 프로젝트에 그 인프라가 없어 범위 밖으로 남김. 관리 콘솔 조회 화면(SCR-042, `/admin/rate-limit-logs`)도 감사 로그와 동일한 규칙(SUPER_ADMIN 전체/DEVELOPER 자사+역할보유 프로젝트로 스코핑)으로 추가 완료(2026-08-06) — 컬럼이 단순해 목록 화면만 두고 상세 화면은 두지 않음(`09_AUTH_SECURITY.md` 2.8.4).
-- **회사(company) 단위 rate limit** — 프로젝트/유저 단위에 이어 회사(여러 프로젝트를 소유) 단위 집계까지 검토했으나, `CouponUsageRateLimitMiddleware`/`CouponUsageUserRateLimitMiddleware`는 `S2sAuthGuard` 인증 **이전**(원문 API Key 헤더만 아는 시점)에 실행돼 `company_id`를 알 수 없다 — 이 계층에서 걸려면 인증 이후(가드/서비스 레이어)로 옮기거나 API Key→company_id 캐시가 별도로 필요해 설계 논의가 더 필요하다고 판단해 별도 단계로 이연.
-- **`react-router` 메이저 업그레이드(7→8)** — `npm audit`에서 High로 잡히는 CVE(GHSA-qwww-vcr4-c8h2, RSC 모드 CSRF 우회)는 `createBrowserRouter`/`RouterProvider`/`loader`/`action` 없이 `<BrowserRouter>`+`<Routes>`+`<Route>` 선언형 모드만 쓰는 이 프로젝트에는 실질적으로 노출되지 않는다. 반면 패치 버전인 v8은 `react-router-dom` 패키지 자체가 폐지되고(`react-router`/`react-router/dom`으로 import 경로 전환 필요) `react >=19.2.7`을 요구해, 2026-07-24에 명시적으로 확정한 "React 18 유지" 결정(`02_TECH_STACK.md`)까지 되돌려야 한다. 지금 업그레이드하기엔 실익 대비 비용이 커 보류 — React 19 전환을 별도로 결정하는 시점에 함께 처리.
+## 한계 및 개선 과제
+
+- **회사(company) 단위 rate limit 미구현** — 프로젝트/유저 단위 레이트리밋은 구현했으나, 레이트리밋 미들웨어가 `S2sAuthGuard` 인증 이전(원문 API Key 헤더만 아는 시점)에 실행되어 `company_id`를 알 수 없다. 인증 이후 계층으로 옮기거나 별도 캐시가 필요해 보류.
+- **레이트리밋 초과 알람(Slack/이메일 등) 미구현** — 조회 화면(SCR-042)까지는 구현했으나 실시간 알림 인프라는 범위 밖.
+- **`react-router` 메이저 업그레이드(7→8) 보류** — v8은 `react-router-dom` 패키지 폐지(import 경로 변경) + `react >=19.2.7` 요구로 React 18 유지 결정과 충돌한다. `npm audit`이 잡는 CVE(GHSA-qwww-vcr4-c8h2)는 이 프로젝트가 쓰지 않는 RSC 모드 한정이라 실질 노출은 없다.
 
 ---
 

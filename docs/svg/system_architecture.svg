@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 470" font-family="sans-serif">
+  <title>coupon_platform 시스템 아키텍처</title>
+  <desc>Client(React)는 Backend(NestJS)에 REST API로 접속하고, Backend는 Main DB(MySQL, Stored Procedure 전용)와 물리적으로 분리된 Log DB에 각각 접근하며, Redis를 nonce 재전송 방지 캐시·세션 캐시·유저 단위 요청 제한 용도로 사용한다. 게임서버(test_game_server)는 API Key와 HMAC-SHA256 서명을 사용하는 S2S 채널로 reserve/confirm/unconfirmed 3개 API를 호출한다.</desc>
+  <rect x="0" y="0" width="900" height="470" fill="#FFFFFF" />
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5F5E5A" />
+    </marker>
+  </defs>
+
+  <text x="450" y="24" text-anchor="middle" font-size="18" font-weight="600" fill="#26251F">coupon_platform 시스템 아키텍처</text>
+
+  <g stroke="#5F5E5A" stroke-width="0.5" fill="none">
+    <line x1="160" y1="96" x2="410" y2="210" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+    <line x1="740" y1="96" x2="490" y2="210" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+    <line x1="410" y1="266" x2="160" y2="380" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+    <line x1="450" y1="266" x2="450" y2="380" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+    <line x1="490" y1="266" x2="740" y2="380" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+  </g>
+
+  <g font-size="12" fill="#5F5E5A" text-anchor="middle">
+    <text x="285" y="148">REST API</text>
+    <text x="285" y="162">(JWT 인증)</text>
+
+    <text x="615" y="140">S2S: API Key + HMAC-SHA256</text>
+    <text x="615" y="156">reserve / confirm / unconfirmed</text>
+
+    <text x="285" y="318">Stored Procedure 호출</text>
+
+    <text x="465" y="318" text-anchor="start">비동기 로그 적재</text>
+    <text x="465" y="332" text-anchor="start">(별도 트랜잭션)</text>
+
+    <text x="615" y="318">nonce·세션 캐시</text>
+    <text x="615" y="332">유저단위 rate limit</text>
+  </g>
+
+  <g>
+    <rect x="60" y="40" width="200" height="56" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.5" />
+    <text x="160" y="64" text-anchor="middle" font-size="14" font-weight="500" fill="#3C3489">Client</text>
+    <text x="160" y="82" text-anchor="middle" font-size="12" fill="#3C3489">React + TypeScript</text>
+  </g>
+
+  <g>
+    <rect x="640" y="40" width="200" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5" />
+    <text x="740" y="64" text-anchor="middle" font-size="14" font-weight="500" fill="#444441">게임서버</text>
+    <text x="740" y="82" text-anchor="middle" font-size="12" fill="#444441">test_game_server (S2S)</text>
+  </g>
+
+  <g>
+    <rect x="350" y="210" width="200" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.5" />
+    <text x="450" y="234" text-anchor="middle" font-size="14" font-weight="500" fill="#085041">Backend</text>
+    <text x="450" y="252" text-anchor="middle" font-size="12" fill="#085041">NestJS + TypeScript</text>
+  </g>
+
+  <g>
+    <rect x="60" y="380" width="200" height="56" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="1.5" />
+    <text x="160" y="404" text-anchor="middle" font-size="14" font-weight="500" fill="#712B13">Main DB</text>
+    <text x="160" y="422" text-anchor="middle" font-size="12" fill="#712B13">MySQL 8.4 (SP 전용)</text>
+  </g>
+
+  <g>
+    <rect x="350" y="380" width="200" height="56" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="1.5" />
+    <text x="450" y="404" text-anchor="middle" font-size="14" font-weight="500" fill="#712B13">Log DB</text>
+    <text x="450" y="422" text-anchor="middle" font-size="12" fill="#712B13">물리적으로 분리된 DB</text>
+  </g>
+
+  <g>
+    <rect x="640" y="380" width="200" height="56" rx="8" fill="#FCEBEB" stroke="#A32D2D" stroke-width="1.5" />
+    <text x="740" y="404" text-anchor="middle" font-size="14" font-weight="500" fill="#791F1F">Redis</text>
+    <text x="740" y="422" text-anchor="middle" font-size="12" fill="#791F1F">ioredis, 선택(REDIS_ENABLED)</text>
+  </g>
+</svg>
