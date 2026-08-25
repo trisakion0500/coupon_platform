@@ -103,7 +103,7 @@ CREATE TABLE `coupon_campaign` (
   `approved_at`				DATETIME							DEFAULT NULL											COMMENT '승인/반려 처리일시',
   `reject_reason`			VARCHAR(500)						DEFAULT NULL											COMMENT '반려 사유',
   `reward_data`				JSON					NOT NULL															COMMENT '보상 내용(아이템/재화 등 자유 스키마, 쿠폰서버는 해석하지 않고 그대로 pass-through)',
-  `created_by`				BIGINT		UNSIGNED				DEFAULT NULL											COMMENT '생성자 계정 ID (user.user_id)',
+  `created_by`				BIGINT		UNSIGNED	NOT NULL															COMMENT '생성자 계정 ID (user.user_id)',
   `updated_by`				BIGINT		UNSIGNED				DEFAULT NULL											COMMENT '수정자 계정 ID (user.user_id)',
   `created_at`				DATETIME				NOT NULL	DEFAULT CURRENT_TIMESTAMP								COMMENT '생성일시',
   `updated_at`				DATETIME				NOT NULL	DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	COMMENT '수정일시',
