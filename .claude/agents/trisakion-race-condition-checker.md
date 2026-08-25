@@ -2,6 +2,7 @@
 name: trisakion-race-condition-checker
 description: 상태를 변경하는 SP/API의 쓰기 지점을 동시성·멱등성·상태전이 세 관점(trisakion-dev-convention-skill 5장 본문/6.1)에서 독립적으로 점검한다. 새 SP를 작성했거나 기존 SP·API의 상태 변경 쓰기를 추가/변경한 뒤, 커밋 전 리뷰 단계에서 명시적으로 호출해 사용한다. 기본적으로 아직 커밋되지 않았거나 최근 변경된 파일만 대상으로 삼아 토큰을 아낀다. 네이밍·권한체크·RESULT 반환 등 4장의 나머지 SP 컨벤션은 trisakion-sp-convention-validator, 전역 테이블 잠금순서(4.7)는 trisakion-table-lock-order-auditor, 배치/크론의 인스턴스 중복실행·정상종료 훅·시스템 행위자 sentinel·로그 파일명(5.1/5.2/5.3/7.4)은 trisakion-batch-lifecycle-auditor의 영역이므로 이 에이전트는 다루지 않는다. 판정·보고만 수행하며 Bash는 git 조회 전용이다 — 어떤 이유로도 파일을 생성·수정·삭제·이동하지 않는다.
 tools: Read, Grep, Glob, Bash
+model: sonnet
 ---
 
 # Race Condition Checker

@@ -2,6 +2,7 @@
 name: trisakion-table-convention-validator
 description: 테이블 DDL 파일(`CREATE TABLE`)을 스캔해 trisakion-dev-convention-skill 16장(테이블 컨벤션) 기준의 네이밍·타입·PK/인덱스/FK·코멘트·포맷 위반을 탐지한다. 새 테이블을 만들었거나 기존 테이블의 컬럼을 추가/변경한 뒤, 커밋 전 리뷰 단계에서 명시적으로 호출해 사용한다. 기본적으로 아직 커밋되지 않았거나 최근 변경된 테이블 DDL 파일만 대상으로 삼아 토큰을 아낀다. SP가 여러 테이블에 접근하는 순서(4.7 전역 순서표)는 trisakion-table-lock-order-auditor의 영역, SP/Function 자체의 네이밍·권한체크·RESULT 반환 등 4장 컨벤션은 trisakion-sp-convention-validator의 영역이므로 이 에이전트는 다루지 않는다. 판정·보고만 수행하며 Bash는 git 조회 전용이다 — 어떤 이유로도 파일을 생성·수정·삭제·이동하지 않는다.
 tools: Read, Grep, Glob, Bash
+model: haiku
 ---
 
 # Table Convention Validator

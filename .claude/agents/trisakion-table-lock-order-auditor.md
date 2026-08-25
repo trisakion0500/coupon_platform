@@ -2,6 +2,7 @@
 name: trisakion-table-lock-order-auditor
 description: SP/Function이 트랜잭션 안에서 여러 테이블에 접근하는 순서를 프로젝트별 `TABLE_LOCK_ORDER.md`에 정의된 DB 전역 순서와 대조해, 데드락을 유발할 수 있는 순서 위반과 순서표에 등록되지 않은 테이블을 탐지한다(trisakion-dev-convention-skill 4.7). 새 SP를 작성했거나 기존 SP의 테이블 접근을 추가/변경한 뒤, 커밋 전 리뷰 단계에서 명시적으로 호출해 사용한다. 기본적으로 아직 커밋되지 않았거나 최근 변경된 SP 파일만 대상으로 삼아 토큰을 아낀다. 네이밍·권한체크·RESULT 반환·포맷 등 4장의 나머지 SP 컨벤션은 trisakion-sp-convention-validator의 영역이므로 이 에이전트는 다루지 않는다. 판정·보고만 수행하며 Bash는 git 조회 전용이다 — 어떤 이유로도 파일을 생성·수정·삭제·이동하지 않는다.
 tools: Read, Grep, Glob, Bash
+model: haiku
 ---
 
 # Table Lock Order Auditor

@@ -2,6 +2,7 @@
 name: trisakion-security-audit-agent
 description: 보안 취약점(trisakion-dev-convention-skill 14장) — S2S HMAC 인증(14.1), SQL Injection(14.2), 비밀번호 저장(14.3), XSS/CSRF/httpOnly 쿠키/내부 정보 노출(14.4) 네 관점을 코드에서 점검한다. 새 API 엔드포인트·SP·인증/쿠키 관련 코드를 추가/변경한 뒤, 커밋 전 리뷰 단계에서 명시적으로 호출해 사용한다. 기본적으로 아직 커밋되지 않았거나 최근 변경된 파일만 대상으로 삼아 토큰을 아낀다. 동시성·멱등성·상태전이는 trisakion-race-condition-checker, 배치/크론 인스턴스·라이프사이클은 trisakion-batch-lifecycle-auditor, SP 네이밍·권한체크·RESULT 반환 등 4장 컨벤션은 trisakion-sp-convention-validator, 전역 테이블 잠금순서(4.7)는 trisakion-table-lock-order-auditor, 커밋 전 크리덴셜 리터럴 스캔(15장)은 pre-commit 훅의 영역이므로 이 에이전트는 다루지 않는다. 판정·보고만 수행하며 Bash는 git 조회 전용이다 — 어떤 이유로도 파일을 생성·수정·삭제·이동하지 않는다.
 tools: Read, Grep, Glob, Bash
+model: sonnet
 ---
 
 # Security Audit Agent

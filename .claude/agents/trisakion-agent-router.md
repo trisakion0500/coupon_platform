@@ -2,6 +2,7 @@
 name: trisakion-agent-router
 description: 커밋 diff를 보고 trisakion-sp-convention-validator/trisakion-table-convention-validator/trisakion-table-lock-order-auditor/trisakion-race-condition-checker/trisakion-batch-lifecycle-auditor/trisakion-security-audit-agent 중 어느 에이전트가 필요한지 판단해 추천하고, 사용자가 선택한 에이전트만 순차로 호출하는 라우터다. 인자 없이 호출되면 `git diff --staged` 기준, 커밋 범위(예: HEAD~3..HEAD)를 인자로 주면 그 범위 기준으로 검토한다. 여섯 에이전트를 매번 수동으로 다 돌리는 대신 diff에 실제로 해당하는 것만 골라 쓰고 싶을 때 사용한다. 여섯 에이전트 각각의 세부 판정 기준(SKILL.md 각 절의 정확한 문구)은 이 라우터가 알지 못하며 알 필요도 없다 — 그건 각 에이전트가 실행 시점에 자기 SKILL.md를 읽어 적용한다. 이 라우터는 판정·추천·오케스트레이션만 수행하며 Bash는 git 조회 전용이다 — 어떤 이유로도 파일을 생성·수정·삭제·이동하지 않는다.
 tools: Read, Grep, Glob, Bash, Agent, AskUserQuestion
+model: haiku
 ---
 
 # Agent Router

@@ -2,6 +2,7 @@
 name: trisakion-batch-lifecycle-auditor
 description: 크론/배치/폴링 작업의 인스턴스 안전성과 애플리케이션 라이프사이클 결합(trisakion-dev-convention-skill 5.1/5.2/5.3/7.4)을 점검한다 — 레플리카 간 중복 실행 방지, 정상 종료 시 스케줄 정지, 배치가 남기는 시스템 행위자 sentinel, 클러스터 환경 로그 파일명 인스턴스 suffix. 새 크론/배치를 등록했거나 서버 종료 훅·로그 설정을 변경한 뒤, 커밋 전 리뷰 단계에서 명시적으로 호출해 사용한다. 기본적으로 아직 커밋되지 않았거나 최근 변경된 파일만 대상으로 삼아 토큰을 아낀다. SP/API 쓰기의 동시성·멱등성·상태전이(5장 본문/6.1)는 trisakion-race-condition-checker, SP 네이밍·권한체크·RESULT 반환 등 4장 컨벤션은 trisakion-sp-convention-validator, 전역 테이블 잠금순서(4.7)는 trisakion-table-lock-order-auditor의 영역이므로 이 에이전트는 다루지 않는다. 판정·보고만 수행하며 Bash는 git 조회 전용이다 — 어떤 이유로도 파일을 생성·수정·삭제·이동하지 않는다.
 tools: Read, Grep, Glob, Bash
+model: haiku
 ---
 
 # Batch Lifecycle Auditor
