@@ -1,0 +1,43 @@
+{
+  "appenders": {
+    "console": { "type": "console" },
+    "file": {
+      "type": "dateFile",
+      "filename": "logs/app{INSTANCE_SUFFIX}.log",
+      "pattern": "yyyy-MM-dd",
+      "keepFileExt": true,
+      "numBackups": 30
+    },
+    "errorFile": {
+      "type": "dateFile",
+      "filename": "logs/error{INSTANCE_SUFFIX}.log",
+      "pattern": "yyyy-MM-dd",
+      "keepFileExt": true,
+      "numBackups": 30
+    },
+    "errorOnly": {
+      "type": "logLevelFilter",
+      "appender": "errorFile",
+      "level": "error"
+    },
+    "codeGenerationStaleFile": {
+      "type": "dateFile",
+      "filename": "logs/code-generation-stale{INSTANCE_SUFFIX}.log",
+      "pattern": "yyyy-MM-dd",
+      "keepFileExt": true,
+      "numBackups": 30
+    },
+    "s2sFailureFile": {
+      "type": "dateFile",
+      "filename": "logs/s2s-failure{INSTANCE_SUFFIX}.log",
+      "pattern": "yyyy-MM-dd",
+      "keepFileExt": true,
+      "numBackups": 30
+    }
+  },
+  "categories": {
+    "default": { "appenders": ["console", "file", "errorOnly"], "level": "info" },
+    "code-generation-stale": { "appenders": ["console", "codeGenerationStaleFile"], "level": "warn" },
+    "s2s-failure": { "appenders": ["console", "s2sFailureFile"], "level": "warn" }
+  }
+}
