@@ -129,7 +129,7 @@ test_game_server/
 | `DB_PASSWORD`              | Y    | -         |                                                                          |
 | `DB_NAME`                 | Y    | -         | `coupon_platform`                                                       |
 | `ENCRYPTION_KEY`           | Y    | -         | `backend/.env`와 동일값(64자 hex) — `project.api_secret` 복호화용        |
-| `COUPON_SERVER_BASE_URL`   | Y    | -         | 예: `http://localhost:3000`                                            |
+| `COUPON_SERVER_BASE_URL`   | Y    | -         | 예: `http://localhost:3001`                                            |
 | `TICK_INTERVAL_MS`         | N    | `5000`    | 시도 사이 간격                                                          |
 | `GAME_USER_POOL_SIZE`      | N    | `50`      | 시뮬레이션에 쓸 `game_user_id` 풀 크기(재사용해야 한도초과/멱등 케이스가 자연히 발생)|
 | `CONFIRM_RATIO`             | N    | `0.9`     | reserve 성공 후 confirm까지 진행할 확률(90%) — 나머지는 미컨슘 상태로 남김 |
@@ -324,8 +324,8 @@ S2S 연동을 구현할 때 그대로 복사해가거나 참고할 수 있는 �
 ```ts
 export interface CouponS2sClientOptions {
   baseUrl: string;   // 예: https://coupon-api.example.com
-  apiKey: string;
-  apiSecret: string; // 평문
+  readonly apiKey: string;
+  readonly apiSecret: string; // 평문
 }
 
 export class CouponS2sClient {

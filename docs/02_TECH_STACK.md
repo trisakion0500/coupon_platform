@@ -43,7 +43,7 @@
 | 변수      | 기본값        | 용도                                                                 |
 | --------- | ------------- | ---------------------------------------------------------------------- |
 | `NODE_ENV`| `development` | 실행 환경 구분(`development`/`production`/`test`). 환경별 분기(로깅 verbosity 등)의 기준값 |
-| `PORT`    | `3000`        | NestJS HTTP 서버 리스닝 포트                                            |
+| `PORT`    | `3001`        | NestJS HTTP 서버 리스닝 포트                                            |
 
 ### 메인 서비스 DB (`coupon_platform`)
 
@@ -177,10 +177,10 @@
 
 | 변수                 | 기본값(`.env.example`)     | 용도 |
 | -------------------- | --------------------------- | ---- |
-| `VITE_API_BASE_URL`      | `http://localhost:3210`     | 백엔드 API 서버 주소(`frontend/src/api/client.ts`의 axios `baseURL`). 백엔드 `.env`의 `PORT`와 일치해야 한다 |
+| `VITE_API_BASE_URL`      | `http://localhost:3001`     | 백엔드 API 서버 주소(`frontend/src/api/client.ts`의 axios `baseURL`). 백엔드 `.env`의 `PORT`와 일치해야 한다 |
 | `VITE_APP_NAME`          | `Coupon Platform`           | 헤더 로고/로그인 화면 타이틀에 노출하는 앱 이름(`18_LAYOUT.md` 2장/5장) |
 | `VITE_FOOTER_COPYRIGHT`  | `© 2026 Coupon Platform`    | 공통 Footer에 노출하는 저작권 문구(`18_LAYOUT.md` 6장) |
 | `VITE_APP_VERSION`       | `v1.0.0`                    | 공통 Footer에 노출하는 앱 버전 표기 |
 | `VITE_SUPPORT_EMAIL`     | `trisakion@gmail.com`       | 공통 Footer 문의 이메일 |
 
-프론트 개발 서버(기본 `http://localhost:5173`)는 백엔드 `CORS_ALLOWED_ORIGINS`에 등록돼 있어야 API 호출이 CORS에 막히지 않는다. 로컬 개발 환경 설정 절차는 `03_DEV_SETUP.md` 6장 참고.
+프론트 개발 서버(기본 `http://localhost:5174`)는 백엔드 `CORS_ALLOWED_ORIGINS`에 등록돼 있어야 API 호출이 CORS에 막히지 않는다. 로컬 개발 환경 설정 절차는 `03_DEV_SETUP.md` 6장 참고.

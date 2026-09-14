@@ -127,7 +127,7 @@ cp .env.example .env
 
 ```env
 NODE_ENV=development
-PORT=3000
+PORT=3001
 
 DB_HOST=localhost
 DB_PORT=3306
@@ -155,7 +155,7 @@ API_SECRET_CLEANUP_CRON=<cron-expression 예: 0 5 * * *>
 S2S_TIMESTAMP_TOLERANCE_SEC=300
 S2S_NONCE_CLEANUP_CRON=*/10 * * * *
 
-CORS_ALLOWED_ORIGINS=http://localhost:5173
+CORS_ALLOWED_ORIGINS=http://localhost:5174
 
 LOG_DEBUG_ERRORS=true
 SWAGGER_ENABLED=true
@@ -239,9 +239,9 @@ npm run fix-seed-secret
 npm run start:dev
 ```
 
-서버 기동 확인: `http://localhost:3000/health`
+서버 기동 확인: `http://localhost:3001/health`
 
-`SWAGGER_ENABLED=true`이면 Swagger UI를 `http://localhost:3000/docs`에서 확인할 수 있다.
+`SWAGGER_ENABLED=true`이면 Swagger UI를 `http://localhost:3001/docs`에서 확인할 수 있다.
 
 ---
 
@@ -347,11 +347,11 @@ cp .env.example .env
 ```
 
 ```env
-VITE_API_BASE_URL=http://localhost:3210
+VITE_API_BASE_URL=http://localhost:3001
 VITE_APP_NAME=Coupon Platform
 ```
 
-`VITE_API_BASE_URL`은 백엔드 `.env`의 `PORT` 값과 일치해야 하고, 백엔드 `CORS_ALLOWED_ORIGINS`(`02_TECH_STACK.md` 참고)에 프론트엔드 오리진(`http://localhost:5173`, Vite 기본 포트)이 등록돼 있어야 API 호출이 CORS에 막히지 않는다.
+`VITE_API_BASE_URL`은 백엔드 `.env`의 `PORT` 값과 일치해야 하고, 백엔드 `CORS_ALLOWED_ORIGINS`(`02_TECH_STACK.md` 참고)에 프론트엔드 오리진(`http://localhost:5174`, Vite 기본 포트)이 등록돼 있어야 API 호출이 CORS에 막히지 않는다.
 
 ## 6.3 실행
 
@@ -359,7 +359,7 @@ VITE_APP_NAME=Coupon Platform
 npm run dev
 ```
 
-`http://localhost:5173`에서 확인한다. 백엔드가 먼저 떠 있어야 로그인 등 API 연동 화면이 정상 동작한다(4.3 참고). 시드 계정(`sa`/`dev`/`mgr`/`op`, pw `1234`)으로 로그인해 확인하되, `GET /auth/me` 조회가 필요한 화면(내 계정 등)을 테스트하려면 4.2.1(`npm run fix-seed-phone`)을 먼저 실행해야 한다 — 안 하면 `phone_number` 복호화 실패로 500이 난다.
+`http://localhost:5174`에서 확인한다. 백엔드가 먼저 떠 있어야 로그인 등 API 연동 화면이 정상 동작한다(4.3 참고). 시드 계정(`sa`/`dev`/`mgr`/`op`, pw `1234`)으로 로그인해 확인하되, `GET /auth/me` 조회가 필요한 화면(내 계정 등)을 테스트하려면 4.2.1(`npm run fix-seed-phone`)을 먼저 실행해야 한다 — 안 하면 `phone_number` 복호화 실패로 500이 난다.
 
 ---
 

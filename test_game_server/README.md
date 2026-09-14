@@ -37,7 +37,7 @@ cp .env.example .env
 
 - `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_PASSWORD`/`DB_NAME`: `backend/.env`와 동일한 로컬 개발 DB 접속 정보
 - `ENCRYPTION_KEY`: `backend/.env`와 동일값(64자 hex)
-- `COUPON_SERVER_BASE_URL`: 예) `http://localhost:3000`
+- `COUPON_SERVER_BASE_URL`: 예) `http://localhost:3001`
 
 나머지 항목(TICK_INTERVAL_MS, 시나리오 가중치 등)은 선택값이며 비워두면 문서 4장의 기본값을 쓴다.
 

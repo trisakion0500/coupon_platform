@@ -12,7 +12,7 @@ export default defineConfig({
   },
   server: {
     host: true,
-    port: 5173,
+    port: 5174,
   },
   build: {
     // antd 단독 청크(vendor-antd)는 분리해도 여전히 500kB를 넘는다 — 거의 모든 화면이
